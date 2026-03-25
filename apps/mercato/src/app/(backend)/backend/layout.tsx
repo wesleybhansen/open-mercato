@@ -499,7 +499,7 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
     defaultName: 'CRM',
     items: [
       {
-        href: '/backend/customers/people',
+        href: '/backend/contacts',
         title: translate('nav.contacts', 'Contacts'),
         defaultTitle: 'Contacts',
         enabled: true,
