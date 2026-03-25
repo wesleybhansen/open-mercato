@@ -5,6 +5,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Plus, Search, X, Mail, DollarSign, Tag, StickyNote, Phone, Building2, ExternalLink } from 'lucide-react'
+import { EmailComposeModal } from '@/components/EmailComposeModal'
 
 type Contact = {
   id: string
@@ -34,6 +35,7 @@ export default function ContactsPage() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
   const [tab, setTab] = useState<'people' | 'companies'>('people')
+  const [showEmailModal, setShowEmailModal] = useState(false)
 
   useEffect(() => {
     loadContacts()
@@ -167,6 +169,17 @@ export default function ContactsPage() {
         </div>
       </div>
 
+      {/* Email Modal */}
+      {showEmailModal && selectedContact && (
+        <EmailComposeModal
+          contactName={selectedContact.display_name}
+          contactEmail={selectedContact.primary_email || ''}
+          contactId={selectedContact.id}
+          onClose={() => setShowEmailModal(false)}
+          onSent={() => setShowEmailModal(false)}
+        />
+      )}
+
       {/* Side Panel */}
       {selectedContact && (
         <div className="w-[400px] shrink-0 flex flex-col overflow-hidden">
@@ -185,7 +198,8 @@ export default function ContactsPage() {
 
           {/* Quick Actions */}
           <div className="px-5 py-3 border-b flex gap-2">
-            <Button type="button" variant="outline" size="sm">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowEmailModal(true)}
+              disabled={!selectedContact?.primary_email}>
               <Mail className="size-3.5 mr-1.5" /> Email
             </Button>
             <Button type="button" variant="outline" size="sm">
