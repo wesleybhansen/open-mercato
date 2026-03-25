@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers'
 import Script from 'next/script'
-import type { ReactNode } from 'react'
+import { createElement, type ReactNode } from 'react'
+import { Users, Kanban, FileText, Mail, LayoutDashboard } from 'lucide-react'
 import { modules } from '@/.mercato/generated/modules.generated'
 import { findBackendMatch } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
@@ -473,53 +474,71 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
   // Find and collect allowed items from existing groups
   const allItems = groups.flatMap(g => g.items)
 
+  const iconClass = 'size-4'
+
   // Dashboard
   const dashboardItem = allItems.find(i => i.href === '/backend/dashboards')
-  if (dashboardItem) {
-    simpleGroups.push({
-      id: 'simple-main',
-      name: '',
-      defaultName: '',
-      items: [{ ...dashboardItem, title: translate('nav.dashboard', 'Dashboard') }],
-      weight: 0,
-    })
-  }
+  simpleGroups.push({
+    id: 'simple-main',
+    name: '',
+    defaultName: '',
+    items: [{
+      href: '/backend/dashboards',
+      title: translate('nav.dashboard', 'Dashboard'),
+      defaultTitle: 'Dashboard',
+      enabled: true,
+      icon: createElement(LayoutDashboard, { className: iconClass }),
+    }],
+    weight: 0,
+  })
 
-  // CRM group: Contacts (People + Companies merged label), Pipeline
-  const crmItems: NavItem[] = []
-  const peopleItem = allItems.find(i => i.href === '/backend/customers/people')
-  if (peopleItem) {
-    crmItems.push({ ...peopleItem, title: translate('nav.contacts', 'Contacts') })
-  }
-  const pipelineItem = allItems.find(i => i.href === '/backend/customers/deals/pipeline' || i.href === '/backend/customers/deals')
-  if (pipelineItem) {
-    crmItems.push({ ...pipelineItem, title: translate('nav.pipeline', 'Pipeline') })
-  }
-  if (crmItems.length > 0) {
-    simpleGroups.push({
-      id: 'simple-crm',
-      name: translate('nav.group.crm', 'CRM'),
-      defaultName: 'CRM',
-      items: crmItems,
-      weight: 10,
-    })
-  }
+  // CRM group
+  simpleGroups.push({
+    id: 'simple-crm',
+    name: translate('nav.group.crm', 'CRM'),
+    defaultName: 'CRM',
+    items: [
+      {
+        href: '/backend/customers/people',
+        title: translate('nav.contacts', 'Contacts'),
+        defaultTitle: 'Contacts',
+        enabled: true,
+        icon: createElement(Users, { className: iconClass }),
+      },
+      {
+        href: '/backend/customers/deals/pipeline',
+        title: translate('nav.pipeline', 'Pipeline'),
+        defaultTitle: 'Pipeline',
+        enabled: true,
+        icon: createElement(Kanban, { className: iconClass }),
+      },
+    ],
+    weight: 10,
+  })
 
-  // Marketing group: Landing Pages, Email
-  const marketingItems: NavItem[] = []
-  const lpItem = allItems.find(i => i.href === '/backend/landing-pages')
-  if (lpItem) marketingItems.push(lpItem)
-  const emailItem = allItems.find(i => i.href === '/backend/email')
-  if (emailItem) marketingItems.push(emailItem)
-  if (marketingItems.length > 0) {
-    simpleGroups.push({
-      id: 'simple-marketing',
-      name: translate('nav.group.marketing', 'Marketing'),
-      defaultName: 'Marketing',
-      items: marketingItems,
-      weight: 20,
-    })
-  }
+  // Marketing group
+  simpleGroups.push({
+    id: 'simple-marketing',
+    name: translate('nav.group.marketing', 'Marketing'),
+    defaultName: 'Marketing',
+    items: [
+      {
+        href: '/backend/landing-pages',
+        title: translate('nav.landingPages', 'Landing Pages'),
+        defaultTitle: 'Landing Pages',
+        enabled: true,
+        icon: createElement(FileText, { className: iconClass }),
+      },
+      {
+        href: '/backend/email',
+        title: translate('nav.email', 'Email'),
+        defaultTitle: 'Email',
+        enabled: true,
+        icon: createElement(Mail, { className: iconClass }),
+      },
+    ],
+    weight: 20,
+  })
 
   return simpleGroups
 }
