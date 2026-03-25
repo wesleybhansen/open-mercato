@@ -40,6 +40,7 @@ import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageIn
 import { AiAssistantIntegration, AiChatHeaderButton } from '@open-mercato/ai-assistant/frontend'
 import { CustomEntity } from '@open-mercato/core/modules/entities/data/entities'
 import { ComponentOverridesBootstrap } from '@/components/ComponentOverridesBootstrap'
+import { AiAssistantWidget } from '@/components/AiAssistantWidget'
 
 type NavItem = {
   href: string
@@ -316,13 +317,20 @@ export default async function BackendLayout({ children, params }: { children: Re
     children: item.children?.map(materializeItem),
   })
 
-  const groups: NavGroup[] = appliedGroups.map((group) => ({
+  const allGroups: NavGroup[] = appliedGroups.map((group) => ({
     id: group.id,
     name: group.name,
     defaultName: group.defaultName,
     items: group.items.map(materializeItem),
     weight: group.weight,
   }))
+
+  // Interface mode: simple (default) or advanced
+  const interfaceMode = cookieStore.get('crm_interface_mode')?.value || 'simple'
+
+  const groups: NavGroup[] = interfaceMode === 'simple'
+    ? filterForSimpleMode(allGroups, translate)
+    : allGroups
 
   type NavEntry = NavItem & { group: string }
   const allEntries: NavEntry[] = groups.flatMap((group) =>
@@ -416,6 +424,7 @@ export default async function BackendLayout({ children, params }: { children: Re
               <PageInjectionBoundary path={path} context={injectionContext}>
                 {children}
               </PageInjectionBoundary>
+              <AiAssistantWidget />
             </AppShell>
           </AiAssistantIntegration>
         </ComponentOverridesBootstrap>
@@ -438,4 +447,79 @@ function adoptSidebarDefaults(groups: NavGroup[]): NavGroup[] {
     defaultName: group.name,
     items: adoptItems(group.items),
   }))
+}
+
+/**
+ * Simple mode sidebar filter.
+ * Shows only the essential nav items for solopreneurs and small teams.
+ * All modules stay active — just hidden from the sidebar.
+ */
+function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallback: string) => string): NavGroup[] {
+  // Allowed hrefs in simple mode
+  const allowedPaths = new Set([
+    '/backend/dashboards',
+    '/backend/customers/people',
+    '/backend/customers/companies',
+    '/backend/customers/deals',
+    '/backend/customers/deals/pipeline',
+    '/backend/landing-pages',
+    '/backend/landing-pages/create',
+    '/backend/email',
+  ])
+
+  // Build simplified groups
+  const simpleGroups: NavGroup[] = []
+
+  // Find and collect allowed items from existing groups
+  const allItems = groups.flatMap(g => g.items)
+
+  // Dashboard
+  const dashboardItem = allItems.find(i => i.href === '/backend/dashboards')
+  if (dashboardItem) {
+    simpleGroups.push({
+      id: 'simple-main',
+      name: '',
+      defaultName: '',
+      items: [{ ...dashboardItem, title: translate('nav.dashboard', 'Dashboard') }],
+      weight: 0,
+    })
+  }
+
+  // CRM group: Contacts (People + Companies merged label), Pipeline
+  const crmItems: NavItem[] = []
+  const peopleItem = allItems.find(i => i.href === '/backend/customers/people')
+  if (peopleItem) {
+    crmItems.push({ ...peopleItem, title: translate('nav.contacts', 'Contacts') })
+  }
+  const pipelineItem = allItems.find(i => i.href === '/backend/customers/deals/pipeline' || i.href === '/backend/customers/deals')
+  if (pipelineItem) {
+    crmItems.push({ ...pipelineItem, title: translate('nav.pipeline', 'Pipeline') })
+  }
+  if (crmItems.length > 0) {
+    simpleGroups.push({
+      id: 'simple-crm',
+      name: translate('nav.group.crm', 'CRM'),
+      defaultName: 'CRM',
+      items: crmItems,
+      weight: 10,
+    })
+  }
+
+  // Marketing group: Landing Pages, Email
+  const marketingItems: NavItem[] = []
+  const lpItem = allItems.find(i => i.href === '/backend/landing-pages')
+  if (lpItem) marketingItems.push(lpItem)
+  const emailItem = allItems.find(i => i.href === '/backend/email')
+  if (emailItem) marketingItems.push(emailItem)
+  if (marketingItems.length > 0) {
+    simpleGroups.push({
+      id: 'simple-marketing',
+      name: translate('nav.group.marketing', 'Marketing'),
+      defaultName: 'Marketing',
+      items: marketingItems,
+      weight: 20,
+    })
+  }
+
+  return simpleGroups
 }
