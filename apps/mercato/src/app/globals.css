@@ -59,95 +59,97 @@ TODO: Fix that latter to have reference by the package names
 
 :root {
   color-scheme: light;
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --background: #FFFFFF;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1A;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A1A;
+  --primary: #1A1A1A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FAFAFA;
+  --secondary-foreground: #1A1A1A;
+  --muted: #FAFAFA;
+  --muted-foreground: #666666;
+  --accent: #3B82F6;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --border: #EBEBEB;
+  --input: #EBEBEB;
+  --ring: #3B82F6;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   /* Chart named colors - light theme */
-  --chart-blue: oklch(0.546 0.245 262.881);
-  --chart-emerald: oklch(0.596 0.145 163.225);
-  --chart-amber: oklch(0.769 0.188 70.08);
-  --chart-rose: oklch(0.645 0.246 16.439);
-  --chart-violet: oklch(0.606 0.25 292.717);
-  --chart-cyan: oklch(0.715 0.143 215.221);
-  --chart-indigo: oklch(0.511 0.262 276.966);
-  --chart-pink: oklch(0.656 0.241 354.308);
-  --chart-teal: oklch(0.627 0.134 175.001);
-  --chart-orange: oklch(0.705 0.213 47.604);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --chart-blue: #3B82F6;
+  --chart-emerald: #10B981;
+  --chart-amber: #F59E0B;
+  --chart-rose: #F43F5E;
+  --chart-violet: #8B5CF6;
+  --chart-cyan: #06B6D4;
+  --chart-indigo: #6366F1;
+  --chart-pink: #EC4899;
+  --chart-teal: #14B8A6;
+  --chart-orange: #F97316;
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #666666;
+  --sidebar-primary: #1A1A1A;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F0F0F0;
+  --sidebar-accent-foreground: #1A1A1A;
+  --sidebar-border: #F0F0F0;
+  --sidebar-ring: #3B82F6;
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  /* Chart named colors - dark theme (increased lightness) */
-  --chart-blue: oklch(0.623 0.214 259.815);
-  --chart-emerald: oklch(0.696 0.17 162.48);
-  --chart-amber: oklch(0.82 0.16 84.429);
-  --chart-rose: oklch(0.712 0.194 13.428);
-  --chart-violet: oklch(0.702 0.183 293.541);
-  --chart-cyan: oklch(0.789 0.154 211.53);
-  --chart-indigo: oklch(0.585 0.233 277.117);
-  --chart-pink: oklch(0.718 0.202 349.761);
-  --chart-teal: oklch(0.704 0.14 180.72);
-  --chart-orange: oklch(0.792 0.184 56.043);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Twenty CRM dark palette (exact) */
+  --background: #171717;         /* gray1 — page background */
+  --foreground: #EBEBEB;         /* gray12 — primary text */
+  --card: #1D1D1D;               /* gray4 — elevated surfaces */
+  --card-foreground: #EBEBEB;    /* gray12 */
+  --popover: #1D1D1D;            /* gray4 */
+  --popover-foreground: #EBEBEB; /* gray12 */
+  --primary: #EBEBEB;            /* gray12 */
+  --primary-foreground: #171717; /* gray1 */
+  --secondary: #222222;          /* gray5 — hover/input backgrounds */
+  --secondary-foreground: #EBEBEB;
+  --muted: #1B1B1B;              /* gray2 */
+  --muted-foreground: #818181;   /* gray9 — tertiary text */
+  --accent: #3E63DD;             /* Twenty's indigo9 brand blue */
+  --accent-foreground: #EBEBEB;
+  --destructive: #E5484D;        /* Twenty's red9 */
+  --border: #222222;             /* gray5 — medium borders */
+  --input: #222222;              /* gray5 */
+  --ring: #3E63DD;               /* indigo9 */
+  --chart-1: #3E63DD;            /* indigo9 */
+  --chart-2: #12A594;            /* teal9 */
+  --chart-3: #FFC53D;            /* amber9 */
+  --chart-4: #6E56CF;            /* violet9 */
+  --chart-5: #E5484D;            /* red9 */
+  /* Chart named colors - Twenty dark */
+  --chart-blue: #3E63DD;
+  --chart-emerald: #30A46C;
+  --chart-amber: #FFC53D;
+  --chart-rose: #E5484D;
+  --chart-violet: #6E56CF;
+  --chart-cyan: #00A2C7;
+  --chart-indigo: #5B5BD6;
+  --chart-pink: #D6409F;
+  --chart-teal: #12A594;
+  --chart-orange: #F76B15;
+  /* Sidebar */
+  --sidebar: #1B1B1B;            /* gray2 */
+  --sidebar-foreground: #B3B3B3; /* gray11 — secondary text */
+  --sidebar-primary: #3E63DD;    /* indigo9 */
+  --sidebar-primary-foreground: #EBEBEB;
+  --sidebar-accent: #222222;     /* gray5 — hover/active bg */
+  --sidebar-accent-foreground: #EBEBEB;
+  --sidebar-border: #1D1D1D;    /* gray4 — subtle border */
+  --sidebar-ring: #3E63DD;
 }
 
 @layer base {

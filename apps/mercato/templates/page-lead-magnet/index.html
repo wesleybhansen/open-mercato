@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Guide — Download Now</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --blue: #2563EB;
+            --blue-dark: #1D4ED8;
+            --blue-light: #60A5FA;
+            --blue-bg: #EFF6FF;
+            --blue-bg-2: #DBEAFE;
+            --dark: #0F172A;
+            --text: #334155;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --white: #FFFFFF;
+            --off-white: #F8FAFC;
+            --border: #E2E8F0;
+            --green: #10B981;
+            --green-bg: #ECFDF5;
+            --font-display: 'Plus Jakarta Sans', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --container: 960px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: 0.25s ease;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--text);
+            background: var(--white);
+            line-height: 1.6;
+            font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: var(--container); margin: 0 auto; padding: 0 24px; }
+
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            color: var(--dark);
+            line-height: 1.2;
+        }
+
+        /* ============ NAV ============ */
+        .nav {
+            padding: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--dark);
+            text-decoration: none;
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            padding: 60px 0;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--blue-bg);
+            border-radius: 999px;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--blue);
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-size: clamp(32px, 5vw, 44px);
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 14px;
+        }
+
+        .hero-desc {
+            font-size: 17px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 28px;
+        }
+
+        .hero-bullets {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+
+        .hero-bullets li {
+            display: flex;
+            align-items: start;
+            gap: 10px;
+            padding: 6px 0;
+            font-size: 15px;
+            color: var(--text);
+        }
+
+        .hero-bullets li svg {
+            width: 20px;
+            height: 20px;
+            color: var(--green);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* Form */
+        .optin-form {
+            background: var(--off-white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+        }
+
+        .optin-form h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .optin-form .form-sub {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-label {
+            display: block;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font-body);
+            font-size: 15px;
+            color: var(--dark);
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .form-input::placeholder { color: var(--text-muted); }
+        .form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+        .form-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--blue);
+            color: white;
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+            margin-top: 4px;
+        }
+
+        .form-btn:hover {
+            background: var(--blue-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(37,99,235,0.25);
+        }
+
+        .form-privacy {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 12px;
+        }
+
+        .form-privacy svg {
+            width: 12px;
+            height: 12px;
+            vertical-align: -1px;
+            margin-right: 2px;
+        }
+
+        /* Success state */
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: 24px;
+        }
+
+        .form-success.visible { display: block; }
+
+        .form-success-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--green-bg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+        }
+
+        .form-success-icon svg { width: 28px; height: 28px; color: var(--green); }
+
+        .form-success h3 {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .form-success p {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* ============ WHAT'S INSIDE ============ */
+        .whats-inside {
+            padding: 60px 0;
+            background: var(--off-white);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .inside-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .inside-header h2 {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .inside-header p {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .inside-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .inside-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .inside-num {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--blue-bg-2);
+            margin-bottom: 8px;
+        }
+
+        .inside-card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .inside-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ============ SOCIAL PROOF ============ */
+        .social-proof {
+            padding: 48px 0;
+        }
+
+        .proof-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .proof-card {
+            text-align: center;
+            padding: 24px;
+        }
+
+        .proof-value {
+            font-family: var(--font-display);
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--blue);
+        }
+
+        .proof-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* ============ CTA BANNER ============ */
+        .cta-banner {
+            padding: 60px 0;
+            text-align: center;
+        }
+
+        .cta-card {
+            background: var(--blue);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.08), transparent 50%);
+        }
+
+        .cta-card h2 {
+            color: white;
+            font-size: clamp(24px, 3.5vw, 32px);
+            font-weight: 800;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .cta-card p {
+            color: rgba(255,255,255,0.8);
+            font-size: 16px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .cta-form {
+            display: flex;
+            gap: 10px;
+            max-width: 420px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .cta-form .form-input {
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .cta-form .form-input::placeholder { color: rgba(255,255,255,0.5); }
+        .cta-form .form-input:focus { border-color: white; box-shadow: none; }
+
+        .cta-form-btn {
+            padding: 14px 24px;
+            background: white;
+            color: var(--blue);
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .cta-form-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+
+        /* ============ FOOTER ============ */
+        .footer {
+            padding: 32px 0;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .footer-links { display: flex; gap: 20px; }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color var(--transition);
+        }
+        .footer-links a:hover { color: var(--blue); }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+            .inside-grid, .proof-grid { grid-template-columns: 1fr; }
+            .cta-form { flex-direction: column; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 0 16px; }
+            .hero { padding: 40px 0; }
+            .footer { flex-direction: column; gap: 12px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <nav class="nav">
+            <span class="nav-logo">BrandName</span>
+        </nav>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-grid">
+                <div>
+                    <div class="hero-eyebrow">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Free Download
+                    </div>
+                    <h1>The ultimate guide to [your topic].</h1>
+                    <p class="hero-desc">Everything you need to know in one actionable guide. Stop guessing and start executing with proven frameworks used by industry leaders.</p>
+                    <ul class="hero-bullets">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Step-by-step frameworks you can implement today
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Real-world case studies and examples
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Bonus: Plug-and-play templates included
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Written by an expert with 10+ years experience
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Opt-in form -->
+                <div class="optin-form" id="optinWrapper">
+                    <h3>Get your free copy</h3>
+                    <p class="form-sub">Enter your details below and we'll send it to your inbox instantly.</p>
+                    <form id="optinForm" onsubmit="handleOptin(event)">
+                        <div class="form-group">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-input" placeholder="Your first name" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-input" placeholder="you@company.com" required>
+                        </div>
+                        <button type="submit" class="form-btn">
+                            Download Free Guide
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-3px;margin-left:4px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </button>
+                    </form>
+                    <p class="form-privacy">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        Your info is safe. No spam, unsubscribe anytime.
+                    </p>
+                    <!-- Success -->
+                    <div class="form-success" id="optinSuccess">
+                        <div class="form-success-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <h3>Check your inbox!</h3>
+                        <p>Your free guide is on its way. If you don't see it in a few minutes, check your spam folder.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- What's Inside -->
+    <section class="whats-inside">
+        <div class="container">
+            <div class="inside-header">
+                <h2>What's inside the guide</h2>
+                <p>Three chapters packed with actionable insights and proven strategies.</p>
+            </div>
+            <div class="inside-grid">
+                <div class="inside-card">
+                    <div class="inside-num">01</div>
+                    <h3>The Foundation</h3>
+                    <p>Core principles and mental models that top performers use to get results consistently.</p>
+                </div>
+                <div class="inside-card">
+                    <div class="inside-num">02</div>
+                    <h3>The Framework</h3>
+                    <p>A step-by-step system you can apply immediately to your business or project.</p>
+                </div>
+                <div class="inside-card">
+                    <div class="inside-num">03</div>
+                    <h3>The Templates</h3>
+                    <p>Ready-to-use templates, checklists, and worksheets to accelerate your progress.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof -->
+    <section class="social-proof">
+        <div class="container">
+            <div class="proof-grid">
+                <div class="proof-card">
+                    <div class="proof-value">12,400+</div>
+                    <div class="proof-label">Downloads</div>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-value">4.9/5</div>
+                    <div class="proof-label">Average rating</div>
+                </div>
+                <div class="proof-card">
+                    <div class="proof-value">94%</div>
+                    <div class="proof-label">Found it actionable</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="cta-banner">
+        <div class="container">
+            <div class="cta-card">
+                <h2>Don't miss out on this free resource.</h2>
+                <p>Join 12,400+ people who've already downloaded the guide.</p>
+                <form class="cta-form" onsubmit="handleOptin(event)">
+                    <input type="email" class="form-input" placeholder="Your email address" required>
+                    <button type="submit" class="cta-form-btn">Get Free Guide</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <div class="container">
+        <footer class="footer">
+            <p>&copy; 2024 BrandName. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        function handleOptin(e) {
+            e.preventDefault();
+            const form = document.getElementById('optinForm');
+            const success = document.getElementById('optinSuccess');
+            if (form) form.style.display = 'none';
+            if (success) success.classList.add('visible');
+            document.querySelector('.form-privacy').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

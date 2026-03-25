@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Resource — Download Now</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --black: #0A0A0A;
+            --white: #FFFFFF;
+            --off-white: #F5F5F5;
+            --gray-100: #EBEBEB;
+            --gray-200: #D4D4D4;
+            --gray-400: #999999;
+            --gray-600: #666666;
+            --yellow: #FFEC3E;
+            --yellow-dark: #E6D435;
+            --yellow-light: #FFF9C4;
+            --coral: #FF6B4A;
+            --blue: #4A7AFF;
+            --font-display: 'Sora', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+            --container: 760px;
+            --container-wide: 940px;
+            --radius: 0px;
+            --transition: 0.2s ease;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-display);
+            color: var(--black);
+            background: var(--white);
+            line-height: 1.6;
+            font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: var(--container); margin: 0 auto; padding: 0 24px; }
+        .container--wide { max-width: var(--container-wide); }
+
+        h1, h2, h3, h4 {
+            font-family: var(--font-display);
+            color: var(--black);
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+        }
+
+        /* ============ NAV ============ */
+        .nav {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid var(--black);
+        }
+
+        .nav-logo {
+            font-family: var(--font-mono);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--black);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            padding: 64px 0;
+            position: relative;
+        }
+
+        .hero-layout {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--yellow);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--black);
+            margin-bottom: 20px;
+            border: 2px solid var(--black);
+        }
+
+        .hero h1 {
+            font-size: clamp(38px, 6vw, 60px);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 18px;
+            line-height: 1.0;
+        }
+
+        .hero h1 .highlight {
+            position: relative;
+            display: inline;
+        }
+
+        .hero h1 .highlight::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: -2px;
+            right: -2px;
+            height: 0.3em;
+            background: var(--yellow);
+            z-index: -1;
+            transform: skewX(-2deg);
+        }
+
+        .hero-sub {
+            font-size: 16px;
+            color: var(--gray-600);
+            line-height: 1.7;
+            margin-bottom: 28px;
+            max-width: 440px;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 32px;
+            padding: 20px 0;
+            border-top: 2px solid var(--black);
+            border-bottom: 2px solid var(--black);
+            margin-bottom: 0;
+        }
+
+        .hero-stat-value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--black);
+            line-height: 1;
+        }
+
+        .hero-stat-label {
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* Form card */
+        .optin-card {
+            background: var(--off-white);
+            border: 2px solid var(--black);
+            padding: 32px;
+            position: relative;
+        }
+
+        /* Corner accent */
+        .optin-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 40px;
+            height: 40px;
+            background: var(--yellow);
+            border-left: 2px solid var(--black);
+            border-bottom: 2px solid var(--black);
+        }
+
+        .optin-card h3 {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+
+        .optin-card .form-sub {
+            font-size: 14px;
+            color: var(--gray-600);
+            margin-bottom: 24px;
+        }
+
+        .form-group { margin-bottom: 14px; }
+
+        .form-label {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--black);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--white);
+            border: 2px solid var(--black);
+            font-family: var(--font-display);
+            font-size: 15px;
+            color: var(--black);
+            outline: none;
+            transition: all var(--transition);
+        }
+        .form-input::placeholder { color: var(--gray-400); }
+        .form-input:focus {
+            box-shadow: 4px 4px 0 var(--yellow);
+            transform: translate(-2px, -2px);
+        }
+
+        .form-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--black);
+            color: var(--white);
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 700;
+            border: 2px solid var(--black);
+            cursor: pointer;
+            transition: all var(--transition);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            position: relative;
+        }
+        .form-btn:hover {
+            background: var(--yellow);
+            color: var(--black);
+            box-shadow: 4px 4px 0 var(--black);
+            transform: translate(-2px, -2px);
+        }
+        .form-btn:active {
+            box-shadow: none;
+            transform: translate(0, 0);
+        }
+
+        .form-trust {
+            text-align: center;
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .form-trust svg { width: 12px; height: 12px; }
+
+        /* Success state */
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: 28px 0;
+        }
+        .form-success.visible { display: block; }
+
+        .success-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 14px;
+            animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .success-icon svg { width: 28px; height: 28px; color: var(--black); }
+
+        @keyframes pop-in {
+            0% { transform: scale(0) rotate(-12deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+
+        .form-success h3 { font-size: 20px; margin-bottom: 6px; }
+        .form-success p { font-size: 14px; color: var(--gray-600); }
+
+        /* ============ WHAT YOU GET ============ */
+        .features {
+            padding: 64px 0;
+            background: var(--black);
+            color: var(--white);
+            position: relative;
+        }
+
+        .features-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .features-header h2 {
+            color: var(--white);
+            font-size: clamp(28px, 4vw, 38px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .features-header p {
+            color: var(--gray-400);
+            font-size: 15px;
+            margin-top: 8px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            background: var(--gray-600);
+        }
+
+        .feature-card {
+            background: var(--black);
+            padding: 32px 24px;
+            transition: background var(--transition);
+        }
+        .feature-card:hover { background: #141414; }
+
+        .feature-number {
+            font-family: var(--font-mono);
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--yellow);
+            line-height: 1;
+            margin-bottom: 14px;
+        }
+
+        .feature-card h3 {
+            color: var(--white);
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--gray-400);
+            line-height: 1.6;
+        }
+
+        /* ============ SOCIAL PROOF STRIP ============ */
+        .proof-strip {
+            padding: 32px 0;
+            border-bottom: 2px solid var(--black);
+            border-top: 2px solid var(--black);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .proof-scroll {
+            display: flex;
+            gap: 48px;
+            animation: scroll-left 20s linear infinite;
+            width: max-content;
+        }
+
+        .proof-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .proof-item .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--yellow);
+            border: 1.5px solid var(--black);
+            flex-shrink: 0;
+        }
+
+        @keyframes scroll-left {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ============ TESTIMONIAL ============ */
+        .testimonial {
+            padding: 64px 0;
+        }
+
+        .testimonial-card {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .testimonial-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--gray-400);
+            margin-bottom: 20px;
+        }
+
+        .testimonial-text {
+            font-size: clamp(20px, 3vw, 26px);
+            font-weight: 700;
+            line-height: 1.4;
+            letter-spacing: -0.02em;
+            color: var(--black);
+            margin-bottom: 24px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .testimonial-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .testimonial-name {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .testimonial-role {
+            font-size: 12px;
+            color: var(--gray-600);
+        }
+
+        /* ============ BOTTOM CTA ============ */
+        .bottom-cta {
+            padding: 0 0 80px;
+        }
+
+        .cta-card {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            padding: 48px 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Hard shadow */
+        .cta-card::after {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: -6px;
+            bottom: -6px;
+            background: var(--black);
+            z-index: -1;
+        }
+
+        .cta-card h2 {
+            font-size: clamp(26px, 4vw, 36px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 10px;
+        }
+
+        .cta-card .cta-sub {
+            font-size: 15px;
+            color: rgba(10,10,10,0.65);
+            margin-bottom: 28px;
+        }
+
+        .cta-inline-form {
+            display: flex;
+            gap: 0;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .cta-inline-form .form-input {
+            border-right: none;
+            flex: 1;
+        }
+        .cta-inline-form .form-input:focus {
+            box-shadow: none;
+            transform: none;
+            border-color: var(--black);
+        }
+
+        .cta-inline-form .form-btn {
+            width: auto;
+            white-space: nowrap;
+            padding: 14px 24px;
+            margin-top: 0;
+            background: var(--black);
+            color: var(--yellow);
+        }
+        .cta-inline-form .form-btn:hover {
+            background: var(--black);
+            color: var(--yellow);
+            box-shadow: none;
+            transform: none;
+            opacity: 0.85;
+        }
+
+        /* ============ FOOTER ============ */
+        .footer {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 2px solid var(--black);
+            font-size: 12px;
+            color: var(--gray-600);
+            font-family: var(--font-mono);
+        }
+
+        .footer-links { display: flex; gap: 20px; }
+        .footer-links a {
+            color: var(--gray-600);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 11px;
+            transition: color var(--transition);
+        }
+        .footer-links a:hover { color: var(--black); }
+
+        /* ============ SCROLL REVEAL ============ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal-d1 { transition-delay: 0.1s; }
+        .reveal-d2 { transition-delay: 0.2s; }
+        .reveal-d3 { transition-delay: 0.3s; }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .hero { padding: 40px 0 48px; }
+            .hero-layout { grid-template-columns: 1fr; gap: 32px; }
+            .hero-stats { gap: 20px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .cta-card { padding: 36px 24px; }
+            .cta-inline-form { flex-direction: column; }
+            .cta-inline-form .form-input { border-right: 2px solid var(--black); }
+            .cta-inline-form .form-btn { width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 0 16px; }
+            .nav { padding: 0 16px; }
+            .hero { padding: 28px 0 40px; }
+            .hero-stats { flex-direction: column; gap: 16px; }
+            .optin-card { padding: 24px; }
+            .features { padding: 48px 0; }
+            .testimonial { padding: 48px 0; }
+            .bottom-cta { padding: 0 0 56px; }
+            .footer { flex-direction: column; gap: 12px; text-align: center; }
+            .proof-item { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <nav class="nav">
+        <span class="nav-logo">BrandName</span>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container container--wide">
+            <div class="hero-layout">
+                <div>
+                    <div class="hero-tag reveal">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        Free — Limited Time
+                    </div>
+                    <h1 class="reveal reveal-d1">Stop guessing. Start <span class="highlight">building.</span></h1>
+                    <p class="hero-sub reveal reveal-d2">The no-BS guide for founders who want a clear roadmap to their first paying customers. Frameworks, templates, and real strategies — zero fluff.</p>
+                    <div class="hero-stats reveal reveal-d3">
+                        <div>
+                            <div class="hero-stat-value">8,200+</div>
+                            <div class="hero-stat-label">Downloads</div>
+                        </div>
+                        <div>
+                            <div class="hero-stat-value">4.9/5</div>
+                            <div class="hero-stat-label">Avg. Rating</div>
+                        </div>
+                        <div>
+                            <div class="hero-stat-value">42</div>
+                            <div class="hero-stat-label">Pages</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="optin-card reveal" id="formWrap">
+                    <h3>Grab your free copy</h3>
+                    <p class="form-sub">Enter your info below. Instant delivery to your inbox.</p>
+                    <form id="mainForm" onsubmit="handleSubmit(event, 'main')">
+                        <div class="form-group">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-input" placeholder="Your first name" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-input" placeholder="you@company.com" required>
+                        </div>
+                        <button type="submit" class="form-btn">Download Now &rarr;</button>
+                    </form>
+                    <p class="form-trust">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        No spam. Unsubscribe anytime.
+                    </p>
+                    <div class="form-success" id="mainSuccess">
+                        <div class="success-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <h3>Check your inbox!</h3>
+                        <p>Your free guide is on its way. Check spam if you don't see it shortly.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Scrolling proof strip -->
+    <div class="proof-strip">
+        <div class="proof-scroll">
+            <span class="proof-item"><span class="dot"></span> 8,200+ Downloads</span>
+            <span class="proof-item"><span class="dot"></span> 4.9 Star Rating</span>
+            <span class="proof-item"><span class="dot"></span> Used by Founders in 40+ Countries</span>
+            <span class="proof-item"><span class="dot"></span> 94% Found it Actionable</span>
+            <span class="proof-item"><span class="dot"></span> Featured in 3 Newsletters</span>
+            <span class="proof-item"><span class="dot"></span> 42 Pages of Tactics</span>
+            <span class="proof-item"><span class="dot"></span> 8,200+ Downloads</span>
+            <span class="proof-item"><span class="dot"></span> 4.9 Star Rating</span>
+            <span class="proof-item"><span class="dot"></span> Used by Founders in 40+ Countries</span>
+            <span class="proof-item"><span class="dot"></span> 94% Found it Actionable</span>
+            <span class="proof-item"><span class="dot"></span> Featured in 3 Newsletters</span>
+            <span class="proof-item"><span class="dot"></span> 42 Pages of Tactics</span>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <section class="features">
+        <div class="container container--wide">
+            <div class="features-header reveal">
+                <h2>What's inside the guide</h2>
+                <p>Three chapters designed to get you from idea to revenue, fast.</p>
+            </div>
+            <div class="features-grid reveal">
+                <div class="feature-card">
+                    <div class="feature-number">01</div>
+                    <h3>The Foundation</h3>
+                    <p>Mental models and core principles used by the most successful bootstrapped founders to make better decisions.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">02</div>
+                    <h3>The System</h3>
+                    <p>A repeatable framework for finding customers, closing your first sales, and building real momentum.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">03</div>
+                    <h3>The Templates</h3>
+                    <p>Plug-and-play worksheets, outreach scripts, and planning docs you can use starting today.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonial -->
+    <section class="testimonial">
+        <div class="container">
+            <div class="testimonial-card reveal">
+                <p class="testimonial-label">What founders are saying</p>
+                <p class="testimonial-text">"I've read dozens of guides and this is the only one I actually finished — and then immediately used. The templates alone are worth 10x the price (which is free)."</p>
+                <div class="testimonial-author">
+                    <div class="testimonial-avatar">JD</div>
+                    <div style="text-align: left">
+                        <div class="testimonial-name">Jane Doe</div>
+                        <div class="testimonial-role">Founder, CompanyName</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="bottom-cta">
+        <div class="container">
+            <div class="cta-card reveal" id="ctaWrap">
+                <h2>Don't overthink it.</h2>
+                <p class="cta-sub">It's free. It's fast. And it might change how you build your business.</p>
+                <form class="cta-inline-form" id="ctaForm" onsubmit="handleSubmit(event, 'cta')">
+                    <input type="email" class="form-input" placeholder="Your email" required>
+                    <button type="submit" class="form-btn">Get It &rarr;</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 BrandName</p>
+        <div class="footer-links">
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+        </div>
+    </footer>
+
+    <script>
+        function handleSubmit(e, formId) {
+            e.preventDefault();
+            if (formId === 'main') {
+                document.getElementById('mainForm').style.display = 'none';
+                document.querySelector('#formWrap .form-trust').style.display = 'none';
+                document.getElementById('mainSuccess').classList.add('visible');
+            } else {
+                const wrap = document.getElementById('ctaWrap');
+                wrap.innerHTML = '<div class="form-success visible"><div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div><h3>Check your inbox!</h3><p>Your free guide is on its way.</p></div>';
+            }
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+</body>
+</html>

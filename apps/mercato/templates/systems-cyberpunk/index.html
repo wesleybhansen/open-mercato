@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS // Automate Everything</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+        :root{
+            --black:#050505;
+            --dark:#0a0a0f;
+            --surface:#0f0f18;
+            --surface-light:#14141f;
+            --pink:#ff2d78;
+            --pink-dim:rgba(255,45,120,0.15);
+            --pink-glow:0 0 20px rgba(255,45,120,0.3);
+            --cyan:#00f0ff;
+            --cyan-dim:rgba(0,240,255,0.12);
+            --cyan-glow:0 0 20px rgba(0,240,255,0.3);
+            --violet:#8b5cf6;
+            --green:#22c55e;
+            --text:#b8b8c8;
+            --text-dim:#5a5a6e;
+            --text-faint:#3a3a48;
+            --border:rgba(255,255,255,0.06);
+            --font-display:'Chakra Petch',sans-serif;
+            --font-body:'Space Grotesk',sans-serif;
+        }
+
+        html{scroll-behavior:smooth}
+
+        body{
+            font-family:var(--font-body);
+            background:var(--black);
+            color:var(--text);
+            overflow-x:hidden;
+            -webkit-font-smoothing:antialiased;
+        }
+
+        /* Grid background */
+        body::before{
+            content:'';position:fixed;inset:0;
+            background-image:
+                linear-gradient(rgba(255,45,120,0.02) 1px,transparent 1px),
+                linear-gradient(90deg,rgba(255,45,120,0.02) 1px,transparent 1px);
+            background-size:60px 60px;
+            pointer-events:none;z-index:0;
+        }
+
+        .page{position:relative;z-index:1}
+        .container{max-width:1100px;margin:0 auto;padding:0 24px}
+
+        /* Clip-path angular corners */
+        .clip-card{clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px))}
+        .clip-sm{clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))}
+
+        .reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+        .reveal.visible{opacity:1;transform:translateY(0)}
+
+        /* Neon glow text */
+        .glow-pink{text-shadow:0 0 10px rgba(255,45,120,0.4),0 0 40px rgba(255,45,120,0.1)}
+        .glow-cyan{text-shadow:0 0 10px rgba(0,240,255,0.4),0 0 40px rgba(0,240,255,0.1)}
+
+        /* Animated neon border */
+        @keyframes neonPulse{0%,100%{box-shadow:0 0 8px rgba(255,45,120,0.3),inset 0 0 8px rgba(255,45,120,0.05)}50%{box-shadow:0 0 20px rgba(255,45,120,0.5),inset 0 0 20px rgba(255,45,120,0.08)}}
+
+        /* ===== NAV ===== */
+        .nav{position:sticky;top:0;z-index:100;background:rgba(5,5,5,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+        .nav-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px}
+        .nav-logo{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--pink);text-decoration:none;letter-spacing:.08em;text-shadow:0 0 12px rgba(255,45,120,0.4)}
+        .nav-logo span{color:var(--text-dim);font-weight:400}
+        .nav-links{display:flex;align-items:center;gap:4px;list-style:none}
+        .nav-links a{font-family:var(--font-display);font-size:.75rem;font-weight:500;color:var(--text-dim);text-decoration:none;padding:8px 14px;letter-spacing:.05em;text-transform:uppercase;transition:all .2s;border:1px solid transparent}
+        .nav-links a:hover{color:var(--cyan);border-color:var(--cyan-dim)}
+        .nav-cta{color:var(--pink)!important;border:1px solid rgba(255,45,120,0.3)!important;background:var(--pink-dim)}
+        .nav-cta:hover{background:rgba(255,45,120,0.2)!important;box-shadow:var(--pink-glow)}
+        .mobile-toggle{display:none;background:none;border:1px solid var(--border);padding:6px 10px;cursor:pointer;font-family:var(--font-display);font-size:.7rem;color:var(--pink);letter-spacing:.05em}
+
+        /* ===== HERO ===== */
+        .hero{padding:100px 0 64px;position:relative;overflow:hidden}
+        .hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(255,45,120,0.06) 0%,transparent 70%);pointer-events:none}
+
+        .hero-label{font-family:var(--font-display);font-size:.7rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin-bottom:20px;display:flex;align-items:center;gap:10px}
+        .hero-label::before{content:'';width:24px;height:1px;background:var(--cyan)}
+
+        .hero h1{font-family:var(--font-display);font-size:clamp(2.4rem,6vw,4.5rem);font-weight:700;line-height:1.05;color:#fff;margin-bottom:24px;letter-spacing:-.01em}
+        .hero h1 .neon{color:var(--pink)}
+        .hero h1:hover .neon{animation:glitch .3s ease}
+
+        @keyframes glitch{
+            0%{transform:translate(0)}
+            20%{transform:translate(-2px,1px)}
+            40%{transform:translate(2px,-1px)}
+            60%{transform:translate(-1px,2px)}
+            80%{transform:translate(1px,-2px)}
+            100%{transform:translate(0)}
+        }
+
+        .hero-sub{font-size:1rem;line-height:1.7;color:var(--text);max-width:500px;margin-bottom:36px}
+        .hero-sub strong{color:var(--cyan)}
+
+        .hero-form{display:flex;max-width:460px;margin-bottom:44px;border:1px solid rgba(255,45,120,0.2);background:var(--surface);transition:box-shadow .3s}
+        .hero-form:focus-within{box-shadow:0 0 24px rgba(255,45,120,0.12)}
+        .hero-form input{flex:1;padding:14px 18px;font-family:var(--font-body);font-size:.85rem;background:transparent;border:none;color:#fff;outline:none}
+        .hero-form input::placeholder{color:var(--text-dim)}
+        .hero-form button{font-family:var(--font-display);font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:var(--pink);color:#fff;border:none;padding:14px 28px;cursor:pointer;transition:all .2s;white-space:nowrap}
+        .hero-form button:hover{background:#ff4a8f;box-shadow:var(--pink-glow)}
+
+        .hero-stats{display:flex;gap:0;flex-wrap:wrap}
+        .hero-stat{border:1px solid var(--border);padding:14px 22px;margin-right:-1px;margin-bottom:-1px}
+        .hero-stat-val{font-family:var(--font-display);font-size:1.2rem;font-weight:700;color:var(--pink);margin-bottom:2px}
+        .hero-stat-label{font-size:.65rem;color:var(--text-dim);letter-spacing:.03em}
+
+        /* ===== MARQUEE ===== */
+        .marquee{padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);overflow:hidden;background:var(--dark)}
+        .marquee-track{display:flex;width:max-content;animation:scroll 30s linear infinite}
+        .marquee-content{display:flex;align-items:center;flex-shrink:0}
+        .marquee-item{font-family:var(--font-display);font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);padding:0 24px;white-space:nowrap}
+        .marquee-dot{color:var(--pink);font-size:.8rem}
+        @keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+        /* ===== FEATURES ===== */
+        .features{padding:80px 0;border-bottom:1px solid var(--border)}
+        .section-label{font-family:var(--font-display);font-size:.68rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
+        .section-title{font-family:var(--font-display);font-size:clamp(1.4rem,2.5vw,1.8rem);font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:-.01em}
+        .section-desc{font-size:.88rem;color:var(--text);max-width:480px;margin-bottom:48px;line-height:1.65}
+
+        .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+        .feature-card{background:var(--surface);border:1px solid var(--border);padding:28px 24px;position:relative;transition:all .3s;overflow:hidden}
+        .feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--pink),var(--violet));opacity:.6;transition:opacity .3s}
+        .feature-card:hover{border-color:rgba(255,45,120,0.15);transform:translateY(-4px)}
+        .feature-card:hover::before{opacity:1}
+        .feature-icon{width:36px;height:36px;margin-bottom:18px}
+        .feature-icon svg{width:36px;height:36px;stroke:var(--pink);stroke-width:1.5;fill:none}
+        .feature-name{font-family:var(--font-display);font-size:.88rem;font-weight:600;color:#fff;margin-bottom:8px;letter-spacing:.03em}
+        .feature-desc{font-size:.8rem;line-height:1.6;color:var(--text-dim)}
+
+        /* ===== HOW IT WORKS ===== */
+        .how-it-works{padding:80px 0;border-bottom:1px solid var(--border);background:var(--dark)}
+        .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:16px;position:relative}
+        .steps::before{content:'';position:absolute;top:40px;left:16%;right:16%;height:1px;background:linear-gradient(90deg,var(--pink),var(--violet),var(--cyan));opacity:.3}
+        .step{text-align:center;position:relative}
+        .step-num{font-family:var(--font-display);font-size:2.2rem;font-weight:700;color:transparent;-webkit-text-stroke:1px var(--pink);margin-bottom:16px;position:relative;z-index:2;display:inline-block;line-height:1}
+        .step:nth-child(2) .step-num{-webkit-text-stroke-color:var(--violet)}
+        .step:nth-child(3) .step-num{-webkit-text-stroke-color:var(--cyan)}
+        .step-title{font-family:var(--font-display);font-size:1rem;font-weight:600;color:#fff;margin-bottom:8px;letter-spacing:.05em;text-transform:uppercase}
+        .step-desc{font-size:.82rem;line-height:1.6;color:var(--text-dim);max-width:240px;margin:0 auto}
+
+        /* ===== DASHBOARD ===== */
+        .dashboard{padding:80px 0;border-bottom:1px solid var(--border)}
+        .dash-mockup{border:1px solid var(--border);background:var(--surface);max-width:900px;margin:40px auto 0;overflow:hidden}
+        .dash-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--border);background:rgba(0,0,0,.3)}
+        .dash-dots{display:flex;gap:6px}
+        .dash-dots span{width:8px;height:8px;border-radius:50%}
+        .dash-dots .r{background:var(--pink)}
+        .dash-dots .y{background:#fbbf24}
+        .dash-dots .g{background:var(--green)}
+        .dash-title{font-family:var(--font-display);font-size:.65rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase}
+        .dash-body{display:grid;grid-template-columns:180px 1fr 200px;min-height:340px}
+        .dash-sidebar{border-right:1px solid var(--border);padding:16px}
+        .dash-sidebar-item{font-family:var(--font-display);font-size:.65rem;color:var(--text-dim);padding:8px 10px;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;transition:all .2s;border-left:2px solid transparent;margin-bottom:2px}
+        .dash-sidebar-item.active{color:var(--pink);border-left-color:var(--pink);background:var(--pink-dim)}
+        .dash-sidebar-item:hover:not(.active){color:var(--text)}
+        .dash-main{padding:24px;position:relative}
+        .dash-main-label{font-family:var(--font-display);font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+        .dash-main-title{font-family:var(--font-display);font-size:.88rem;font-weight:600;color:#fff;margin-bottom:4px}
+        .dash-status{font-family:var(--font-display);font-size:.65rem;color:var(--green);display:flex;align-items:center;gap:6px;margin-bottom:28px}
+        .dash-status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+        .dash-nodes{display:flex;align-items:center;gap:0;flex-wrap:wrap;justify-content:center;margin-top:20px}
+        .dash-node{border:1px solid var(--border);padding:12px 16px;background:var(--dark);min-width:100px;text-align:center;position:relative}
+        .dash-node.trigger{border-color:rgba(255,45,120,0.3)}
+        .dash-node.action{border-color:rgba(139,92,246,0.3)}
+        .dash-node.output{border-color:rgba(0,240,255,0.3)}
+        .dash-node-label{font-family:var(--font-display);font-size:.55rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+        .dash-node-name{font-family:var(--font-display);font-size:.72rem;font-weight:600;color:#fff}
+        .dash-connector{font-family:var(--font-display);font-size:1rem;color:var(--text-faint);padding:0 6px}
+
+        .dash-panel{border-left:1px solid var(--border);padding:16px}
+        .dash-panel-label{font-family:var(--font-display);font-size:.55rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+        .dash-panel-stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.68rem}
+        .dash-panel-stat-label{color:var(--text-dim)}
+        .dash-panel-stat-val{font-weight:600;color:#fff}
+        .dash-panel-stat-val.pink{color:var(--pink)}
+        .dash-panel-stat-val.cyan{color:var(--cyan)}
+        .dash-panel-stat-val.green{color:var(--green)}
+        .dash-panel-section{margin-bottom:20px}
+        .dash-bar{height:4px;background:var(--surface-light);margin-top:8px}
+        .dash-bar-fill{height:100%;background:linear-gradient(90deg,var(--pink),var(--violet))}
+
+        /* ===== PRICING ===== */
+        .pricing{padding:80px 0;border-bottom:1px solid var(--border);background:var(--dark)}
+        .pricing-toggle{display:flex;align-items:center;gap:0;margin-bottom:44px}
+        .toggle-opt{font-family:var(--font-display);font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:8px 20px;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;transition:all .2s;user-select:none}
+        .toggle-opt:first-child{margin-right:-1px}
+        .toggle-opt.active{color:var(--pink);border-color:rgba(255,45,120,0.3);background:var(--pink-dim)}
+
+        .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+        .pricing-card{background:var(--surface);border:1px solid var(--border);position:relative;transition:all .3s}
+        .pricing-card:hover{transform:translateY(-4px)}
+        .pricing-card.featured{border-color:rgba(255,45,120,0.3);animation:neonPulse 3s infinite}
+        .pricing-featured-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-family:var(--font-display);font-size:.6rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--pink);padding:4px 14px;z-index:2}
+        .pricing-header{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+        .pricing-tier{font-family:var(--font-display);font-size:.65rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-bottom:12px}
+        .pricing-amount{font-family:var(--font-display);font-size:2.2rem;font-weight:700;color:#fff;line-height:1}
+        .pricing-period{font-size:.72rem;color:var(--text-dim)}
+        .pricing-body{padding:24px}
+        .pricing-features{list-style:none;margin-bottom:24px}
+        .pricing-features li{font-size:.8rem;color:var(--text);padding:6px 0;display:flex;align-items:center;gap:8px}
+        .pricing-features li::before{content:'';width:4px;height:4px;background:var(--pink);transform:rotate(45deg);flex-shrink:0}
+        .pricing-features li.off{color:var(--text-faint)}
+        .pricing-features li.off::before{background:var(--text-faint)}
+        .pricing-btn{display:block;width:100%;padding:12px;font-family:var(--font-display);font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center;text-decoration:none;border:none;cursor:pointer;transition:all .2s}
+        .pricing-btn.primary{background:var(--pink);color:#fff}
+        .pricing-btn.primary:hover{box-shadow:var(--pink-glow);background:#ff4a8f}
+        .pricing-btn.secondary{background:transparent;color:var(--cyan);border:1px solid rgba(0,240,255,0.2)}
+        .pricing-btn.secondary:hover{background:var(--cyan-dim);border-color:rgba(0,240,255,0.4)}
+
+        /* ===== TESTIMONIALS ===== */
+        .testimonials{padding:80px 0;border-bottom:1px solid var(--border)}
+        .testimonials-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:16px}
+        .testimonial-card{background:var(--surface);border:1px solid var(--border);padding:28px 24px;transition:all .3s;position:relative}
+        .testimonial-card::before{content:'';position:absolute;top:0;left:0;width:2px;height:100%;background:var(--pink);opacity:.4}
+        .testimonial-card:hover{border-color:rgba(255,45,120,0.12);transform:translateY(-2px)}
+        .testimonial-card:nth-child(2)::before{background:var(--cyan)}
+        .testimonial-card:nth-child(3)::before{background:var(--violet)}
+        .testimonial-card:nth-child(4)::before{background:var(--green)}
+        .testimonial-text{font-size:.85rem;line-height:1.7;color:var(--text);margin-bottom:18px}
+        .testimonial-author{display:flex;align-items:center;gap:12px}
+        .testimonial-avatar{width:34px;height:34px;background:var(--surface-light);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:.65rem;font-weight:600;color:var(--text-dim)}
+        .testimonial-name{font-family:var(--font-display);font-size:.78rem;font-weight:600;color:#fff}
+        .testimonial-role{font-size:.68rem;color:var(--text-dim)}
+
+        /* ===== FAQ ===== */
+        .faq{padding:80px 0;border-bottom:1px solid var(--border);background:var(--dark)}
+        .faq-list{max-width:700px}
+        .faq-item{border-bottom:1px solid var(--border)}
+        .faq-question{width:100%;display:flex;align-items:center;justify-content:space-between;padding:18px 0;background:transparent;border:none;cursor:pointer;text-align:left;gap:16px}
+        .faq-q-text{font-family:var(--font-display);font-size:.85rem;font-weight:500;color:#fff;transition:color .2s}
+        .faq-question:hover .faq-q-text{color:var(--cyan)}
+        .faq-toggle{font-family:var(--font-display);font-size:.8rem;color:var(--cyan);flex-shrink:0;transition:transform .2s}
+        .faq-question.active .faq-toggle{transform:rotate(45deg);color:var(--pink)}
+        .faq-answer{max-height:0;overflow:hidden;transition:max-height .3s ease}
+        .faq-answer-inner{padding:0 0 18px;font-size:.82rem;line-height:1.7;color:var(--text-dim);max-width:580px}
+
+        /* ===== FINAL CTA ===== */
+        .final-cta{padding:80px 0;text-align:center;position:relative;overflow:hidden}
+        .final-cta::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(255,45,120,0.06) 0%,transparent 70%);pointer-events:none}
+        .final-cta h2{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.6rem);font-weight:700;color:#fff;margin-bottom:14px}
+        .final-cta h2 .neon{color:var(--pink)}
+        .final-cta-sub{font-size:.92rem;color:var(--text);max-width:440px;margin:0 auto 32px;line-height:1.65}
+        .cta-form{display:flex;max-width:440px;margin:0 auto;border:1px solid rgba(255,45,120,0.3);background:var(--surface);box-shadow:0 0 30px rgba(255,45,120,0.06);transition:box-shadow .3s}
+        .cta-form:focus-within{box-shadow:0 0 40px rgba(255,45,120,0.12)}
+        .cta-form input{flex:1;padding:14px 18px;font-family:var(--font-body);font-size:.85rem;background:transparent;border:none;color:#fff;outline:none}
+        .cta-form input::placeholder{color:var(--text-dim)}
+        .cta-form button{font-family:var(--font-display);font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:var(--pink);color:#fff;border:none;padding:14px 28px;cursor:pointer;transition:all .2s;white-space:nowrap}
+        .cta-form button:hover{background:#ff4a8f;box-shadow:var(--pink-glow)}
+
+        /* ===== FOOTER ===== */
+        .footer{padding:48px 0 28px;border-top:1px solid var(--border)}
+        .footer-grid{display:grid;grid-template-columns:1.5fr repeat(3,1fr);gap:40px;margin-bottom:36px}
+        .footer-brand{font-family:var(--font-display);font-size:.95rem;font-weight:700;color:var(--pink);margin-bottom:8px;letter-spacing:.06em;text-shadow:0 0 8px rgba(255,45,120,0.3)}
+        .footer-desc{font-size:.78rem;line-height:1.65;color:var(--text-dim);max-width:240px}
+        .footer-col-title{font-family:var(--font-display);font-size:.6rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px}
+        .footer-links{list-style:none}
+        .footer-links li{margin-bottom:6px}
+        .footer-links a{font-size:.78rem;color:var(--text-dim);text-decoration:none;transition:color .2s}
+        .footer-links a:hover{color:var(--cyan)}
+        .footer-bottom{border-top:1px solid var(--border);padding-top:20px;display:flex;justify-content:space-between;align-items:center}
+        .footer-copy{font-size:.65rem;color:var(--text-faint)}
+        .footer-ver{font-family:var(--font-display);font-size:.6rem;color:var(--text-faint);letter-spacing:.05em}
+
+        /* ===== RESPONSIVE ===== */
+        @media(max-width:768px){
+            .nav-links{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;background:rgba(5,5,5,.98);padding:12px 24px;gap:4px;border-bottom:1px solid var(--border)}
+            .nav-links.open{display:flex}
+            .mobile-toggle{display:block}
+            .hero{padding:72px 0 48px}
+            .hero-form{flex-direction:column}
+            .hero-stats{flex-direction:column}
+            .hero-stat{margin-right:0}
+            .features-grid{grid-template-columns:1fr}
+            .steps{grid-template-columns:1fr;gap:40px}
+            .steps::before{display:none}
+            .dash-body{grid-template-columns:1fr}
+            .dash-sidebar{display:none}
+            .dash-panel{border-left:none;border-top:1px solid var(--border)}
+            .dash-nodes{flex-direction:column}
+            .dash-connector{transform:rotate(90deg);padding:6px 0}
+            .pricing-grid{grid-template-columns:1fr;max-width:400px}
+            .testimonials-grid{grid-template-columns:1fr}
+            .footer-grid{grid-template-columns:1fr 1fr;gap:28px}
+        }
+        @media(max-width:480px){
+            .hero h1{font-size:2rem}
+            .section-title{font-size:1.2rem}
+            .cta-form{flex-direction:column}
+            .cta-form button{width:100%}
+            .footer-grid{grid-template-columns:1fr}
+            .footer-bottom{flex-direction:column;gap:8px;text-align:center}
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- NAV -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">NEXUS <span>//</span></a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#features">SYSTEMS</a></li>
+                <li><a href="#pricing">PRICING</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#start" class="nav-cta">JACK IN &rarr;</a></li>
+            </ul>
+            <button class="mobile-toggle" id="mobileToggle">[MENU]</button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-label reveal"><span>SYSTEMS AUTOMATION PLATFORM</span></div>
+            <h1 class="glow-pink reveal">AUTOMATE<br><span class="neon">EVERYTHING.</span></h1>
+            <p class="hero-sub reveal">Connect your stack. Set your rules. Let the machines handle the rest. <strong>Zero downtime. Full control.</strong></p>
+            <form class="hero-form clip-sm reveal" onsubmit="event.preventDefault()">
+                <input type="email" placeholder="enter your email" required>
+                <button type="submit">DEPLOY &rarr;</button>
+            </form>
+            <div class="hero-stats reveal">
+                <div class="hero-stat"><div class="hero-stat-val glow-pink">25K+</div><div class="hero-stat-label">Workflows Running</div></div>
+                <div class="hero-stat"><div class="hero-stat-val">99.99%</div><div class="hero-stat-label">Uptime</div></div>
+                <div class="hero-stat"><div class="hero-stat-val">300+</div><div class="hero-stat-label">Integrations</div></div>
+                <div class="hero-stat"><div class="hero-stat-val">8ms</div><div class="hero-stat-label">Avg Latency</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MARQUEE -->
+    <div class="marquee">
+        <div class="marquee-track">
+            <div class="marquee-content">
+                <span class="marquee-item">SLACK</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">NOTION</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">STRIPE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">GITHUB</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">POSTGRES</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">HUBSPOT</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">AIRTABLE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SHOPIFY</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SALESFORCE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">FIGMA</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">JIRA</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">TWILIO</span><span class="marquee-dot">&bull;</span>
+            </div>
+            <div class="marquee-content">
+                <span class="marquee-item">SLACK</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">NOTION</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">STRIPE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">GITHUB</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">POSTGRES</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">HUBSPOT</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">AIRTABLE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SHOPIFY</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SALESFORCE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">FIGMA</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">JIRA</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">TWILIO</span><span class="marquee-dot">&bull;</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEATURES -->
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-label reveal">// CORE SYSTEMS</div>
+            <div class="section-title reveal">Six modules. One neural mesh.</div>
+            <div class="section-desc reveal">Each system operates independently or in concert. Stack them to build automation architectures of any complexity.</div>
+            <div class="features-grid">
+                <div class="feature-card clip-card reveal">
+                    <div class="feature-icon"><svg viewBox="0 0 36 36"><path d="M6 10h24M6 18h16M6 26h20M28 14l4 4-4 4"/></svg></div>
+                    <div class="feature-name">Neural Workflows</div>
+                    <p class="feature-desc">Visual builder for multi-step automation chains. Branching logic, parallel execution, error recovery built in.</p>
+                </div>
+                <div class="feature-card clip-card reveal">
+                    <div class="feature-icon"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="5"/><path d="M18 5v4M18 27v4M5 18h4M27 18h4M10 10l3 3M23 23l3 3M10 26l3-3M23 13l3-3"/></svg></div>
+                    <div class="feature-name">Event Triggers</div>
+                    <p class="feature-desc">Webhooks, crons, database changes, API events. Your automations fire in milliseconds when conditions are met.</p>
+                </div>
+                <div class="feature-card clip-card reveal">
+                    <div class="feature-icon"><svg viewBox="0 0 36 36"><path d="M8 12h6v12H8zM16 18h4M22 12h6v12h-6z"/><path d="M11 6v6M25 6v6M11 24v6M25 24v6"/></svg></div>
+                    <div class="feature-name">Data Streams</div>
+                    <p class="feature-desc">Real-time data pipelines between any two systems. Transform, filter, validate, and route on the fly.</p>
+                </div>
+                <div class="feature-card clip-card reveal">
+                    <div class="feature-icon"><svg viewBox="0 0 36 36"><path d="M10 6l10 8-10 8V6z"/><path d="M22 12h6v12h-6M22 18h6"/><path d="M6 28h24"/></svg></div>
+                    <div class="feature-name">Logic Gates</div>
+                    <p class="feature-desc">If/else, switches, loops, delays, error handlers. Build conditional flows as complex as your business needs.</p>
+                </div>
+                <div class="feature-card clip-card reveal">
+                    <div class="feature-icon"><svg viewBox="0 0 36 36"><rect x="6" y="6" width="24" height="18" rx="0"/><path d="M6 12h24M12 24v6M24 24v6M10 28h16"/></svg></div>
+                    <div class="feature-name">System Monitor</div>
+                    <p class="feature-desc">Real-time dashboards, execution logs, latency tracking. Get alerted on failures before your users notice.</p>
+                </div>
+                <div class="feature-card clip-card reveal">
+                    <div class="feature-icon"><svg viewBox="0 0 36 36"><circle cx="12" cy="12" r="5"/><circle cx="24" cy="12" r="5"/><circle cx="12" cy="24" r="5"/><circle cx="24" cy="24" r="5"/><path d="M17 12h2M12 17v2M17 24h2M24 17v2"/></svg></div>
+                    <div class="feature-name">API Bridge</div>
+                    <p class="feature-desc">Connect to any REST or GraphQL endpoint. Custom auth, headers, pagination. If it has an API, it's pluggable.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how-it-works">
+        <div class="container">
+            <div class="section-label reveal">// SEQUENCE</div>
+            <div class="section-title reveal">Three steps to full automation.</div>
+            <div style="height:32px"></div>
+            <div class="steps">
+                <div class="step reveal">
+                    <div class="step-num glow-pink">01</div>
+                    <div class="step-title">Connect</div>
+                    <p class="step-desc">Plug in your tools with one-click OAuth or API keys. 300+ integrations ready to go.</p>
+                </div>
+                <div class="step reveal">
+                    <div class="step-num">02</div>
+                    <div class="step-title">Program</div>
+                    <p class="step-desc">Build your automation visually or with code. Set triggers, conditions, and actions.</p>
+                </div>
+                <div class="step reveal">
+                    <div class="step-num glow-cyan">03</div>
+                    <div class="step-title">Deploy</div>
+                    <p class="step-desc">Hit deploy. Your systems run 24/7 on our global infrastructure. Monitor everything live.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section class="dashboard">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center">// COMMAND CENTER</div>
+            <div class="section-title reveal" style="text-align:center">Your automation HQ.</div>
+            <div class="dash-mockup reveal">
+                <div class="dash-toolbar">
+                    <div class="dash-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+                    <div class="dash-title">NEXUS DASHBOARD // PRODUCTION</div>
+                    <div class="dash-title">v3.1.0</div>
+                </div>
+                <div class="dash-body">
+                    <div class="dash-sidebar">
+                        <div class="dash-sidebar-item active">Workflows</div>
+                        <div class="dash-sidebar-item">Connections</div>
+                        <div class="dash-sidebar-item">Run History</div>
+                        <div class="dash-sidebar-item">API Keys</div>
+                        <div class="dash-sidebar-item">Team</div>
+                        <div class="dash-sidebar-item">Settings</div>
+                    </div>
+                    <div class="dash-main">
+                        <div class="dash-main-label">Active Workflow</div>
+                        <div class="dash-main-title">Lead Intake &rarr; CRM Pipeline</div>
+                        <div class="dash-status"><span class="dash-status-dot"></span> RUNNING &mdash; 2,847 EXECUTIONS TODAY</div>
+                        <div class="dash-nodes">
+                            <div class="dash-node trigger clip-sm"><div class="dash-node-label">Trigger</div><div class="dash-node-name">Webhook</div></div>
+                            <div class="dash-connector">&rarr;</div>
+                            <div class="dash-node action clip-sm"><div class="dash-node-label">Process</div><div class="dash-node-name">Enrich</div></div>
+                            <div class="dash-connector">&rarr;</div>
+                            <div class="dash-node action clip-sm"><div class="dash-node-label">Store</div><div class="dash-node-name">CRM Add</div></div>
+                            <div class="dash-connector">&rarr;</div>
+                            <div class="dash-node output clip-sm"><div class="dash-node-label">Notify</div><div class="dash-node-name">Slack</div></div>
+                        </div>
+                    </div>
+                    <div class="dash-panel">
+                        <div class="dash-panel-section">
+                            <div class="dash-panel-label">Today</div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">Runs</span><span class="dash-panel-stat-val">2,847</span></div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">Success</span><span class="dash-panel-stat-val green">99.4%</span></div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">Avg Time</span><span class="dash-panel-stat-val cyan">280ms</span></div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">Errors</span><span class="dash-panel-stat-val pink">4</span></div>
+                        </div>
+                        <div class="dash-panel-section">
+                            <div class="dash-panel-label">Resources</div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">CPU</span><span class="dash-panel-stat-val">34%</span></div>
+                            <div class="dash-bar"><div class="dash-bar-fill" style="width:34%"></div></div>
+                        </div>
+                        <div class="dash-panel-section">
+                            <div class="dash-panel-label">Workflows</div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">Active</span><span class="dash-panel-stat-val green">18</span></div>
+                            <div class="dash-panel-stat"><span class="dash-panel-stat-label">Paused</span><span class="dash-panel-stat-val">3</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <div class="section-label reveal">// PRICING</div>
+            <div class="section-title reveal">Choose your tier.</div>
+            <div style="height:16px"></div>
+            <div class="pricing-toggle reveal">
+                <div class="toggle-opt active" id="monthlyT">[MONTHLY]</div>
+                <div class="toggle-opt" id="annualT">[ANNUAL -25%]</div>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card clip-card reveal">
+                    <div class="pricing-header"><div class="pricing-tier">BASIC</div><div class="pricing-amount" data-m="$0" data-a="$0">$0</div><div class="pricing-period">free forever</div></div>
+                    <div class="pricing-body">
+                        <ul class="pricing-features"><li>500 runs/month</li><li>5 active workflows</li><li>10 integrations</li><li>Community support</li><li class="off">Custom logic</li><li class="off">Team seats</li></ul>
+                        <a href="#" class="pricing-btn secondary">START FREE</a>
+                    </div>
+                </div>
+                <div class="pricing-card clip-card featured reveal">
+                    <div class="pricing-featured-badge">RECOMMENDED</div>
+                    <div class="pricing-header"><div class="pricing-tier">PRO</div><div class="pricing-amount" data-m="$39" data-a="$29">$39</div><div class="pricing-period" data-m="/mo" data-a="/mo billed annually">/mo</div></div>
+                    <div class="pricing-body">
+                        <ul class="pricing-features"><li>Unlimited runs</li><li>Unlimited workflows</li><li>300+ integrations</li><li>Priority support</li><li>Custom logic &amp; code</li><li>Team seats (5)</li></ul>
+                        <a href="#" class="pricing-btn primary">GET PRO &rarr;</a>
+                    </div>
+                </div>
+                <div class="pricing-card clip-card reveal">
+                    <div class="pricing-header"><div class="pricing-tier">ENTERPRISE</div><div class="pricing-amount">Custom</div><div class="pricing-period">let's talk</div></div>
+                    <div class="pricing-body">
+                        <ul class="pricing-features"><li>Everything in Pro</li><li>Unlimited team seats</li><li>Custom integrations</li><li>SSO &amp; audit logs</li><li>Dedicated engineer</li><li>SLA guarantee</li></ul>
+                        <a href="#" class="pricing-btn secondary">CONTACT</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-label reveal">// SIGNAL</div>
+            <div class="section-title reveal">What operators are saying.</div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card clip-card reveal">
+                    <p class="testimonial-text">Replaced 6 Zapier zaps and 2 custom scripts with one Nexus workflow. Runs 10x faster and hasn't failed once in 4 months.</p>
+                    <div class="testimonial-author"><div class="testimonial-avatar">MK</div><div><div class="testimonial-name">Marcus K.</div><div class="testimonial-role">Ops Lead, Fintech</div></div></div>
+                </div>
+                <div class="testimonial-card clip-card reveal">
+                    <p class="testimonial-text">The visual builder is genuinely good. I'm not a developer and I built 12 automations my first week. The logic gates are a game changer.</p>
+                    <div class="testimonial-author"><div class="testimonial-avatar">SH</div><div><div class="testimonial-name">Sarah H.</div><div class="testimonial-role">Founder, Agency</div></div></div>
+                </div>
+                <div class="testimonial-card clip-card reveal">
+                    <p class="testimonial-text">Our lead pipeline runs entirely on Nexus now. 3,000+ leads processed daily with zero manual work. The monitoring alone is worth the price.</p>
+                    <div class="testimonial-author"><div class="testimonial-avatar">JR</div><div><div class="testimonial-name">James R.</div><div class="testimonial-role">CTO, B2B SaaS</div></div></div>
+                </div>
+                <div class="testimonial-card clip-card reveal">
+                    <p class="testimonial-text">Migrated off a custom Node.js cron setup. Nexus is more reliable, easier to debug, and I haven't been paged at 3am since. 10/10.</p>
+                    <div class="testimonial-author"><div class="testimonial-avatar">AP</div><div><div class="testimonial-name">Anika P.</div><div class="testimonial-role">Eng Manager</div></div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-label reveal">// FAQ</div>
+            <div class="section-title reveal">Common queries.</div>
+            <div style="height:24px"></div>
+            <div class="faq-list">
+                <div class="faq-item reveal"><button class="faq-question"><span class="faq-q-text">How long does setup take?</span><span class="faq-toggle">+</span></button><div class="faq-answer"><div class="faq-answer-inner">Most users have their first automation running within 10 minutes. Connect your tools via OAuth, drag a few nodes, and hit deploy. No engineering team required.</div></div></div>
+                <div class="faq-item reveal"><button class="faq-question"><span class="faq-q-text">What integrations do you support?</span><span class="faq-toggle">+</span></button><div class="faq-answer"><div class="faq-answer-inner">300+ pre-built integrations including Slack, Notion, Stripe, HubSpot, Postgres, Shopify, and more. Plus a universal API connector for anything custom.</div></div></div>
+                <div class="faq-item reveal"><button class="faq-question"><span class="faq-q-text">Is my data secure?</span><span class="faq-toggle">+</span></button><div class="faq-answer"><div class="faq-answer-inner">SOC 2 Type II certified. All data encrypted at rest and in transit. We use OAuth tokens with minimal permissions and never store raw credentials.</div></div></div>
+                <div class="faq-item reveal"><button class="faq-question"><span class="faq-q-text">Can I use custom code?</span><span class="faq-toggle">+</span></button><div class="faq-answer"><div class="faq-answer-inner">Yes. Pro and Enterprise plans include code blocks for JavaScript and Python. Use the visual builder for 90% of your logic and drop into code when you need full control.</div></div></div>
+                <div class="faq-item reveal"><button class="faq-question"><span class="faq-q-text">What happens when a workflow fails?</span><span class="faq-toggle">+</span></button><div class="faq-answer"><div class="faq-answer-inner">Automatic retries with exponential backoff. Detailed error logs with exact failure points. Instant alerts via Slack, email, or PagerDuty. Dead letter queues for failed items.</div></div></div>
+                <div class="faq-item reveal"><button class="faq-question"><span class="faq-q-text">Do you have an API?</span><span class="faq-toggle">+</span></button><div class="faq-answer"><div class="faq-answer-inner">Full REST API for programmatic control. Create, trigger, pause, and monitor workflows via API. Everything in the UI is API-accessible. Webhooks for real-time events.</div></div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta" id="start">
+        <div class="container">
+            <h2 class="glow-pink reveal">THE FUTURE IS <span class="neon">AUTOMATED.</span></h2>
+            <p class="final-cta-sub reveal">Join 25,000+ operators who've stopped doing things the slow way. Free to start. Scales with you.</p>
+            <form class="cta-form clip-sm reveal" onsubmit="event.preventDefault()">
+                <input type="email" placeholder="enter your email" required>
+                <button type="submit">JACK IN &rarr;</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div><div class="footer-brand">NEXUS //</div><p class="footer-desc">The automation platform for operators who build systems, not spreadsheets.</p></div>
+                <div><div class="footer-col-title">// PRODUCT</div><ul class="footer-links"><li><a href="#">Features</a></li><li><a href="#">Pricing</a></li><li><a href="#">Integrations</a></li><li><a href="#">Docs</a></li><li><a href="#">Changelog</a></li></ul></div>
+                <div><div class="footer-col-title">// RESOURCES</div><ul class="footer-links"><li><a href="#">Templates</a></li><li><a href="#">Tutorials</a></li><li><a href="#">Blog</a></li><li><a href="#">Community</a></li><li><a href="#">Status</a></li></ul></div>
+                <div><div class="footer-col-title">// COMPANY</div><ul class="footer-links"><li><a href="#">About</a></li><li><a href="#">Careers</a></li><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li><li><a href="#">Contact</a></li></ul></div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copy">&copy; 2025 Nexus Systems. All rights reserved.</div>
+                <div class="footer-ver">v3.1.0 // OPERATIONAL</div>
+            </div>
+        </div>
+    </footer>
+
+</div>
+
+<script>
+    document.getElementById('mobileToggle').addEventListener('click',()=>{const n=document.getElementById('navLinks');n.classList.toggle('open');document.getElementById('mobileToggle').textContent=n.classList.contains('open')?'[CLOSE]':'[MENU]'});
+    document.querySelectorAll('#navLinks a').forEach(l=>l.addEventListener('click',()=>{document.getElementById('navLinks').classList.remove('open');document.getElementById('mobileToggle').textContent='[MENU]'}));
+
+    // Pricing toggle
+    const mT=document.getElementById('monthlyT'),aT=document.getElementById('annualT');
+    let isA=false;
+    function upP(){mT.classList.toggle('active',!isA);aT.classList.toggle('active',isA);document.querySelectorAll('.pricing-amount[data-m]').forEach(e=>{e.textContent=isA?e.dataset.a:e.dataset.m});document.querySelectorAll('.pricing-period[data-m]').forEach(e=>{if(e.dataset.m)e.textContent=isA?e.dataset.a:e.dataset.m})}
+    mT.addEventListener('click',()=>{isA=false;upP()});
+    aT.addEventListener('click',()=>{isA=true;upP()});
+
+    // FAQ
+    document.querySelectorAll('.faq-question').forEach(b=>{b.addEventListener('click',()=>{const i=b.closest('.faq-item'),a=i.querySelector('.faq-answer'),o=b.classList.contains('active');document.querySelectorAll('.faq-question').forEach(x=>{x.classList.remove('active');x.closest('.faq-item').querySelector('.faq-answer').style.maxHeight='0'});if(!o){b.classList.add('active');a.style.maxHeight=a.scrollHeight+'px'}})});
+
+    // Reveal
+    const obs=new IntersectionObserver(e=>{e.forEach(en=>{if(en.isIntersecting){en.target.classList.add('visible');obs.unobserve(en.target)}})},{threshold:.08,rootMargin:'0px 0px -30px 0px'});
+    document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'})})});
+</script>
+</body>
+</html>

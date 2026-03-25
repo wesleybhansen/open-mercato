@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wandr — Experiences Worth Remembering</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        :root {
+            --bg: #0C0C0E;
+            --card: #161618;
+            --card-hover: #1c1c1f;
+            --border: rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.12);
+            --white: #F1F1F1;
+            --gray: #999;
+            --dim: #555;
+            --pink: #FF6B9D;
+            --orange: #FF8A50;
+            --amber: #FFD43B;
+            --green: #69DB7C;
+            --teal: #38D9A9;
+            --blue: #4DABF7;
+            --purple: #9775FA;
+            --font-display: 'Manrope', system-ui, sans-serif;
+            --font-body: 'Inter', system-ui, sans-serif;
+            --container: 1120px;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --t: 0.25s ease;
+        }
+
+        html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--gray);
+            font-size: 15px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container { max-width: var(--container); margin: 0 auto; padding: 0 28px; }
+
+        h1, h2, h3 { font-family: var(--font-display); color: var(--white); font-weight: 700; line-height: 1.15; }
+        h1 { font-size: clamp(38px, 5vw, 58px); letter-spacing: -1.5px; font-weight: 800; }
+        h2 { font-size: clamp(28px, 3.5vw, 40px); letter-spacing: -0.8px; }
+        h3 { font-size: 18px; letter-spacing: -0.2px; font-weight: 600; }
+
+        a { color: inherit; text-decoration: none; }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--pink), var(--orange), var(--amber), var(--green), var(--teal), var(--blue), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            background-size: 200% 200%;
+            animation: gradientShift 6s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-family: var(--font-body); font-size: 14px; font-weight: 500;
+            padding: 11px 22px; border-radius: var(--radius-sm);
+            border: none; cursor: pointer; transition: all var(--t); white-space: nowrap;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, var(--pink), var(--purple));
+            color: #fff;
+        }
+
+        .btn-gradient:hover {
+            box-shadow: 0 4px 20px rgba(255, 107, 157, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: transparent; color: var(--gray);
+            border: 1px solid var(--border-hover);
+        }
+
+        .btn-ghost:hover { border-color: var(--white); color: var(--white); }
+
+        .btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+        /* Gradient Border Button */
+        .btn-glow {
+            position: relative; z-index: 0;
+            font-family: var(--font-body); font-size: 15px; font-weight: 600;
+            padding: 13px 28px; border-radius: var(--radius-sm);
+            color: var(--white); background: transparent;
+            border: none; cursor: pointer; transition: all var(--t);
+        }
+
+        .btn-glow::before {
+            content: ''; position: absolute; inset: 0; z-index: -2;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--pink), var(--orange), var(--amber), var(--green), var(--blue), var(--purple));
+            background-size: 300% 300%;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+
+        .btn-glow::after {
+            content: ''; position: absolute; inset: 1.5px; z-index: -1;
+            border-radius: calc(var(--radius-sm) - 1px);
+            background: var(--bg);
+            transition: background var(--t);
+        }
+
+        .btn-glow:hover::after { background: #111113; }
+        .btn-glow:hover { box-shadow: 0 0 30px rgba(151, 117, 250, 0.15); }
+
+        /* Scroll Reveal */
+        .reveal {
+            opacity: 0; transform: translateY(14px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* ==================== NAV ==================== */
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: rgba(12,12,14,0.85);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+        .nav-logo { font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--white); letter-spacing: -0.5px; }
+        .nav-links { display: flex; gap: 28px; list-style: none; }
+        .nav-links a { font-size: 13px; color: var(--dim); transition: color var(--t); }
+        .nav-links a:hover { color: var(--white); }
+
+        .nav-right { display: flex; align-items: center; gap: 12px; }
+
+        .nav-book { position: relative; z-index: 0; font-size: 13px; font-weight: 600; padding: 7px 18px; border-radius: 8px; color: var(--white); background: transparent; border: none; cursor: pointer; transition: all var(--t); text-decoration: none; display: inline-flex; align-items: center; }
+        .nav-book::before { content: ''; position: absolute; inset: 0; z-index: -2; border-radius: 8px; background: linear-gradient(135deg, var(--pink), var(--purple)); }
+        .nav-book::after { content: ''; position: absolute; inset: 1px; z-index: -1; border-radius: 7px; background: var(--bg); transition: background var(--t); }
+        .nav-book:hover::after { background: #151517; }
+
+        .nav-mobile-toggle { display: none; background: none; border: none; cursor: pointer; padding: 4px; }
+        .nav-mobile-toggle svg { width: 20px; height: 20px; stroke: var(--gray); stroke-width: 1.5; fill: none; }
+
+        /* ==================== HERO ==================== */
+        .hero { padding: 150px 0 80px; text-align: center; }
+        .hero h1 { margin-bottom: 16px; }
+        .hero-sub { font-size: 17px; color: var(--gray); max-width: 480px; margin: 0 auto 36px; line-height: 1.7; font-weight: 300; }
+
+        /* Search Bar */
+        .search-bar {
+            max-width: 600px; margin: 0 auto 20px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 8px 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .search-bar svg { width: 18px; height: 18px; stroke: var(--dim); stroke-width: 1.5; fill: none; flex-shrink: 0; }
+
+        .search-placeholder { font-size: 14px; color: var(--dim); flex: 1; }
+
+        .search-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        .search-pill {
+            font-family: var(--font-body); font-size: 11px; font-weight: 500;
+            padding: 4px 12px; border-radius: 100px;
+            background: rgba(255,255,255,0.06); color: var(--gray);
+            border: none; cursor: pointer; transition: all var(--t);
+        }
+
+        .search-pill:hover { background: rgba(255,255,255,0.1); color: var(--white); }
+        .search-pill.active-pink { background: rgba(255,107,157,0.15); color: var(--pink); }
+        .search-pill.active-teal { background: rgba(56,217,169,0.15); color: var(--teal); }
+        .search-pill.active-amber { background: rgba(255,212,59,0.15); color: var(--amber); }
+        .search-pill.active-orange { background: rgba(255,138,80,0.15); color: var(--orange); }
+
+        /* Key cap */
+        .keycap {
+            display: inline-flex; align-items: center; gap: 2px;
+            font-family: var(--font-body); font-size: 10px; font-weight: 500;
+            color: var(--dim); background: rgba(255,255,255,0.06);
+            padding: 2px 6px; border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .hero-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+        /* ==================== FEATURED ==================== */
+        .featured { padding: 80px 0 100px; }
+        .featured-header { text-align: center; margin-bottom: 48px; }
+        .featured-header p { max-width: 420px; margin: 12px auto 0; }
+
+        .featured-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+        .feat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); overflow: hidden;
+            transition: all var(--t); position: relative;
+        }
+
+        .feat-card:hover { border-color: var(--border-hover); transform: translateY(-3px); }
+        .feat-card:nth-child(1):hover { box-shadow: 0 8px 32px rgba(255,107,157,0.12); }
+        .feat-card:nth-child(2):hover { box-shadow: 0 8px 32px rgba(56,217,169,0.12); }
+        .feat-card:nth-child(3):hover { box-shadow: 0 8px 32px rgba(255,212,59,0.12); }
+
+        .feat-img {
+            height: 200px; background: #1e1e22;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+
+        .feat-img::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+        }
+
+        .feat-card:nth-child(1) .feat-img::after { background: linear-gradient(90deg, var(--pink), transparent); }
+        .feat-card:nth-child(2) .feat-img::after { background: linear-gradient(90deg, var(--teal), transparent); }
+        .feat-card:nth-child(3) .feat-img::after { background: linear-gradient(90deg, var(--amber), transparent); }
+
+        .feat-img svg { width: 36px; height: 36px; stroke: #333; stroke-width: 1; fill: none; }
+
+        .feat-body { padding: 24px; }
+
+        .feat-tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; margin-bottom: 10px; display: inline-block; }
+        .feat-card:nth-child(1) .feat-tag { background: rgba(255,107,157,0.12); color: var(--pink); }
+        .feat-card:nth-child(2) .feat-tag { background: rgba(56,217,169,0.12); color: var(--teal); }
+        .feat-card:nth-child(3) .feat-tag { background: rgba(255,212,59,0.12); color: var(--amber); }
+
+        .feat-body h3 { margin-bottom: 6px; }
+        .feat-body p { font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+
+        .feat-footer { display: flex; align-items: center; justify-content: space-between; }
+        .feat-price { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--white); }
+        .feat-price span { font-size: 12px; font-weight: 400; color: var(--dim); }
+        .feat-book { font-size: 12px; font-weight: 600; padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border-hover); background: transparent; color: var(--gray); cursor: pointer; transition: all var(--t); font-family: var(--font-body); }
+        .feat-book:hover { color: var(--white); border-color: var(--white); }
+
+        /* ==================== HOW IT WORKS ==================== */
+        .how { padding: 80px 0 100px; border-top: 1px solid var(--border); }
+        .how-header { text-align: center; margin-bottom: 56px; }
+        .how-header p { max-width: 400px; margin: 12px auto 0; }
+
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; position: relative; }
+        .steps::before { content: ''; position: absolute; top: 28px; left: calc(16.66% + 28px); right: calc(16.66% + 28px); height: 1px; background: var(--border); }
+
+        .step { text-align: center; }
+        .step-num {
+            width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px; font-family: var(--font-display); font-size: 20px; font-weight: 800;
+            position: relative; z-index: 1;
+        }
+
+        .step:nth-child(1) .step-num { background: rgba(77,171,247,0.12); color: var(--blue); border: 1px solid rgba(77,171,247,0.2); }
+        .step:nth-child(2) .step-num { background: rgba(105,219,124,0.12); color: var(--green); border: 1px solid rgba(105,219,124,0.2); }
+        .step:nth-child(3) .step-num { background: rgba(255,107,157,0.12); color: var(--pink); border: 1px solid rgba(255,107,157,0.2); }
+
+        .step h3 { margin-bottom: 6px; }
+        .step p { font-size: 14px; max-width: 240px; margin: 0 auto; line-height: 1.6; }
+
+        /* ==================== CATEGORIES ==================== */
+        .categories { padding: 80px 0 100px; }
+        .cat-header { text-align: center; margin-bottom: 48px; }
+
+        .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+        .cat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 28px;
+            display: flex; align-items: center; gap: 16px;
+            transition: all var(--t); cursor: pointer;
+        }
+
+        .cat-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+
+        .cat-icon svg { width: 20px; height: 20px; stroke-width: 1.5; fill: none; }
+
+        .cat-card:nth-child(1) .cat-icon { background: rgba(105,219,124,0.12); }
+        .cat-card:nth-child(1) .cat-icon svg { stroke: var(--green); }
+        .cat-card:nth-child(1):hover { border-color: rgba(105,219,124,0.3); box-shadow: 0 0 20px rgba(105,219,124,0.08); }
+
+        .cat-card:nth-child(2) .cat-icon { background: rgba(255,138,80,0.12); }
+        .cat-card:nth-child(2) .cat-icon svg { stroke: var(--orange); }
+        .cat-card:nth-child(2):hover { border-color: rgba(255,138,80,0.3); box-shadow: 0 0 20px rgba(255,138,80,0.08); }
+
+        .cat-card:nth-child(3) .cat-icon { background: rgba(151,117,250,0.12); }
+        .cat-card:nth-child(3) .cat-icon svg { stroke: var(--purple); }
+        .cat-card:nth-child(3):hover { border-color: rgba(151,117,250,0.3); box-shadow: 0 0 20px rgba(151,117,250,0.08); }
+
+        .cat-card:nth-child(4) .cat-icon { background: rgba(255,212,59,0.12); }
+        .cat-card:nth-child(4) .cat-icon svg { stroke: var(--amber); }
+        .cat-card:nth-child(4):hover { border-color: rgba(255,212,59,0.3); box-shadow: 0 0 20px rgba(255,212,59,0.08); }
+
+        .cat-card:nth-child(5) .cat-icon { background: rgba(255,107,157,0.12); }
+        .cat-card:nth-child(5) .cat-icon svg { stroke: var(--pink); }
+        .cat-card:nth-child(5):hover { border-color: rgba(255,107,157,0.3); box-shadow: 0 0 20px rgba(255,107,157,0.08); }
+
+        .cat-card:nth-child(6) .cat-icon { background: rgba(56,217,169,0.12); }
+        .cat-card:nth-child(6) .cat-icon svg { stroke: var(--teal); }
+        .cat-card:nth-child(6):hover { border-color: rgba(56,217,169,0.3); box-shadow: 0 0 20px rgba(56,217,169,0.08); }
+
+        .cat-card:hover { background: var(--card-hover); }
+        .cat-card h3 { font-size: 15px; }
+        .cat-desc { font-size: 13px; color: var(--dim); }
+
+        /* ==================== UPCOMING ==================== */
+        .upcoming { padding: 80px 0 100px; border-top: 1px solid var(--border); }
+        .upcoming-header { text-align: center; margin-bottom: 48px; }
+        .upcoming-header p { max-width: 400px; margin: 12px auto 0; }
+
+        .upcoming-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+        .up-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); overflow: hidden; transition: all var(--t);
+        }
+
+        .up-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+
+        .up-img { height: 140px; background: #1e1e22; display: flex; align-items: center; justify-content: center; position: relative; }
+        .up-img svg { width: 28px; height: 28px; stroke: #333; stroke-width: 1; fill: none; }
+
+        .up-date { position: absolute; top: 10px; left: 10px; font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; }
+        .up-card:nth-child(1) .up-date { background: rgba(255,107,157,0.15); color: var(--pink); }
+        .up-card:nth-child(2) .up-date { background: rgba(77,171,247,0.15); color: var(--blue); }
+        .up-card:nth-child(3) .up-date { background: rgba(105,219,124,0.15); color: var(--green); }
+        .up-card:nth-child(4) .up-date { background: rgba(151,117,250,0.15); color: var(--purple); }
+
+        .up-body { padding: 18px; }
+        .up-body h3 { font-size: 15px; margin-bottom: 4px; }
+        .up-location { font-size: 12px; color: var(--dim); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; }
+        .up-location svg { width: 12px; height: 12px; stroke: var(--dim); stroke-width: 1.5; fill: none; }
+        .up-footer { display: flex; align-items: center; justify-content: space-between; }
+        .up-price { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--white); }
+        .up-price span { font-size: 11px; font-weight: 400; color: var(--dim); }
+
+        /* ==================== STATS ==================== */
+        .stats { padding: 80px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+        .stat-item { text-align: center; padding: 20px; }
+        .stat-number { font-family: var(--font-display); font-size: 36px; font-weight: 800; letter-spacing: -1px; line-height: 1; margin-bottom: 4px; }
+        .stat-label { font-size: 13px; color: var(--dim); }
+
+        .stat-item:nth-child(1) .stat-number { color: var(--pink); }
+        .stat-item:nth-child(2) .stat-number { color: var(--teal); }
+        .stat-item:nth-child(3) .stat-number { color: var(--blue); }
+        .stat-item:nth-child(4) .stat-number { color: var(--amber); }
+
+        /* ==================== TESTIMONIALS ==================== */
+        .testimonials { padding: 80px 0 100px; }
+        .test-header { text-align: center; margin-bottom: 48px; }
+
+        .test-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+        .test-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 28px;
+            border-top: 3px solid; transition: all var(--t);
+        }
+
+        .test-card:hover { border-color: var(--border-hover); border-top-color: inherit; }
+
+        .test-card:nth-child(1) { border-top-color: var(--pink); }
+        .test-card:nth-child(2) { border-top-color: var(--teal); }
+        .test-card:nth-child(3) { border-top-color: var(--purple); }
+
+        .test-quote { font-size: 14px; line-height: 1.7; color: var(--gray); margin-bottom: 20px; }
+        .test-author { font-size: 14px; font-weight: 600; color: var(--white); }
+        .test-exp { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+        /* ==================== FAQ ==================== */
+        .faq { padding: 80px 0 100px; border-top: 1px solid var(--border); }
+        .faq-header { text-align: center; margin-bottom: 48px; }
+
+        .faq-list { max-width: 660px; margin: 0 auto; }
+
+        .faq-item { border-bottom: 1px solid var(--border); }
+        .faq-item:first-child { border-top: 1px solid var(--border); }
+
+        .faq-question {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 0; cursor: pointer; gap: 16px;
+            background: none; border: none; width: 100%; text-align: left;
+            font-family: var(--font-body); font-size: 15px; font-weight: 500;
+            color: var(--white); transition: color var(--t);
+        }
+
+        .faq-question:hover { color: var(--teal); }
+
+        .faq-toggle { flex-shrink: 0; width: 16px; height: 16px; position: relative; }
+        .faq-toggle::before, .faq-toggle::after { content: ''; position: absolute; background: var(--dim); transition: all 0.25s ease; }
+        .faq-toggle::before { width: 12px; height: 1px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+        .faq-toggle::after { width: 1px; height: 12px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+        .faq-item.active .faq-toggle::after { transform: translate(-50%,-50%) rotate(90deg); opacity: 0; }
+
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+        .faq-item.active .faq-answer { max-height: 180px; }
+        .faq-answer-inner { padding-bottom: 20px; }
+        .faq-answer p { font-size: 14px; line-height: 1.7; }
+
+        /* ==================== CTA ==================== */
+        .cta { padding: 100px 0; text-align: center; }
+        .cta h2 { margin-bottom: 16px; }
+        .cta p { max-width: 400px; margin: 0 auto 32px; font-size: 16px; }
+        .cta-buttons { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+        /* ==================== FOOTER ==================== */
+        .footer { padding: 56px 0 32px; border-top: 1px solid var(--border); }
+
+        .footer-grid { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr); gap: 40px; margin-bottom: 40px; }
+        .footer-brand p { font-size: 13px; color: var(--dim); line-height: 1.6; margin-top: 10px; max-width: 220px; }
+        .footer-col h4 { font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--dim); letter-spacing: 0.3px; margin-bottom: 14px; }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 8px; }
+        .footer-col a { font-size: 13px; color: var(--dim); transition: color var(--t); }
+        .footer-col a:hover { color: var(--white); }
+
+        .footer-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--dim); }
+        .footer-social { display: flex; gap: 14px; }
+        .footer-social a { color: var(--dim); transition: color var(--t); }
+        .footer-social a:hover { color: var(--white); }
+        .footer-social svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.5; fill: none; }
+
+        /* ==================== MOBILE NAV ==================== */
+        .mobile-nav {
+            display: none; position: fixed; top: 60px; left: 0; right: 0;
+            background: rgba(12,12,14,0.97); backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 28px 20px; z-index: 99;
+            transform: translateY(-6px); opacity: 0; pointer-events: none;
+            transition: all 0.25s ease;
+        }
+        .mobile-nav.open { transform: translateY(0); opacity: 1; pointer-events: all; }
+        .mobile-nav a { display: block; font-size: 14px; color: var(--dim); padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .mobile-nav a:last-child { border-bottom: none; color: var(--pink); }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 1024px) {
+            .upcoming-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .nav-mobile-toggle { display: block; }
+            .mobile-nav { display: block; }
+
+            .hero { padding: 120px 0 60px; }
+            .featured-grid { grid-template-columns: 1fr; }
+            .steps { grid-template-columns: 1fr; gap: 32px; }
+            .steps::before { display: none; }
+            .cat-grid { grid-template-columns: 1fr 1fr; }
+            .upcoming-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .test-grid { grid-template-columns: 1fr; }
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+            .hero-buttons { flex-direction: column; align-items: center; }
+            .search-pills { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 0 20px; }
+            .cat-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer-bottom { flex-direction: column; gap: 10px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="#" class="nav-logo">Wandr</a>
+                <ul class="nav-links">
+                    <li><a href="#featured">Experiences</a></li>
+                    <li><a href="#categories">Categories</a></li>
+                    <li><a href="#upcoming">Upcoming</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+                <div class="nav-right">
+                    <a href="#" class="nav-book">Book Now</a>
+                    <button class="nav-mobile-toggle" onclick="toggleMobileNav()" aria-label="Menu">
+                        <svg viewBox="0 0 24 24" id="menuIcon"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="mobile-nav" id="mobileNav">
+        <a href="#featured" onclick="closeMobileNav()">Experiences</a>
+        <a href="#categories" onclick="closeMobileNav()">Categories</a>
+        <a href="#upcoming" onclick="closeMobileNav()">Upcoming</a>
+        <a href="#faq" onclick="closeMobileNav()">FAQ</a>
+        <a href="#" onclick="closeMobileNav()">Book Now</a>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <h1 class="reveal">Experiences worth<br><span class="gradient-text">remembering.</span></h1>
+            <p class="hero-sub reveal" style="transition-delay:0.05s">Curated adventures, retreats, and workshops designed to create moments that stay with you. Discover something extraordinary.</p>
+            <div class="search-bar reveal" style="transition-delay:0.1s">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span class="search-placeholder">Search experiences...</span>
+                <div class="search-pills">
+                    <button class="search-pill active-pink">Retreats</button>
+                    <button class="search-pill active-teal">Adventures</button>
+                    <button class="search-pill active-amber">Workshops</button>
+                    <button class="search-pill active-orange">Food & Drink</button>
+                </div>
+                <span class="keycap">⌘ K</span>
+            </div>
+            <div class="hero-buttons reveal" style="transition-delay:0.15s">
+                <a href="#featured" class="btn btn-gradient">
+                    Browse Experiences
+                    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
+                <a href="#" class="btn btn-ghost">Gift an Experience</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured -->
+    <section class="featured" id="featured">
+        <div class="container">
+            <div class="featured-header reveal">
+                <h2>Featured experiences.</h2>
+                <p>Hand-picked adventures that our guests can't stop talking about.</p>
+            </div>
+            <div class="featured-grid">
+                <div class="feat-card reveal">
+                    <div class="feat-img"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="feat-body">
+                        <span class="feat-tag">Mountain Retreat</span>
+                        <h3>Alpine Wellness Weekend</h3>
+                        <p>Three days of yoga, meditation, and mountain hikes in the Swiss Alps. Disconnect to reconnect.</p>
+                        <div class="feat-footer">
+                            <span class="feat-price">$899 <span>/person</span></span>
+                            <button class="feat-book">Book</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="feat-card reveal" style="transition-delay:0.05s">
+                    <div class="feat-img"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="feat-body">
+                        <span class="feat-tag">Culinary Tour</span>
+                        <h3>Tokyo Street Food Journey</h3>
+                        <p>Explore hidden ramen bars, tsukiji market stalls, and sake breweries with a local chef as your guide.</p>
+                        <div class="feat-footer">
+                            <span class="feat-price">$450 <span>/person</span></span>
+                            <button class="feat-book">Book</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="feat-card reveal" style="transition-delay:0.1s">
+                    <div class="feat-img"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="feat-body">
+                        <span class="feat-tag">Creative Workshop</span>
+                        <h3>Ceramics & Clay in Tuscany</h3>
+                        <p>A week of hands-on pottery making in a 16th-century Tuscan studio. All skill levels welcome.</p>
+                        <div class="feat-footer">
+                            <span class="feat-price">$1,200 <span>/person</span></span>
+                            <button class="feat-book">Book</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how">
+        <div class="container">
+            <div class="how-header reveal">
+                <h2>How it works.</h2>
+                <p>From discovery to unforgettable moments in three simple steps.</p>
+            </div>
+            <div class="steps">
+                <div class="step reveal">
+                    <div class="step-num">1</div>
+                    <h3>Discover</h3>
+                    <p>Browse curated experiences by category, location, or date. Every experience is hand-vetted by our team.</p>
+                </div>
+                <div class="step reveal" style="transition-delay:0.05s">
+                    <div class="step-num">2</div>
+                    <h3>Book</h3>
+                    <p>Reserve your spot instantly. Flexible cancellation and group discounts available on most experiences.</p>
+                </div>
+                <div class="step reveal" style="transition-delay:0.1s">
+                    <div class="step-num">3</div>
+                    <h3>Experience</h3>
+                    <p>Show up and be present. We handle every detail so you can focus on making memories.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories -->
+    <section class="categories" id="categories">
+        <div class="container">
+            <div class="cat-header reveal">
+                <h2>Explore by category.</h2>
+            </div>
+            <div class="cat-grid">
+                <div class="cat-card reveal">
+                    <div class="cat-icon"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+                    <div><h3>Wellness</h3><div class="cat-desc">Yoga, meditation, spa retreats</div></div>
+                </div>
+                <div class="cat-card reveal" style="transition-delay:0.03s">
+                    <div class="cat-icon"><svg viewBox="0 0 24 24"><path d="M3 11l18-5v12L3 11z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
+                    <div><h3>Adventure</h3><div class="cat-desc">Hiking, diving, climbing</div></div>
+                </div>
+                <div class="cat-card reveal" style="transition-delay:0.06s">
+                    <div class="cat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+                    <div><h3>Cultural</h3><div class="cat-desc">Museums, history, heritage</div></div>
+                </div>
+                <div class="cat-card reveal" style="transition-delay:0.09s">
+                    <div class="cat-icon"><svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></div>
+                    <div><h3>Culinary</h3><div class="cat-desc">Food tours, cooking classes</div></div>
+                </div>
+                <div class="cat-card reveal" style="transition-delay:0.12s">
+                    <div class="cat-icon"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+                    <div><h3>Creative</h3><div class="cat-desc">Art, pottery, photography</div></div>
+                </div>
+                <div class="cat-card reveal" style="transition-delay:0.15s">
+                    <div class="cat-icon"><svg viewBox="0 0 24 24"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/></svg></div>
+                    <div><h3>Nature</h3><div class="cat-desc">Wildlife, camping, stargazing</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upcoming -->
+    <section class="upcoming" id="upcoming">
+        <div class="container">
+            <div class="upcoming-header reveal">
+                <h2>Upcoming experiences.</h2>
+                <p>Reserve your spot before they fill up.</p>
+            </div>
+            <div class="upcoming-grid">
+                <div class="up-card reveal">
+                    <div class="up-img"><span class="up-date">Mar 15-18</span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="up-body"><h3>Bali Surf & Yoga</h3><div class="up-location"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Bali, Indonesia</div><div class="up-footer"><span class="up-price">$749 <span>/person</span></span><button class="feat-book">Book</button></div></div>
+                </div>
+                <div class="up-card reveal" style="transition-delay:0.05s">
+                    <div class="up-img"><span class="up-date">Apr 2-5</span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="up-body"><h3>Wine Country Weekend</h3><div class="up-location"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Napa Valley, CA</div><div class="up-footer"><span class="up-price">$520 <span>/person</span></span><button class="feat-book">Book</button></div></div>
+                </div>
+                <div class="up-card reveal" style="transition-delay:0.1s">
+                    <div class="up-img"><span class="up-date">Apr 10-12</span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="up-body"><h3>Northern Lights Trek</h3><div class="up-location"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Tromsø, Norway</div><div class="up-footer"><span class="up-price">$1,100 <span>/person</span></span><button class="feat-book">Book</button></div></div>
+                </div>
+                <div class="up-card reveal" style="transition-delay:0.15s">
+                    <div class="up-img"><span class="up-date">May 1-3</span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+                    <div class="up-body"><h3>Jazz & Soul Weekend</h3><div class="up-location"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>New Orleans, LA</div><div class="up-footer"><span class="up-price">$380 <span>/person</span></span><button class="feat-book">Book</button></div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid reveal">
+                <div class="stat-item"><div class="stat-number">10,000+</div><div class="stat-label">Happy guests</div></div>
+                <div class="stat-item"><div class="stat-number">200+</div><div class="stat-label">Curated experiences</div></div>
+                <div class="stat-item"><div class="stat-number">50+</div><div class="stat-label">Cities worldwide</div></div>
+                <div class="stat-item"><div class="stat-number">4.9</div><div class="stat-label">Average rating</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="test-header reveal"><h2>What guests say.</h2></div>
+            <div class="test-grid">
+                <div class="test-card reveal">
+                    <p class="test-quote">"The Bali retreat was the most transformative experience of my life. Every detail was thoughtful, from the sunrise yoga to the local village tours."</p>
+                    <div class="test-author">Emma S.</div>
+                    <div class="test-exp">Bali Surf & Yoga Retreat</div>
+                </div>
+                <div class="test-card reveal" style="transition-delay:0.05s">
+                    <p class="test-quote">"I've done food tours in 12 countries and the Tokyo tour was hands down the best. Our guide knew every hidden gem in the city."</p>
+                    <div class="test-author">Marcus J.</div>
+                    <div class="test-exp">Tokyo Street Food Journey</div>
+                </div>
+                <div class="test-card reveal" style="transition-delay:0.1s">
+                    <p class="test-quote">"Bought this as a birthday gift for my partner. They came back a different person — more creative, more relaxed, more alive."</p>
+                    <div class="test-author">Priya T.</div>
+                    <div class="test-exp">Ceramics & Clay in Tuscany</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="faq-header reveal"><h2>Common questions.</h2></div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)"><span>What's included in each experience?</span><span class="faq-toggle"></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner"><p>Every experience includes guided activities, meals where specified, and local transportation. Accommodation is included in multi-day experiences. Specific inclusions are listed on each experience page.</p></div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)"><span>What's your cancellation policy?</span><span class="faq-toggle"></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner"><p>Free cancellation up to 14 days before the experience date. Within 14 days, you'll receive a 50% refund or full credit toward a future experience. Within 48 hours, we're unable to offer refunds.</p></div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)"><span>Can I book for a group?</span><span class="faq-toggle"></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner"><p>Absolutely. Groups of 4+ receive 10% off, and groups of 8+ receive 15% off. We also offer fully private experiences for corporate teams and special events.</p></div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)"><span>Do I need any prior experience?</span><span class="faq-toggle"></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner"><p>Most experiences are designed for all skill levels. Any that require specific abilities or fitness levels are clearly marked. Our guides adapt to your pace and comfort level.</p></div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)"><span>How do gift cards work?</span><span class="faq-toggle"></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner"><p>Purchase a gift card in any amount. The recipient gets a beautiful digital card and can use it to book any experience they want. Gift cards never expire and the full amount is transferable.</p></div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)"><span>Are experiences suitable for solo travelers?</span><span class="faq-toggle"></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner"><p>Many of our guests travel solo. Group experiences are a wonderful way to meet like-minded people. We also offer several experiences specifically designed for solo travelers.</p></div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2 class="reveal">Your next <span class="gradient-text">unforgettable</span> moment.</h2>
+            <p class="reveal" style="transition-delay:0.05s">Browse 200+ curated experiences in 50+ cities. Your next great memory is waiting.</p>
+            <div class="cta-buttons reveal" style="transition-delay:0.1s">
+                <button class="btn-glow">Browse All Experiences</button>
+                <a href="#" class="btn btn-ghost">Send a Gift Card</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="#" class="nav-logo">Wandr</a>
+                    <p>Curated experiences worth remembering. Discover, book, and experience something extraordinary.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Explore</h4>
+                    <ul>
+                        <li><a href="#">All Experiences</a></li>
+                        <li><a href="#">Categories</a></li>
+                        <li><a href="#">Gift Cards</a></li>
+                        <li><a href="#">Upcoming</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Press</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Help Center</a></li>
+                        <li><a href="#">Contact</a></li>
+                        <li><a href="#">Privacy</a></li>
+                        <li><a href="#">Terms</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2025 Wandr. All rights reserved.</span>
+                <div class="footer-social">
+                    <a href="#" aria-label="Twitter"><svg viewBox="0 0 24 24"><path d="M4 4l11.73 16H20L8.27 4z"/><path d="M4 20l6.77-7.13"/><path d="M20 4l-6.77 7.13"/></svg></a>
+                    <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+                    <a href="#" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.13C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target); }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        function toggleFaq(btn) {
+            const item = btn.parentElement;
+            const was = item.classList.contains('active');
+            document.querySelectorAll('.faq-item').forEach(f => f.classList.remove('active'));
+            if (!was) item.classList.add('active');
+        }
+
+        let mobileNavOpen = false;
+        function toggleMobileNav() {
+            mobileNavOpen = !mobileNavOpen;
+            const nav = document.getElementById('mobileNav');
+            const icon = document.getElementById('menuIcon');
+            if (mobileNavOpen) { nav.classList.add('open'); icon.innerHTML = '<line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>'; }
+            else { nav.classList.remove('open'); icon.innerHTML = '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>'; }
+        }
+        function closeMobileNav() { mobileNavOpen = false; document.getElementById('mobileNav').classList.remove('open'); document.getElementById('menuIcon').innerHTML = '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>'; }
+
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', function(e) {
+                const t = document.querySelector(this.getAttribute('href'));
+                if (t) { e.preventDefault(); window.scrollTo({ top: t.offsetTop - 60, behavior: 'smooth' }); }
+            });
+        });
+    </script>
+
+</body>
+</html>

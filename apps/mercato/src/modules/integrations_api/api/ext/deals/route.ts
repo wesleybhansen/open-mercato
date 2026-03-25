@@ -1,0 +1,45 @@
+import { NextResponse } from 'next/server'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+
+export const metadata = {
+  GET: { requireAuth: true, requireFeatures: ['integrations_api.access'] },
+}
+
+export async function GET(req: Request, ctx: any) {
+  const auth = ctx?.auth
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  try {
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const knex = em.getKnex()
+    const url = new URL(req.url)
+
+    const stage = url.searchParams.get('stage')
+    const status = url.searchParams.get('status')
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const pageSize = Math.min(parseInt(url.searchParams.get('pageSize') || '50'), 100)
+
+    let query = knex('customer_deals')
+      .where('tenant_id', auth.tenantId)
+      .where('organization_id', auth.orgId)
+      .whereNull('deleted_at')
+
+    if (stage) query = query.where('pipeline_stage', stage)
+    if (status) query = query.where('status', status)
+
+    const [{ count }] = await query.clone().count()
+    const deals = await query.select('*').orderBy('created_at', 'desc').limit(pageSize).offset((page - 1) * pageSize)
+
+    return NextResponse.json({ ok: true, data: deals, pagination: { page, pageSize, total: Number(count) } })
+  } catch (error) {
+    console.error('[ext.deals.list]', error)
+    return NextResponse.json({ ok: false, error: 'Failed to list deals' }, { status: 500 })
+  }
+}
+
+export const openApi: OpenApiRouteDoc = {
+  tag: 'External API', summary: 'Deals (external)',
+  methods: { GET: { summary: 'List deals', tags: ['External API'] } },
+}

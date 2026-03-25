@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Collective — Curated Experiences</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --white: #fdfcfa;
+      --ink: #121418;
+      --stone: #f4f1ec;
+      --black: #111111;
+      --gray: #5a5a5a;
+      --gray-light: #8a8a8a;
+      --vermillion: #c44a2f;
+      --vermillion-hover: #b03d25;
+      --teal: #3a7d7b;
+      --rule: #d8d4ce;
+      --rule-dark: rgba(255,255,255,0.12);
+
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body: 'Source Sans 3', 'Helvetica Neue', sans-serif;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --container: 1160px;
+      --container-wide: 1340px;
+      --gutter: 24px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--gray);
+      background: var(--white);
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+    .container { max-width: var(--container); margin: 0 auto; padding: 0 var(--gutter); }
+    .container--wide { max-width: var(--container-wide); margin: 0 auto; padding: 0 var(--gutter); }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.25s; }
+
+    .divider { border: none; height: 1px; background: var(--rule); margin: 0; }
+
+    /* ============================================
+       NAVIGATION
+    ============================================ */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: rgba(253, 252, 250, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .nav-inner {
+      max-width: var(--container);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-logo {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--black);
+      letter-spacing: 0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--gray);
+      transition: color 0.3s ease;
+    }
+
+    .nav-links a:not(.nav-cta):hover { color: var(--black); }
+
+    .nav-links a.nav-cta {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 9px 22px;
+      background: var(--black);
+      color: var(--white);
+      letter-spacing: 0.06em;
+      transition: background 0.3s ease;
+    }
+
+    .nav-links a.nav-cta:hover { background: var(--vermillion); }
+
+    .nav-toggle {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      width: 26px;
+      padding: 4px 0;
+    }
+
+    .nav-toggle span {
+      height: 1.5px;
+      background: var(--black);
+      border-radius: 1px;
+      transition: all 0.3s ease;
+    }
+
+    .nav-toggle span:nth-child(1) { width: 26px; }
+    .nav-toggle span:nth-child(2) { width: 18px; }
+    .nav-toggle span:nth-child(3) { width: 22px; }
+
+    .nav-toggle.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+    .nav-toggle.active span:nth-child(2) { opacity: 0; }
+    .nav-toggle.active span:nth-child(3) { transform: rotate(-45deg) translate(4px, -4px); width: 26px; }
+
+    /* ============================================
+       HERO
+    ============================================ */
+    .hero {
+      padding: 120px 0 0;
+      text-align: center;
+    }
+
+    .hero-overline {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermillion);
+      margin-bottom: 20px;
+      display: block;
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(48px, 7vw, 96px);
+      font-weight: 700;
+      line-height: 1.0;
+      color: var(--black);
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--gray);
+      margin-bottom: 40px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 56px;
+      flex-wrap: wrap;
+    }
+
+    .hero-meta-item {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-light);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-meta-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--rule);
+    }
+
+    .hero-image {
+      max-width: var(--container-wide);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+    }
+
+    .hero-image-placeholder {
+      width: 100%;
+      aspect-ratio: 21/9;
+      background: var(--stone);
+      border: 1px solid var(--rule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .placeholder-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gray-light);
+    }
+
+    /* ============================================
+       EDITORIAL INTRO
+    ============================================ */
+    .editorial {
+      padding: 100px 0;
+      background: var(--white);
+    }
+
+    .editorial-grid {
+      display: grid;
+      grid-template-columns: 5fr 6fr;
+      gap: 80px;
+      align-items: start;
+    }
+
+    .editorial-pull {
+      position: sticky;
+      top: 120px;
+    }
+
+    .editorial-pull blockquote {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 3vw, 38px);
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1.35;
+      color: var(--black);
+      border-left: 3px solid var(--vermillion);
+      padding-left: 28px;
+    }
+
+    .editorial-body p {
+      font-size: 17px;
+      line-height: 1.85;
+      color: var(--gray);
+      margin-bottom: 24px;
+    }
+
+    .editorial-body p:first-child::first-letter {
+      font-family: var(--font-display);
+      font-size: 72px;
+      font-weight: 700;
+      float: left;
+      line-height: 0.8;
+      margin-right: 12px;
+      margin-top: 8px;
+      color: var(--black);
+    }
+
+    /* ============================================
+       FEATURED EXPERIENCES
+    ============================================ */
+    .featured {
+      padding: 80px 0 100px;
+      background: var(--stone);
+    }
+
+    .featured-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 56px;
+    }
+
+    .featured-header-text {}
+
+    .section-tag {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--vermillion);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(32px, 3.5vw, 48px);
+      font-weight: 600;
+      line-height: 1.15;
+      color: var(--black);
+    }
+
+    .featured-grid {
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      grid-template-rows: auto auto;
+      gap: 24px;
+    }
+
+    .experience-card {
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.5s var(--ease-out);
+    }
+
+    .experience-card:hover { transform: translateY(-4px); }
+
+    .experience-card--large {
+      grid-row: span 2;
+    }
+
+    .experience-image {
+      width: 100%;
+      background: var(--white);
+      border: 1px solid var(--rule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .experience-card--large .experience-image {
+      aspect-ratio: 3/4;
+    }
+
+    .experience-card--small .experience-image {
+      aspect-ratio: 16/9;
+    }
+
+    .experience-content {
+      padding: 24px 0 0;
+    }
+
+    .experience-date {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--vermillion);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .experience-name {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--black);
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+
+    .experience-card--large .experience-name {
+      font-size: 30px;
+    }
+
+    .experience-desc {
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--gray);
+      margin-bottom: 14px;
+    }
+
+    .experience-price {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--black);
+    }
+
+    .experience-price span {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--gray-light);
+    }
+
+    /* ============================================
+       THE DETAILS
+    ============================================ */
+    .details {
+      padding: 100px 0;
+      background: var(--white);
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+    }
+
+    .details-col h2 {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 600;
+      color: var(--black);
+      margin-bottom: 36px;
+      line-height: 1.2;
+    }
+
+    .details-col h2 em { font-style: italic; font-weight: 400; }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 18px 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    .detail-row:last-child {
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .detail-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gray-light);
+    }
+
+    .detail-value {
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--black);
+      text-align: right;
+    }
+
+    .details-includes h3 {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--black);
+      margin-bottom: 24px;
+    }
+
+    .include-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    .include-item:last-child { border-bottom: 1px solid var(--rule); }
+
+    .include-check {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .include-check svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--teal);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .include-text {
+      font-size: 15px;
+      color: var(--gray);
+      line-height: 1.5;
+    }
+
+    .include-text strong {
+      color: var(--black);
+      font-weight: 600;
+    }
+
+    /* ============================================
+       FULL-WIDTH IMAGE BREAK
+    ============================================ */
+    .image-break {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .image-break-placeholder {
+      width: 100%;
+      aspect-ratio: 21/8;
+      background: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .image-break-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(18, 20, 24, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .image-break-quote {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 52px);
+      font-weight: 400;
+      font-style: italic;
+      color: #fff;
+      text-align: center;
+      max-width: 800px;
+      line-height: 1.3;
+    }
+
+    /* ============================================
+       ITINERARY
+    ============================================ */
+    .itinerary {
+      padding: 100px 0;
+      background: var(--white);
+    }
+
+    .itinerary-header {
+      margin-bottom: 64px;
+    }
+
+    .itinerary-list {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .itinerary-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 40px;
+      padding: 36px 0;
+      border-top: 1px solid var(--rule);
+      align-items: start;
+    }
+
+    .itinerary-item:last-child { border-bottom: 1px solid var(--rule); }
+
+    .itinerary-day {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--vermillion);
+      padding-top: 4px;
+    }
+
+    .itinerary-content h3 {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--black);
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+
+    .itinerary-content p {
+      font-size: 16px;
+      line-height: 1.75;
+      color: var(--gray);
+    }
+
+    .itinerary-time {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gray-light);
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .itinerary-time svg {
+      width: 14px;
+      height: 14px;
+      stroke: var(--gray-light);
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ============================================
+       TESTIMONIALS
+    ============================================ */
+    .testimonials {
+      padding: 100px 0;
+      background: var(--stone);
+    }
+
+    .testimonials-header {
+      text-align: center;
+      margin-bottom: 72px;
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 60px;
+    }
+
+    .testimonial {
+      text-align: center;
+    }
+
+    .testimonial-mark {
+      font-family: var(--font-display);
+      font-size: 80px;
+      line-height: 0.6;
+      color: var(--rule);
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .testimonial p {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1.6;
+      color: var(--black);
+      margin-bottom: 24px;
+    }
+
+    .testimonial-author {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--black);
+    }
+
+    .testimonial-detail {
+      font-size: 13px;
+      color: var(--gray-light);
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    /* ============================================
+       HOST
+    ============================================ */
+    .host {
+      padding: 100px 0;
+      background: var(--white);
+    }
+
+    .host-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .host-image-placeholder {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: var(--stone);
+      border: 1px solid var(--rule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .host-content .section-tag { margin-bottom: 14px; }
+
+    .host-content h2 {
+      font-family: var(--font-display);
+      font-size: clamp(30px, 3.5vw, 42px);
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--black);
+      margin-bottom: 24px;
+    }
+
+    .host-content h2 em { font-style: italic; font-weight: 400; }
+
+    .host-content p {
+      font-size: 16px;
+      line-height: 1.8;
+      color: var(--gray);
+      margin-bottom: 18px;
+    }
+
+    .host-credentials {
+      display: flex;
+      gap: 24px;
+      margin-top: 28px;
+      padding-top: 28px;
+      border-top: 1px solid var(--rule);
+      flex-wrap: wrap;
+    }
+
+    .host-credential {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--black);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .host-credential svg {
+      width: 16px; height: 16px;
+      stroke: var(--teal);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ============================================
+       FAQ
+    ============================================ */
+    .faq {
+      padding: 100px 0;
+      background: var(--stone);
+    }
+
+    .faq-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .faq-list {
+      max-width: 740px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      border-top: 1px solid var(--rule);
+    }
+
+    .faq-item:last-child {
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .faq-question {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 0;
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--black);
+      text-align: left;
+      transition: color 0.3s ease;
+      gap: 20px;
+    }
+
+    .faq-question:hover { color: var(--vermillion); }
+
+    .faq-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s var(--ease-out);
+    }
+
+    .faq-item.active .faq-icon {
+      transform: rotate(45deg);
+    }
+
+    .faq-icon svg {
+      width: 16px; height: 16px;
+      stroke: var(--gray-light);
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s var(--ease-out);
+    }
+
+    .faq-answer-inner {
+      padding-bottom: 22px;
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--gray);
+    }
+
+    /* ============================================
+       FINAL CTA
+    ============================================ */
+    .final-cta {
+      padding: 120px 0;
+      background: var(--ink);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .final-cta::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+    }
+
+    .final-cta-content {
+      position: relative;
+      z-index: 2;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .final-cta .section-tag { color: rgba(255,255,255,0.5); }
+
+    .final-cta h2 {
+      font-family: var(--font-display);
+      font-size: clamp(36px, 4.5vw, 56px);
+      font-weight: 600;
+      line-height: 1.15;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    .final-cta h2 em { font-style: italic; font-weight: 400; }
+
+    .final-cta-desc {
+      font-size: 17px;
+      line-height: 1.75;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 40px;
+    }
+
+    .btn-vermillion {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--vermillion);
+      padding: 16px 36px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.3s var(--ease-out);
+    }
+
+    .btn-vermillion:hover {
+      background: var(--vermillion-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn-vermillion svg {
+      width: 14px; height: 14px;
+      stroke: currentColor; fill: none;
+      stroke-width: 2;
+      transition: transform 0.3s var(--ease-out);
+    }
+
+    .btn-vermillion:hover svg { transform: translateX(3px); }
+
+    /* ============================================
+       FOOTER
+    ============================================ */
+    .footer {
+      padding: 48px 0 36px;
+      background: var(--ink);
+      border-top: 1px solid var(--rule-dark);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 36px;
+    }
+
+    .footer-brand {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 13px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover { color: #fff; }
+
+    .footer-bottom {
+      border-top: 1px solid var(--rule-dark);
+      padding-top: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-copy {
+      font-size: 12px;
+      color: rgba(255,255,255,0.25);
+    }
+
+    .footer-social {
+      display: flex;
+      gap: 18px;
+    }
+
+    .footer-social a {
+      color: rgba(255,255,255,0.3);
+      transition: color 0.3s ease;
+    }
+
+    .footer-social a:hover { color: #fff; }
+
+    .footer-social svg {
+      width: 17px; height: 17px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ============================================
+       RESPONSIVE
+    ============================================ */
+    @media (max-width: 1024px) {
+      .editorial-grid { gap: 48px; }
+      .featured-grid { grid-template-columns: 1fr 1fr; }
+      .experience-card--large { grid-row: auto; }
+      .experience-card--large .experience-image { aspect-ratio: 16/10; }
+      .details-grid { gap: 48px; }
+      .testimonials-grid { gap: 40px; }
+      .host-grid { gap: 48px; }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+        position: fixed;
+        top: 64px; left: 0; right: 0;
+        background: rgba(253,252,250,0.97);
+        flex-direction: column;
+        padding: 24px var(--gutter);
+        gap: 20px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .nav-links.active { display: flex; }
+      .nav-toggle { display: flex; }
+
+      .hero { padding: 110px 0 0; }
+      .hero h1 { font-size: 42px; }
+
+      .editorial-grid { grid-template-columns: 1fr; gap: 40px; }
+      .editorial-pull { position: static; }
+
+      .featured-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .featured-grid { grid-template-columns: 1fr; }
+
+      .details-grid { grid-template-columns: 1fr; gap: 48px; }
+
+      .image-break-quote { font-size: 24px; }
+
+      .itinerary-item { grid-template-columns: 1fr; gap: 8px; }
+
+      .testimonials-grid {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+        margin: 0 auto;
+        gap: 48px;
+      }
+
+      .host-grid { grid-template-columns: 1fr; gap: 40px; }
+
+      .footer-inner { flex-direction: column; gap: 20px; }
+      .footer-bottom { flex-direction: column; gap: 14px; text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      :root { --gutter: 18px; }
+      .hero h1 { font-size: 34px; }
+      .section-title { font-size: 28px; }
+      .hero-meta { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVIGATION -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">The Collective</a>
+      <button class="nav-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="#experiences">Experiences</a></li>
+        <li><a href="#itinerary">Itinerary</a></li>
+        <li><a href="#host">Your Guide</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#experiences" class="nav-cta">Reserve a Spot</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container">
+      <span class="hero-overline reveal">A Curated Experience</span>
+      <h1 class="reveal reveal-delay-1">The Art of<br><em>Being Present</em></h1>
+      <p class="hero-subtitle reveal reveal-delay-2">Three days of immersive workshops, meaningful connection, and the kind of stillness that changes everything.</p>
+      <div class="hero-meta reveal reveal-delay-3">
+        <span class="hero-meta-item">Tuscany, Italy</span>
+        <span class="hero-meta-dot"></span>
+        <span class="hero-meta-item">March 15–17, 2025</span>
+        <span class="hero-meta-dot"></span>
+        <span class="hero-meta-item">12 Spots Only</span>
+      </div>
+    </div>
+    <div class="hero-image reveal reveal-delay-3">
+      <div class="hero-image-placeholder">
+        <span class="placeholder-label">Cinematic Hero Image — 21:9</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- EDITORIAL INTRO -->
+  <section class="editorial">
+    <div class="container">
+      <div class="editorial-grid">
+        <div class="editorial-pull reveal">
+          <blockquote>"We designed this experience for people who have achieved everything on paper — but still feel like something is missing."</blockquote>
+        </div>
+        <div class="editorial-body reveal reveal-delay-1">
+          <p>There's a particular kind of restlessness that comes with success. You've built the career, checked the boxes, filled the calendar. And yet, in the quiet moments, there's a pull toward something you can't quite name. Something slower. Deeper. More real.</p>
+          <p>This experience was born from that feeling. We bring together a small group of thoughtful people in an extraordinary setting, strip away the noise of daily life, and create the conditions for genuine presence. No agenda-driven networking. No performative wellness. Just space, craft, conversation, and the rare luxury of unhurried time.</p>
+          <p>Every element — from the hands-on workshops to the meals we share — is designed with the same intention: to help you reconnect with the parts of yourself that get lost in the rush.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- FEATURED EXPERIENCES -->
+  <section class="featured" id="experiences">
+    <div class="container">
+      <div class="featured-header">
+        <div class="featured-header-text">
+          <span class="section-tag reveal">Select Experiences</span>
+          <h2 class="section-title reveal reveal-delay-1">Upcoming Gatherings</h2>
+        </div>
+      </div>
+      <div class="featured-grid">
+        <div class="experience-card experience-card--large reveal">
+          <div class="experience-image">
+            <span class="placeholder-label">Featured Image</span>
+          </div>
+          <div class="experience-content">
+            <span class="experience-date">March 15–17, 2025</span>
+            <h3 class="experience-name">The Tuscan Immersion</h3>
+            <p class="experience-desc">Three days in a restored 16th-century villa. Pottery workshops, olive oil tastings, and long dinners under the pergola. Limited to 12 guests.</p>
+            <span class="experience-price">$2,400 <span>/ person</span></span>
+          </div>
+        </div>
+        <div class="experience-card experience-card--small reveal reveal-delay-1">
+          <div class="experience-image">
+            <span class="placeholder-label">Experience Image</span>
+          </div>
+          <div class="experience-content">
+            <span class="experience-date">April 8–9, 2025</span>
+            <h3 class="experience-name">The Coastal Retreat</h3>
+            <p class="experience-desc">A weekend of ocean-side meditation, foraging walks, and watercolor painting on the cliffs of Big Sur.</p>
+            <span class="experience-price">$1,200 <span>/ person</span></span>
+          </div>
+        </div>
+        <div class="experience-card experience-card--small reveal reveal-delay-2">
+          <div class="experience-image">
+            <span class="placeholder-label">Experience Image</span>
+          </div>
+          <div class="experience-content">
+            <span class="experience-date">May 20, 2025</span>
+            <h3 class="experience-name">The Evening Salon</h3>
+            <p class="experience-desc">An intimate dinner and conversation series in our Brooklyn loft. Five courses, one topic, twelve strangers who won't stay strangers.</p>
+            <span class="experience-price">$350 <span>/ person</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE DETAILS -->
+  <section class="details" id="details">
+    <div class="container">
+      <div class="details-grid">
+        <div class="reveal">
+          <h2>The <em>essentials</em></h2>
+          <div class="detail-row">
+            <span class="detail-label">Duration</span>
+            <span class="detail-value">3 Days, 2 Nights</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Group Size</span>
+            <span class="detail-value">12 Guests Maximum</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Skill Level</span>
+            <span class="detail-value">All Welcome</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Location</span>
+            <span class="detail-value">Tuscany, Italy</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Investment</span>
+            <span class="detail-value">From $2,400</span>
+          </div>
+        </div>
+        <div class="details-includes reveal reveal-delay-1">
+          <h3>What's Included</h3>
+          <div class="include-item">
+            <span class="include-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="include-text"><strong>Accommodation</strong> — Two nights in a private room at a restored 16th-century Tuscan villa</span>
+          </div>
+          <div class="include-item">
+            <span class="include-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="include-text"><strong>All Meals</strong> — Farm-to-table breakfast, lunch, and dinner prepared by a local chef</span>
+          </div>
+          <div class="include-item">
+            <span class="include-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="include-text"><strong>Workshops</strong> — All guided sessions, materials, and expert instruction included</span>
+          </div>
+          <div class="include-item">
+            <span class="include-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="include-text"><strong>Local Excursions</strong> — Guided visits to artisan workshops and vineyards in the surrounding hills</span>
+          </div>
+          <div class="include-item">
+            <span class="include-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="include-text"><strong>Airport Transfer</strong> — Round-trip transportation from Florence airport to the villa</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FULL-WIDTH IMAGE BREAK -->
+  <section class="image-break">
+    <div class="image-break-placeholder">
+      <div class="image-break-overlay">
+        <p class="image-break-quote reveal">"The real luxury isn't the place — it's the permission to slow down."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ITINERARY -->
+  <section class="itinerary" id="itinerary">
+    <div class="container">
+      <div class="itinerary-header">
+        <span class="section-tag reveal">The Itinerary</span>
+        <h2 class="section-title reveal reveal-delay-1">How Three Days Unfold</h2>
+      </div>
+      <div class="itinerary-list">
+        <div class="itinerary-item reveal">
+          <div class="itinerary-day">Day One</div>
+          <div class="itinerary-content">
+            <h3>Arrive & Open</h3>
+            <p>Arrive at the villa by late morning. After settling in, join the group for a welcome lunch on the terrace. The afternoon is spent on an introductory workshop and a slow walk through the olive groves. Evening brings the first of our long-table dinners under the stars.</p>
+            <div class="itinerary-time">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Check-in from 11:00 AM
+            </div>
+          </div>
+        </div>
+        <div class="itinerary-item reveal">
+          <div class="itinerary-day">Day Two</div>
+          <div class="itinerary-content">
+            <h3>Create & Explore</h3>
+            <p>The heart of the experience. Morning begins with a guided practice, followed by the main workshop sessions. After lunch, venture out to local artisan studios and vineyards. Return for an evening of conversation, wine, and a cooking demonstration by our chef.</p>
+            <div class="itinerary-time">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Full day, 8:00 AM – 10:00 PM
+            </div>
+          </div>
+        </div>
+        <div class="itinerary-item reveal">
+          <div class="itinerary-day">Day Three</div>
+          <div class="itinerary-content">
+            <h3>Reflect & Depart</h3>
+            <p>A quieter morning of reflection, journaling, and a closing circle. Share what you've discovered, exchange details with new friends, and enjoy a final breakfast together before departure. Take the afternoon to explore the nearby village on your own.</p>
+            <div class="itinerary-time">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Check-out by 2:00 PM
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="testimonials">
+    <div class="container">
+      <div class="testimonials-header">
+        <span class="section-tag reveal">Voices</span>
+        <h2 class="section-title reveal reveal-delay-1">From Those Who've Been</h2>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testimonial reveal">
+          <span class="testimonial-mark">&ldquo;</span>
+          <p>I went expecting a nice weekend away. I came home a fundamentally different person. The intimacy of the group, the beauty of the setting — it unlocked something I didn't know I needed.</p>
+          <div class="testimonial-author">Caroline S.</div>
+          <div class="testimonial-detail">The Tuscan Immersion, 2024</div>
+        </div>
+        <div class="testimonial reveal reveal-delay-1">
+          <span class="testimonial-mark">&ldquo;</span>
+          <p>Every detail felt intentional. The food, the timing, the conversation. Nothing was forced, nothing was performative. It was simply one of the most beautiful weekends of my life.</p>
+          <div class="testimonial-author">Michael T.</div>
+          <div class="testimonial-detail">The Coastal Retreat, 2024</div>
+        </div>
+        <div class="testimonial reveal reveal-delay-2">
+          <span class="testimonial-mark">&ldquo;</span>
+          <p>I'm a skeptic by nature. I don't do retreats. But a friend dragged me along, and I'll be forever grateful. The quality of the people and the experience was unlike anything I've encountered.</p>
+          <div class="testimonial-author">Ana R.</div>
+          <div class="testimonial-detail">The Evening Salon, 2024</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOST -->
+  <section class="host" id="host">
+    <div class="container">
+      <div class="host-grid">
+        <div class="reveal">
+          <div class="host-image-placeholder">
+            <span class="placeholder-label">Host Portrait</span>
+          </div>
+        </div>
+        <div class="host-content">
+          <span class="section-tag reveal">Your Guide</span>
+          <h2 class="reveal reveal-delay-1">Meet the curator behind <em>every detail</em></h2>
+          <p class="reveal reveal-delay-2">[Your Name] spent a decade in the world of fine dining and luxury hospitality before realizing that the most meaningful experiences weren't happening in five-star hotels — they were happening in kitchens, studios, and around dinner tables where people let their guard down.</p>
+          <p class="reveal reveal-delay-2">Now, they design intimate gatherings that combine their obsessive attention to detail with a deep belief that the best moments in life are the ones we share. Every experience is personally curated, from the guest list to the playlist.</p>
+          <div class="host-credentials reveal reveal-delay-3">
+            <div class="host-credential">
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              600+ Guests Hosted
+            </div>
+            <div class="host-credential">
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              12 Years Hospitality
+            </div>
+            <div class="host-credential">
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              4 Countries
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq">
+    <div class="container">
+      <div class="faq-header">
+        <span class="section-tag reveal">Questions</span>
+        <h2 class="section-title reveal reveal-delay-1">Before You Book</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            Who is this experience for?
+            <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Anyone who feels the pull toward something more intentional. Our guests range from founders and creatives to teachers and retirees. What they share is curiosity, openness, and a desire for experiences that go beyond the surface. No specific skills or experience required.</div>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            What's the cancellation policy?
+            <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Full refund up to 30 days before the experience. Between 30 and 14 days, you'll receive a credit for any future gathering. Within 14 days, we're unable to offer refunds, but you're welcome to transfer your spot to someone else.</div>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            Can I attend alone?
+            <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Absolutely — in fact, most of our guests come solo. The small group format and thoughtfully designed activities make it easy to connect naturally. Many guests tell us the friendships they formed are the most valuable part of the experience.</div>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            What should I pack?
+            <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Comfortable clothing you can move in, layers for cool evenings, and shoes suitable for walking on unpaved paths. We'll send a detailed packing guide two weeks before arrival. All workshop materials and equipment are provided.</div>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            Are dietary restrictions accommodated?
+            <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Yes, completely. Our chef works with local, seasonal ingredients and can accommodate any dietary need — vegetarian, vegan, gluten-free, allergies, or other restrictions. Just let us know when you book and we'll take care of everything.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final-cta">
+    <div class="container">
+      <div class="final-cta-content">
+        <span class="section-tag reveal">Limited Availability</span>
+        <h2 class="reveal reveal-delay-1">Some experiences<br>can't wait for <em>someday</em></h2>
+        <p class="final-cta-desc reveal reveal-delay-2">Twelve spots. Three days. One experience you'll carry with you for the rest of your life. Reserve yours before they're gone.</p>
+        <div class="reveal reveal-delay-3">
+          <a href="#experiences" class="btn-vermillion">
+            Reserve Your Spot
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <a href="#" class="footer-brand">The Collective</a>
+        <ul class="footer-links">
+          <li><a href="#">Experiences</a></li>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Gift Cards</a></li>
+          <li><a href="#">Privacy</a></li>
+        </ul>
+      </div>
+      <div class="footer-bottom">
+        <span class="footer-copy">&copy; 2025 The Collective. All rights reserved.</span>
+        <div class="footer-social">
+          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg></a>
+          <a href="#" aria-label="Pinterest"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 4l-10 8L2 4"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile nav
+    const navToggle = document.querySelector('.nav-toggle');
+    const navLinks = document.querySelector('.nav-links');
+    navToggle.addEventListener('click', () => {
+      navToggle.classList.toggle('active');
+      navLinks.classList.toggle('active');
+    });
+    document.querySelectorAll('.nav-links a').forEach(l => l.addEventListener('click', () => {
+      navToggle.classList.remove('active');
+      navLinks.classList.remove('active');
+    }));
+
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          window.scrollTo({
+            top: target.getBoundingClientRect().top + window.pageYOffset - 84,
+            behavior: 'smooth'
+          });
+        }
+      });
+    });
+
+    // FAQ
+    document.querySelectorAll('.faq-question').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const item = this.parentElement;
+        const answer = item.querySelector('.faq-answer');
+        const isOpen = item.classList.contains('active');
+        document.querySelectorAll('.faq-item').forEach(i => {
+          i.classList.remove('active');
+          i.querySelector('.faq-answer').style.maxHeight = null;
+        });
+        if (!isOpen) {
+          item.classList.add('active');
+          answer.style.maxHeight = answer.scrollHeight + 'px';
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

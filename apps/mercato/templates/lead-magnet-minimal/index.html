@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Resource — Download Now</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --white: #FFFFFF;
+            --snow: #FAFAFA;
+            --gray-50: #F5F5F5;
+            --gray-100: #EEEEEE;
+            --gray-200: #E0E0E0;
+            --gray-400: #ABABAB;
+            --gray-600: #757575;
+            --gray-800: #373737;
+            --black: #1A1A1A;
+            --accent: #1A1A1A;
+            --accent-hover: #333333;
+            --sage: #6B7F5E;
+            --sage-light: #EEF2EB;
+            --font-serif: 'Literata', Georgia, serif;
+            --font-sans: 'Manrope', sans-serif;
+            --container: 640px;
+            --container-wide: 800px;
+            --radius: 8px;
+            --transition: 0.25s ease;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-sans);
+            color: var(--gray-600);
+            background: var(--white);
+            line-height: 1.6;
+            font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: var(--container); margin: 0 auto; padding: 0 24px; }
+        .container--wide { max-width: var(--container-wide); }
+
+        h1, h2, h3 {
+            font-family: var(--font-serif);
+            color: var(--black);
+            line-height: 1.25;
+        }
+
+        /* ============ NAV ============ */
+        .nav {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-family: var(--font-serif);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--black);
+            text-decoration: none;
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            padding: 72px 0 56px;
+            text-align: center;
+        }
+
+        .hero-eyebrow {
+            font-family: var(--font-sans);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--gray-400);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-size: clamp(32px, 5.5vw, 50px);
+            font-weight: 400;
+            letter-spacing: -0.01em;
+            margin-bottom: 20px;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.2;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+        }
+
+        .hero-sub {
+            font-size: 16px;
+            color: var(--gray-600);
+            line-height: 1.7;
+            max-width: 440px;
+            margin: 0 auto 40px;
+        }
+
+        /* Divider */
+        .hero-divider {
+            width: 40px;
+            height: 1px;
+            background: var(--gray-200);
+            margin: 0 auto 40px;
+        }
+
+        /* Form */
+        .capture-form {
+            max-width: 360px;
+            margin: 0 auto;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--snow);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            font-family: var(--font-sans);
+            font-size: 14px;
+            color: var(--black);
+            outline: none;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        .form-input::placeholder { color: var(--gray-400); }
+        .form-input:focus {
+            border-color: var(--gray-400);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.03);
+            background: var(--white);
+        }
+
+        .form-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--accent);
+            color: var(--white);
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.01em;
+        }
+        .form-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .form-btn:active { transform: translateY(0); }
+
+        .form-trust {
+            text-align: center;
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 14px;
+        }
+
+        /* Success */
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: 24px 0;
+        }
+        .form-success.visible { display: block; }
+
+        .success-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--sage-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 14px;
+            animation: fade-up 0.4s ease;
+        }
+        .success-icon svg { width: 22px; height: 22px; color: var(--sage); }
+
+        @keyframes fade-up {
+            0% { transform: translateY(8px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        .form-success h3 {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .form-success p { font-size: 14px; color: var(--gray-600); }
+
+        /* ============ DIVIDER LINE ============ */
+        .section-divider {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        .section-divider hr {
+            border: none;
+            height: 1px;
+            background: var(--gray-100);
+        }
+
+        /* ============ INSIDE ============ */
+        .inside {
+            padding: 56px 0;
+        }
+
+        .inside-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .inside-header .section-label {
+            font-family: var(--font-sans);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--gray-400);
+            margin-bottom: 12px;
+        }
+
+        .inside-header h2 {
+            font-size: clamp(24px, 3.5vw, 32px);
+            font-weight: 400;
+        }
+
+        .inside-list {
+            max-width: 520px;
+            margin: 0 auto;
+            list-style: none;
+        }
+
+        .inside-item {
+            display: grid;
+            grid-template-columns: 48px 1fr;
+            gap: 20px;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--gray-100);
+            align-items: start;
+        }
+
+        .inside-item:first-child { border-top: 1px solid var(--gray-100); }
+
+        .inside-num {
+            font-family: var(--font-serif);
+            font-size: 28px;
+            font-weight: 400;
+            color: var(--gray-200);
+            line-height: 1;
+            padding-top: 2px;
+        }
+
+        .inside-item h3 {
+            font-size: 17px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            margin-bottom: 4px;
+        }
+
+        .inside-item p {
+            font-size: 14px;
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+
+        /* ============ TESTIMONIAL ============ */
+        .testimonial {
+            padding: 56px 0;
+            background: var(--snow);
+        }
+
+        .testimonial-inner {
+            max-width: 480px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 0 24px;
+        }
+
+        .testimonial-text {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: clamp(17px, 2.5vw, 21px);
+            line-height: 1.7;
+            color: var(--black);
+            margin-bottom: 24px;
+            font-weight: 400;
+        }
+
+        .testimonial-dash {
+            width: 24px;
+            height: 1px;
+            background: var(--gray-200);
+            margin: 0 auto 16px;
+        }
+
+        .testimonial-name {
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--black);
+        }
+        .testimonial-role {
+            font-family: var(--font-sans);
+            font-size: 13px;
+            color: var(--gray-400);
+            margin-top: 2px;
+        }
+
+        /* ============ BOTTOM CTA ============ */
+        .bottom-cta {
+            padding: 56px 0 80px;
+            text-align: center;
+        }
+
+        .bottom-cta h2 {
+            font-size: clamp(24px, 3.5vw, 32px);
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+
+        .bottom-cta .cta-sub {
+            font-size: 15px;
+            color: var(--gray-600);
+            margin-bottom: 32px;
+        }
+
+        .cta-inline-form {
+            display: flex;
+            gap: 8px;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+
+        .cta-inline-form .form-input { flex: 1; }
+
+        .cta-inline-form .form-btn {
+            width: auto;
+            white-space: nowrap;
+            padding: 14px 24px;
+        }
+
+        /* ============ FOOTER ============ */
+        .footer {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--gray-100);
+            font-size: 12px;
+            color: var(--gray-400);
+        }
+
+        .footer-links { display: flex; gap: 20px; }
+        .footer-links a {
+            color: var(--gray-400);
+            text-decoration: none;
+            transition: color var(--transition);
+        }
+        .footer-links a:hover { color: var(--gray-600); }
+
+        /* ============ SCROLL REVEAL ============ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal-d1 { transition-delay: 0.1s; }
+        .reveal-d2 { transition-delay: 0.2s; }
+        .reveal-d3 { transition-delay: 0.3s; }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .hero { padding: 48px 0 40px; }
+            .inside { padding: 40px 0; }
+            .testimonial { padding: 40px 0; }
+            .bottom-cta { padding: 40px 0 64px; }
+            .cta-inline-form { flex-direction: column; }
+            .cta-inline-form .form-btn { width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 0 16px; }
+            .nav { padding: 0 16px; }
+            .hero { padding: 36px 0 32px; }
+            .inside-item { grid-template-columns: 36px 1fr; gap: 14px; }
+            .footer { flex-direction: column; gap: 12px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <nav class="nav">
+        <span class="nav-logo">BrandName</span>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <p class="hero-eyebrow reveal">Free Guide</p>
+            <h1 class="reveal reveal-d1">A thoughtful guide to building your <em>first business</em></h1>
+            <p class="hero-sub reveal reveal-d2">Clear frameworks, honest advice, and practical templates for founders who want to build something real. No hype, no shortcuts — just what works.</p>
+
+            <div class="hero-divider reveal reveal-d2"></div>
+
+            <div class="capture-form reveal reveal-d3" id="heroFormWrap">
+                <form id="heroForm" onsubmit="handleSubmit(event, 'hero')">
+                    <div class="form-row">
+                        <input type="text" class="form-input" placeholder="First name" required>
+                        <input type="email" class="form-input" placeholder="Email address" required>
+                        <button type="submit" class="form-btn">Send me the guide</button>
+                    </div>
+                </form>
+                <p class="form-trust">No spam, ever. Unsubscribe in one click.</p>
+                <div class="form-success" id="heroSuccess">
+                    <div class="success-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <h3>Check your inbox</h3>
+                    <p>Your guide is on its way. Check your spam folder if it doesn't arrive shortly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"><hr></div>
+
+    <!-- What's Inside -->
+    <section class="inside">
+        <div class="container">
+            <div class="inside-header reveal">
+                <p class="section-label">What's Inside</p>
+                <h2>Three chapters, zero fluff</h2>
+            </div>
+            <ul class="inside-list">
+                <li class="inside-item reveal reveal-d1">
+                    <div class="inside-num">01</div>
+                    <div>
+                        <h3>Foundations</h3>
+                        <p>The core principles and mental models that successful bootstrapped founders rely on to make clear, confident decisions.</p>
+                    </div>
+                </li>
+                <li class="inside-item reveal reveal-d2">
+                    <div class="inside-num">02</div>
+                    <div>
+                        <h3>Strategy</h3>
+                        <p>A practical framework for finding your first customers, validating your offer, and building sustainable momentum.</p>
+                    </div>
+                </li>
+                <li class="inside-item reveal reveal-d3">
+                    <div class="inside-num">03</div>
+                    <div>
+                        <h3>Toolkit</h3>
+                        <p>Ready-to-use templates, checklists, and planning worksheets so you can start putting everything into practice today.</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Testimonial -->
+    <section class="testimonial">
+        <div class="testimonial-inner reveal">
+            <p class="testimonial-text">"This guide brought the kind of clarity I'd been searching for. It's thoughtful, practical, and genuinely useful — I keep coming back to the frameworks."</p>
+            <div class="testimonial-dash"></div>
+            <div class="testimonial-name">Jane Doe</div>
+            <div class="testimonial-role">Founder, CompanyName</div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="bottom-cta">
+        <div class="container">
+            <div class="reveal">
+                <h2>Ready to get started?</h2>
+                <p class="cta-sub">Enter your email and we'll send you the guide immediately.</p>
+            </div>
+            <div class="reveal reveal-d1" id="ctaWrap">
+                <form class="cta-inline-form" id="ctaForm" onsubmit="handleSubmit(event, 'cta')">
+                    <input type="email" class="form-input" placeholder="Email address" required>
+                    <button type="submit" class="form-btn">Get the guide</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 BrandName. All rights reserved.</p>
+        <div class="footer-links">
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+        </div>
+    </footer>
+
+    <script>
+        function handleSubmit(e, formId) {
+            e.preventDefault();
+            if (formId === 'hero') {
+                document.getElementById('heroForm').style.display = 'none';
+                document.querySelector('#heroFormWrap .form-trust').style.display = 'none';
+                document.getElementById('heroSuccess').classList.add('visible');
+            } else {
+                const wrap = document.getElementById('ctaWrap');
+                wrap.innerHTML = '<div class="form-success visible"><div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div><h3>Check your inbox</h3><p>Your guide is on its way.</p></div>';
+            }
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+</body>
+</html>

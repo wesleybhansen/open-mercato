@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rootwell — Find Your Stillness</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,500;1,9..144,600&family=Nunito+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --cream: #faf5ee;
+            --linen: #f2ebe0;
+            --parchment: #e8ddd0;
+            --terracotta: #c2703e;
+            --terracotta-light: #d4895e;
+            --terracotta-dark: #a85c30;
+            --olive: #5a6b3c;
+            --olive-light: #7a8e5a;
+            --clay: #a0694b;
+            --sage: #8a9f7a;
+            --sage-light: #b0c4a0;
+            --brown-dark: #3d2e1e;
+            --brown-warm: #5c4434;
+            --text-primary: #3a2e22;
+            --text-secondary: #6e5e50;
+            --text-muted: #9a8a7a;
+            --shadow-warm: 0 4px 24px rgba(90, 60, 30, 0.08);
+            --shadow-warm-lg: 0 8px 40px rgba(90, 60, 30, 0.12);
+            --font-serif: 'Fraunces', Georgia, serif;
+            --font-sans: 'Nunito Sans', sans-serif;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --radius-lg: 24px;
+            --radius-pill: 100px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--cream);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Linen texture */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            opacity: 0.025;
+            pointer-events: none;
+            z-index: 9999;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Scroll reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.7s cubic-bezier(0.23, 1, 0.32, 1), transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Organic wave divider */
+        .wave-divider {
+            width: 100%;
+            overflow: hidden;
+            line-height: 0;
+        }
+        .wave-divider svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        /* ===== NAVIGATION ===== */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(250, 245, 238, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .nav-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 68px;
+        }
+
+        .nav-logo {
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-style: italic;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: var(--font-sans);
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+            background: var(--linen);
+        }
+
+        .nav-cta {
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--cream) !important;
+            background: var(--terracotta) !important;
+            padding: 10px 24px !important;
+            transition: all 0.3s !important;
+        }
+
+        .nav-cta:hover {
+            background: var(--terracotta-dark) !important;
+            transform: translateY(-1px);
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .mobile-toggle svg {
+            width: 26px;
+            height: 26px;
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            padding: 48px 0 0;
+            position: relative;
+        }
+
+        .hero-image {
+            width: 100%;
+            height: 480px;
+            background: linear-gradient(135deg, var(--clay) 0%, var(--terracotta) 40%, var(--olive) 100%);
+            border-radius: var(--radius-lg);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hero-image::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.3) 100%);
+            border-radius: var(--radius-lg);
+        }
+
+        .hero-image-text {
+            position: relative;
+            z-index: 2;
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .hero-content {
+            text-align: center;
+            padding: 48px 0 40px;
+        }
+
+        .hero-eyebrow {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--terracotta);
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-family: var(--font-serif);
+            font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+            font-weight: 600;
+            line-height: 1.15;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--terracotta);
+        }
+
+        .hero-sub {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            max-width: 520px;
+            margin: 0 auto 32px;
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--cream);
+            background: var(--terracotta);
+            border: none;
+            padding: 14px 32px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: var(--terracotta-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(194, 112, 62, 0.25);
+        }
+
+        .btn-outline {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: transparent;
+            border: 2px solid var(--parchment);
+            padding: 12px 28px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--terracotta-light);
+            color: var(--terracotta);
+        }
+
+        /* ===== UPCOMING EXPERIENCES ===== */
+        .experiences {
+            padding: 80px 0;
+            position: relative;
+        }
+
+        .section-label {
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--terracotta);
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-family: var(--font-serif);
+            font-size: clamp(1.7rem, 3vw, 2.4rem);
+            font-weight: 600;
+            line-height: 1.2;
+            color: var(--text-primary);
+            margin-bottom: 40px;
+        }
+
+        .exp-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            position: relative;
+        }
+
+        /* Decorative blob behind grid */
+        .exp-grid::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -60px;
+            width: 280px;
+            height: 280px;
+            background: var(--sage-light);
+            opacity: 0.12;
+            border-radius: 60% 40% 50% 50% / 40% 60% 40% 60%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .exp-card {
+            background: var(--cream);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-warm);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .exp-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-warm-lg);
+        }
+
+        .exp-image {
+            height: 200px;
+            position: relative;
+        }
+
+        .exp-card:nth-child(1) .exp-image { background: linear-gradient(135deg, #c2703e, #d4895e); }
+        .exp-card:nth-child(2) .exp-image { background: linear-gradient(135deg, #5a6b3c, #7a8e5a); }
+        .exp-card:nth-child(3) .exp-image { background: linear-gradient(135deg, #a0694b, #c2703e); }
+
+        .exp-image-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .exp-date {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            background: var(--cream);
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--terracotta);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .exp-body {
+            padding: 24px;
+        }
+
+        .exp-name {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .exp-location {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .exp-location svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--text-muted);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .exp-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .exp-price {
+            font-family: var(--font-serif);
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--olive);
+        }
+
+        .exp-link {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--terracotta);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: gap 0.3s;
+        }
+
+        .exp-link:hover {
+            gap: 8px;
+        }
+
+        /* ===== WHAT TO EXPECT ===== */
+        .expect {
+            padding: 80px 0;
+            background: var(--linen);
+            position: relative;
+        }
+
+        .expect-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .expect-card {
+            background: var(--cream);
+            border-radius: var(--radius);
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: var(--shadow-warm);
+            transition: all 0.3s;
+        }
+
+        .expect-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-warm-lg);
+        }
+
+        .expect-card:nth-child(2) { background: rgba(138, 159, 122, 0.08); }
+        .expect-card:nth-child(4) { background: rgba(194, 112, 62, 0.06); }
+
+        .expect-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 20px;
+            background: var(--linen);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .expect-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--terracotta);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .expect-name {
+            font-family: var(--font-serif);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .expect-desc {
+            font-size: 0.85rem;
+            line-height: 1.65;
+            color: var(--text-secondary);
+        }
+
+        /* ===== TIMELINE ===== */
+        .timeline-section {
+            padding: 80px 0;
+        }
+
+        .timeline {
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* Wavy line */
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 28px;
+            bottom: 0;
+            width: 2px;
+            background: repeating-linear-gradient(
+                180deg,
+                var(--parchment) 0px,
+                var(--terracotta-light) 20px,
+                var(--parchment) 40px
+            );
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 48px;
+            position: relative;
+        }
+
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .timeline-marker {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .timeline-item:nth-child(1) .timeline-marker { background: linear-gradient(135deg, var(--sage), var(--olive)); }
+        .timeline-item:nth-child(2) .timeline-marker { background: linear-gradient(135deg, var(--terracotta), var(--clay)); }
+        .timeline-item:nth-child(3) .timeline-marker { background: linear-gradient(135deg, var(--clay), var(--brown-warm)); }
+
+        .timeline-content {
+            flex: 1;
+            padding-top: 4px;
+        }
+
+        .timeline-day {
+            font-family: var(--font-sans);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--terracotta);
+            margin-bottom: 8px;
+        }
+
+        .timeline-title {
+            font-family: var(--font-serif);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .timeline-desc {
+            font-size: 0.9rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+
+        /* ===== TESTIMONIALS ===== */
+        .testimonials {
+            padding: 80px 0;
+            background: var(--linen);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            align-items: start;
+        }
+
+        .testimonial-card {
+            background: var(--cream);
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow-warm);
+            transition: all 0.3s;
+        }
+
+        .testimonial-card:nth-child(2) {
+            transform: translateY(24px);
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-warm-lg);
+        }
+
+        .testimonial-card:nth-child(2):hover {
+            transform: translateY(20px);
+        }
+
+        .testimonial-quote-mark {
+            font-family: var(--font-serif);
+            font-size: 3.5rem;
+            line-height: 0.6;
+            color: var(--terracotta);
+            opacity: 0.3;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .testimonial-text {
+            font-family: var(--font-serif);
+            font-size: 1rem;
+            font-style: italic;
+            line-height: 1.7;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .testimonial-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-serif);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--cream);
+        }
+
+        .testimonial-card:nth-child(1) .testimonial-avatar { background: var(--terracotta); border: 3px solid var(--terracotta-light); }
+        .testimonial-card:nth-child(2) .testimonial-avatar { background: var(--olive); border: 3px solid var(--olive-light); }
+        .testimonial-card:nth-child(3) .testimonial-avatar { background: var(--clay); border: 3px solid var(--terracotta-light); }
+
+        .testimonial-name {
+            font-family: var(--font-sans);
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .testimonial-role {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== HOST ===== */
+        .host {
+            padding: 80px 0;
+        }
+
+        .host-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 56px;
+            align-items: center;
+        }
+
+        .host-image-wrapper {
+            position: relative;
+        }
+
+        .host-image {
+            width: 100%;
+            aspect-ratio: 4/5;
+            background: linear-gradient(160deg, var(--sage), var(--olive));
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.3);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Decorative leaf */
+        .host-image-wrapper::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            right: -20px;
+            width: 100px;
+            height: 100px;
+            background: var(--terracotta);
+            opacity: 0.08;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-15deg);
+        }
+
+        .host-eyebrow {
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--terracotta);
+            margin-bottom: 12px;
+        }
+
+        .host-name {
+            font-family: var(--font-serif);
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .host-title {
+            font-family: var(--font-serif);
+            font-size: 1rem;
+            font-style: italic;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .host-bio {
+            font-size: 0.95rem;
+            line-height: 1.75;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .host-stats {
+            display: flex;
+            gap: 32px;
+        }
+
+        .host-stat-val {
+            font-family: var(--font-serif);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--terracotta);
+        }
+
+        .host-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== GALLERY ===== */
+        .gallery {
+            padding: 80px 0;
+            background: var(--linen);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Blob behind gallery */
+        .gallery::before {
+            content: '';
+            position: absolute;
+            top: 60px;
+            left: -80px;
+            width: 320px;
+            height: 320px;
+            background: var(--terracotta);
+            opacity: 0.05;
+            border-radius: 40% 60% 50% 50% / 60% 40% 60% 40%;
+            pointer-events: none;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto;
+            gap: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .gallery-item {
+            border-radius: var(--radius);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: rgba(255,255,255,0.3);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            transition: transform 0.3s;
+            min-height: 180px;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.02);
+        }
+
+        .gallery-item:nth-child(1) { grid-column: span 2; grid-row: span 2; min-height: 376px; background: linear-gradient(135deg, #c2703e, #8a9f7a); }
+        .gallery-item:nth-child(2) { background: linear-gradient(135deg, #5a6b3c, #8a9f7a); }
+        .gallery-item:nth-child(3) { background: linear-gradient(135deg, #a0694b, #c2703e); }
+        .gallery-item:nth-child(4) { grid-column: span 2; background: linear-gradient(135deg, #8a9f7a, #5a6b3c); }
+        .gallery-item:nth-child(5) { background: linear-gradient(135deg, #c2703e, #a0694b); }
+        .gallery-item:nth-child(6) { background: linear-gradient(135deg, #5a6b3c, #3d2e1e); }
+
+        /* ===== FAQ ===== */
+        .faq {
+            padding: 80px 0;
+        }
+
+        .faq-list {
+            max-width: 700px;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--parchment);
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            gap: 16px;
+        }
+
+        .faq-question-text {
+            font-family: var(--font-serif);
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            transition: color 0.3s;
+        }
+
+        .faq-question:hover .faq-question-text {
+            color: var(--terracotta);
+        }
+
+        .faq-toggle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--linen);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .faq-question:hover .faq-toggle {
+            background: var(--parchment);
+        }
+
+        .faq-question.active .faq-toggle {
+            background: var(--terracotta);
+        }
+
+        .faq-toggle svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--text-secondary);
+            stroke-width: 2;
+            fill: none;
+            transition: all 0.3s;
+        }
+
+        .faq-question.active .faq-toggle svg {
+            stroke: var(--cream);
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .faq-answer-inner {
+            padding: 0 0 22px;
+            font-size: 0.92rem;
+            line-height: 1.75;
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        /* ===== FINAL CTA ===== */
+        .final-cta {
+            background: var(--terracotta);
+            padding: 80px 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .final-cta::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -60px;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 50% 40% 60% 50%;
+            pointer-events: none;
+        }
+
+        .final-cta h2 {
+            font-family: var(--font-serif);
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 600;
+            color: var(--cream);
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .final-cta-text {
+            font-size: 1rem;
+            color: rgba(250, 245, 238, 0.8);
+            max-width: 460px;
+            margin: 0 auto 36px;
+            line-height: 1.7;
+        }
+
+        .cta-form {
+            display: flex;
+            max-width: 440px;
+            margin: 0 auto;
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+            background: var(--cream);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .cta-form input {
+            flex: 1;
+            border: none;
+            padding: 16px 24px;
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            background: transparent;
+            outline: none;
+        }
+
+        .cta-form input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .cta-form button {
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--cream);
+            background: var(--terracotta-dark);
+            border: none;
+            padding: 16px 28px;
+            cursor: pointer;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+
+        .cta-form button:hover {
+            background: var(--brown-warm);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            padding: 56px 0 32px;
+            background: var(--cream);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(3, 1fr);
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-serif);
+            font-size: 1.3rem;
+            font-weight: 600;
+            font-style: italic;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .footer-desc {
+            font-size: 0.85rem;
+            line-height: 1.7;
+            color: var(--text-muted);
+            max-width: 260px;
+            margin-bottom: 20px;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 10px;
+        }
+
+        .footer-social a {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--linen);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .footer-social a:hover {
+            background: var(--parchment);
+        }
+
+        .footer-social svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--text-secondary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .footer-col-title {
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+
+        .footer-links a {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--terracotta);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid var(--parchment);
+            padding-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-copy {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .footer-legal a {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            margin-left: 20px;
+            transition: color 0.3s;
+        }
+
+        .footer-legal a:hover {
+            color: var(--text-secondary);
+        }
+
+        /* ===== WAVE SECTIONS ===== */
+        .wave-cream-to-linen svg { fill: var(--linen); }
+        .wave-linen-to-cream svg { fill: var(--cream); }
+        .wave-cream-to-terracotta svg { fill: var(--terracotta); }
+        .wave-linen-bg { background: var(--linen); }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .expect-grid { grid-template-columns: repeat(2, 1fr); }
+            .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+            .gallery-item:nth-child(1) { grid-column: span 2; min-height: 280px; }
+            .gallery-item:nth-child(4) { grid-column: span 1; }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0; right: 0;
+                flex-direction: column;
+                background: rgba(250,245,238,0.98);
+                backdrop-filter: blur(12px);
+                padding: 16px 24px;
+                gap: 4px;
+                border-bottom: 1px solid var(--parchment);
+            }
+
+            .nav-links.open { display: flex; }
+            .mobile-toggle { display: block; }
+
+            .hero-image { height: 320px; border-radius: var(--radius); }
+
+            .exp-grid { grid-template-columns: 1fr; max-width: 400px; }
+            .expect-grid { grid-template-columns: 1fr 1fr; }
+
+            .testimonials-grid { grid-template-columns: 1fr; max-width: 480px; }
+            .testimonial-card:nth-child(2) { transform: none; }
+            .testimonial-card:nth-child(2):hover { transform: translateY(-4px); }
+
+            .host-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .gallery-grid { grid-template-columns: 1fr 1fr; }
+            .gallery-item:nth-child(1) { grid-column: span 2; }
+
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 2rem; }
+            .section-title { font-size: 1.5rem; }
+
+            .hero-actions { flex-direction: column; width: 100%; }
+            .btn-primary, .btn-outline { width: 100%; text-align: center; }
+
+            .expect-grid { grid-template-columns: 1fr; }
+
+            .gallery-grid { grid-template-columns: 1fr; }
+            .gallery-item:nth-child(1) { grid-column: span 1; min-height: 240px; }
+            .gallery-item:nth-child(4) { grid-column: span 1; }
+
+            .cta-form {
+                flex-direction: column;
+                border-radius: var(--radius);
+            }
+
+            .cta-form button {
+                border-radius: 0 0 var(--radius) var(--radius);
+            }
+
+            .host-stats { gap: 20px; }
+
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVIGATION -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">Rootwell</a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#experiences">Experiences</a></li>
+                <li><a href="#journey">The Journey</a></li>
+                <li><a href="#gallery">Gallery</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#reserve" class="nav-cta">Reserve Your Spot</a></li>
+            </ul>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+                <svg viewBox="0 0 26 26" stroke-linecap="round">
+                    <line x1="4" y1="7" x2="22" y2="7"/>
+                    <line x1="4" y1="13" x2="22" y2="13"/>
+                    <line x1="4" y1="19" x2="22" y2="19"/>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-image reveal">
+                <span class="hero-image-text">Retreat landscape photo</span>
+            </div>
+            <div class="hero-content">
+                <div class="hero-eyebrow reveal">Wellness Retreats &amp; Immersive Experiences</div>
+                <h1 class="reveal">Find Your <em>Stillness</em></h1>
+                <p class="hero-sub reveal">Step away from the noise. Our curated retreats blend guided practice, nourishing meals, and deep nature connection to help you return to yourself.</p>
+                <div class="hero-actions reveal">
+                    <a href="#reserve" class="btn-primary">Reserve Your Spot</a>
+                    <a href="#experiences" class="btn-outline">Browse Experiences</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: cream to linen -->
+    <div class="wave-divider wave-cream-to-linen" style="background:var(--cream);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;"><path d="M0,32 C360,60 720,0 1080,32 C1260,48 1380,24 1440,32 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- UPCOMING EXPERIENCES -->
+    <section class="experiences linen-bg" id="experiences" style="background:var(--linen); padding-top: 40px;">
+        <div class="container">
+            <div class="section-label reveal">Upcoming Retreats</div>
+            <h2 class="section-title reveal">Experiences crafted with intention</h2>
+            <div class="exp-grid">
+                <div class="exp-card reveal">
+                    <div class="exp-image">
+                        <span class="exp-image-label">Mountain retreat photo</span>
+                        <div class="exp-date">Mar 14–17</div>
+                    </div>
+                    <div class="exp-body">
+                        <div class="exp-name">Mountain Stillness Retreat</div>
+                        <div class="exp-location">
+                            <svg viewBox="0 0 14 14"><path d="M7 1C4.8 1 3 2.8 3 5c0 3.5 4 8 4 8s4-4.5 4-8c0-2.2-1.8-4-4-4z"/><circle cx="7" cy="5" r="1.5"/></svg>
+                            Asheville, North Carolina
+                        </div>
+                        <div class="exp-footer">
+                            <div class="exp-price">$1,200</div>
+                            <a href="#" class="exp-link">Learn more &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="exp-card reveal">
+                    <div class="exp-image">
+                        <span class="exp-image-label">Forest workshop photo</span>
+                        <div class="exp-date">Apr 5–7</div>
+                    </div>
+                    <div class="exp-body">
+                        <div class="exp-name">Forest Bathing Weekend</div>
+                        <div class="exp-location">
+                            <svg viewBox="0 0 14 14"><path d="M7 1C4.8 1 3 2.8 3 5c0 3.5 4 8 4 8s4-4.5 4-8c0-2.2-1.8-4-4-4z"/><circle cx="7" cy="5" r="1.5"/></svg>
+                            Sonoma County, California
+                        </div>
+                        <div class="exp-footer">
+                            <div class="exp-price">$680</div>
+                            <a href="#" class="exp-link">Learn more &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="exp-card reveal">
+                    <div class="exp-image">
+                        <span class="exp-image-label">Coastal experience photo</span>
+                        <div class="exp-date">May 10–14</div>
+                    </div>
+                    <div class="exp-body">
+                        <div class="exp-name">Coastal Renewal Journey</div>
+                        <div class="exp-location">
+                            <svg viewBox="0 0 14 14"><path d="M7 1C4.8 1 3 2.8 3 5c0 3.5 4 8 4 8s4-4.5 4-8c0-2.2-1.8-4-4-4z"/><circle cx="7" cy="5" r="1.5"/></svg>
+                            Tulum, Mexico
+                        </div>
+                        <div class="exp-footer">
+                            <div class="exp-price">$1,800</div>
+                            <a href="#" class="exp-link">Learn more &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: linen to cream -->
+    <div class="wave-divider wave-linen-to-cream" style="background:var(--linen);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;"><path d="M0,20 C240,50 480,0 720,28 C960,56 1200,10 1440,28 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- WHAT TO EXPECT -->
+    <section class="expect" style="background:var(--cream); padding-top: 40px;">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">What to Expect</div>
+            <h2 class="section-title reveal" style="text-align:center; margin-left:auto; margin-right:auto; max-width:480px;">Every detail, thoughtfully considered</h2>
+            <div class="expect-grid">
+                <div class="expect-card reveal">
+                    <div class="expect-icon">
+                        <svg viewBox="0 0 28 28"><circle cx="14" cy="10" r="4"/><path d="M14 16c-6 0-10 3-10 6v2h20v-2c0-3-4-6-10-6z"/></svg>
+                    </div>
+                    <div class="expect-name">Guided Sessions</div>
+                    <p class="expect-desc">Morning meditation, breathwork, movement, and evening reflection — all led by experienced practitioners.</p>
+                </div>
+                <div class="expect-card reveal">
+                    <div class="expect-icon">
+                        <svg viewBox="0 0 28 28"><path d="M14 4c-3 0-6 4-6 8 0 6 6 12 6 12s6-6 6-12c0-4-3-8-6-8z"/><path d="M10 16c-4 1-6 3-6 4h20c0-1-2-3-6-4"/></svg>
+                    </div>
+                    <div class="expect-name">Farm-Fresh Meals</div>
+                    <p class="expect-desc">Three nourishing, plant-forward meals daily — sourced locally and prepared with seasonal ingredients.</p>
+                </div>
+                <div class="expect-card reveal">
+                    <div class="expect-icon">
+                        <svg viewBox="0 0 28 28"><path d="M4 20c4-3 6-8 6-14"/><path d="M10 20c3-4 5-9 5-14"/><path d="M16 20c2-3 4-8 4-14"/><path d="M2 22h24"/><path d="M8 22v4M20 22v4"/></svg>
+                    </div>
+                    <div class="expect-name">Nature Immersion</div>
+                    <p class="expect-desc">Guided forest walks, sunrise hikes, and evening stargazing. Nature is both our classroom and our medicine.</p>
+                </div>
+                <div class="expect-card reveal">
+                    <div class="expect-icon">
+                        <svg viewBox="0 0 28 28"><circle cx="14" cy="14" r="10"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="14" cy="18" r="2"/><path d="M10 12L14 18M18 12L14 18"/></svg>
+                    </div>
+                    <div class="expect-name">Community Circle</div>
+                    <p class="expect-desc">Intimate group sharing, connection rituals, and genuine conversations with like-minded humans.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: cream to cream (linen strip) -->
+    <div class="wave-divider" style="background:var(--cream);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;" fill="var(--cream)"><path d="M0,28 C180,50 360,10 540,28 C720,46 900,8 1080,28 C1260,48 1380,20 1440,28 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- JOURNEY TIMELINE -->
+    <section class="timeline-section" id="journey">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">The Journey</div>
+            <h2 class="section-title reveal" style="text-align:center; margin-left:auto; margin-right:auto; max-width:480px;">Three days of transformation</h2>
+            <div class="timeline">
+                <div class="timeline-item reveal">
+                    <div class="timeline-marker">Photo</div>
+                    <div class="timeline-content">
+                        <div class="timeline-day">Day One — Arrival</div>
+                        <div class="timeline-title">Settling Into Stillness</div>
+                        <p class="timeline-desc">Arrive at your own pace. Enjoy a welcome tea ceremony, settle into your accommodation, and join an opening circle as the sun sets. Tonight is about releasing what you've carried here.</p>
+                    </div>
+                </div>
+                <div class="timeline-item reveal">
+                    <div class="timeline-marker">Photo</div>
+                    <div class="timeline-content">
+                        <div class="timeline-day">Day Two — Immersion</div>
+                        <div class="timeline-title">Going Deeper</div>
+                        <p class="timeline-desc">Morning breathwork and movement at sunrise. A farm-to-table brunch followed by a guided nature walk. Afternoon workshops in journaling, sound healing, or creative expression. Evening bonfire and stargazing.</p>
+                    </div>
+                </div>
+                <div class="timeline-item reveal">
+                    <div class="timeline-marker">Photo</div>
+                    <div class="timeline-content">
+                        <div class="timeline-day">Day Three — Integration</div>
+                        <div class="timeline-title">Carrying It Forward</div>
+                        <p class="timeline-desc">A gentle morning practice followed by a closing circle. Share intentions, exchange gratitude, and leave with a personal integration guide to carry the stillness back into your daily life.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: cream to linen -->
+    <div class="wave-divider wave-cream-to-linen" style="background:var(--cream);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;"><path d="M0,20 C360,50 720,0 1080,32 C1260,48 1380,16 1440,28 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- TESTIMONIALS -->
+    <section class="testimonials" style="padding-top:40px;">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">Kind Words</div>
+            <h2 class="section-title reveal" style="text-align:center; margin-left:auto; margin-right:auto; max-width:480px;">Stories from those who've journeyed with us</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card reveal">
+                    <span class="testimonial-quote-mark">&ldquo;</span>
+                    <p class="testimonial-text">I came to the retreat burned out and skeptical. By the second morning, something shifted. I cried, I laughed, I slept better than I have in years. This was the reset I didn't know I needed.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">AW</div>
+                        <div>
+                            <div class="testimonial-name">Amanda W.</div>
+                            <div class="testimonial-role">Marketing Director, Portland</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <span class="testimonial-quote-mark">&ldquo;</span>
+                    <p class="testimonial-text">The food alone was worth the trip. But the combination of nature, community, and guided practice created something I still carry with me six months later. Already booked my second retreat.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">JL</div>
+                        <div>
+                            <div class="testimonial-name">James L.</div>
+                            <div class="testimonial-role">Software Engineer, Austin</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <span class="testimonial-quote-mark">&ldquo;</span>
+                    <p class="testimonial-text">I've been to luxury spas. This isn't that. It's deeper, more intentional, more real. The closing circle had everyone in tears — the good kind. Go. You won't regret it.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">NP</div>
+                        <div>
+                            <div class="testimonial-name">Nina P.</div>
+                            <div class="testimonial-role">Therapist, Brooklyn</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: linen to cream -->
+    <div class="wave-divider wave-linen-to-cream" style="background:var(--linen);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;"><path d="M0,32 C240,10 480,50 720,28 C960,6 1200,46 1440,24 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- HOST -->
+    <section class="host">
+        <div class="container">
+            <div class="host-grid">
+                <div class="host-image-wrapper reveal">
+                    <div class="host-image">Host portrait</div>
+                </div>
+                <div class="reveal">
+                    <div class="host-eyebrow">Your Guide</div>
+                    <div class="host-name">Elena Reyes</div>
+                    <div class="host-title">Breathwork Facilitator &amp; Retreat Creator</div>
+                    <p class="host-bio">After a decade in corporate consulting, Elena traded boardrooms for forest floors. Certified in breathwork, yoga, and somatic therapy, she designs experiences that meet people where they are — no spiritual bypassing, no performative wellness. Just honest, grounded practices that actually stick.</p>
+                    <div class="host-stats">
+                        <div>
+                            <div class="host-stat-val">200+</div>
+                            <div class="host-stat-label">Retreats hosted</div>
+                        </div>
+                        <div>
+                            <div class="host-stat-val">3,400</div>
+                            <div class="host-stat-label">Lives touched</div>
+                        </div>
+                        <div>
+                            <div class="host-stat-val">8</div>
+                            <div class="host-stat-label">Years guiding</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: cream to linen -->
+    <div class="wave-divider wave-cream-to-linen" style="background:var(--cream);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;"><path d="M0,28 C180,50 540,10 720,32 C900,54 1260,12 1440,32 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- GALLERY -->
+    <section class="gallery" id="gallery">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">Moments</div>
+            <h2 class="section-title reveal" style="text-align:center; margin-left:auto; margin-right:auto; max-width:480px;">A glimpse into the experience</h2>
+            <div class="gallery-grid">
+                <div class="gallery-item reveal">Landscape photo</div>
+                <div class="gallery-item reveal">Workshop photo</div>
+                <div class="gallery-item reveal">Meal photo</div>
+                <div class="gallery-item reveal">Nature walk photo</div>
+                <div class="gallery-item reveal">Circle photo</div>
+                <div class="gallery-item reveal">Sunset photo</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: linen to cream -->
+    <div class="wave-divider wave-linen-to-cream" style="background:var(--linen);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:40px;"><path d="M0,20 C360,48 720,8 1080,32 C1260,44 1380,20 1440,28 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-label reveal">Common Questions</div>
+            <h2 class="section-title reveal">Everything you need to know</h2>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span class="faq-question-text">Do I need prior meditation or yoga experience?</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Not at all. Our retreats are designed for all levels — from complete beginners to seasoned practitioners. Every session offers modifications and our facilitators meet you exactly where you are.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span class="faq-question-text">What's included in the price?</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">All accommodations, three daily meals, guided sessions, workshops, materials, and welcome/closing ceremonies. Transportation to the venue and personal extras are not included.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span class="faq-question-text">Can I attend solo or should I bring a friend?</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Most of our guests come solo — and it's often the best way to experience a retreat. You'll form genuine connections with the group. That said, friends and partners are always welcome too.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span class="faq-question-text">What's your cancellation policy?</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Full refund up to 30 days before the retreat. 50% refund between 15-30 days. Within 15 days, we offer credit toward a future retreat. We understand life happens and try to be as flexible as possible.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span class="faq-question-text">Are dietary restrictions accommodated?</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Absolutely. Our kitchen handles vegan, vegetarian, gluten-free, and most allergy-specific needs. Just let us know when you register and our chef will make sure you're fully nourished.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span class="faq-question-text">How many people attend each retreat?</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11"/><line x1="3" y1="7" x2="11" y2="7"/></svg></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">We keep groups intentionally small — usually 12-18 people. This ensures personal attention from facilitators and allows for genuine connection within the group.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WAVE: cream to terracotta -->
+    <div class="wave-divider wave-cream-to-terracotta" style="background:var(--cream);">
+        <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="height:50px;"><path d="M0,24 C240,48 480,8 720,32 C960,56 1200,16 1440,32 L1440,60 L0,60 Z"/></svg>
+    </div>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta" id="reserve">
+        <div class="container">
+            <h2 class="reveal">Your Journey Begins Here</h2>
+            <p class="final-cta-text reveal">Spaces are intentionally limited. Enter your email to receive early access to upcoming retreats and be the first to reserve your spot.</p>
+            <form class="cta-form reveal" onsubmit="event.preventDefault()">
+                <input type="email" placeholder="Your email address" required>
+                <button type="submit">Reserve Spot</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">Rootwell</div>
+                    <p class="footer-desc">Curated wellness retreats and immersive nature experiences for people ready to slow down and reconnect.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Instagram">
+                            <svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="3"/><circle cx="8" cy="8" r="3"/><circle cx="12" cy="4" r="0.8" fill="currentColor"/></svg>
+                        </a>
+                        <a href="#" aria-label="Facebook">
+                            <svg viewBox="0 0 16 16"><path d="M10 2h2v3h-2c-.6 0-1 .4-1 1v2h3l-.5 3H9v5H6v-5H4V8h2V5.5C6 3.6 7.6 2 9.5 2H10z"/></svg>
+                        </a>
+                        <a href="#" aria-label="Pinterest">
+                            <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M6.5 13c.5-2 1-4 1.2-5.5.3-1.5-.2-3 1.3-3s1.5 1.5 1 3c-.3 1-1 2.5-1 3.5s.8 1.5 1.5 1"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <div class="footer-col-title">Explore</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Upcoming Retreats</a></li>
+                        <li><a href="#">Our Story</a></li>
+                        <li><a href="#">The Journal</a></li>
+                        <li><a href="#">Gift Cards</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Support</div>
+                    <ul class="footer-links">
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Contact Us</a></li>
+                        <li><a href="#">Accessibility</a></li>
+                        <li><a href="#">Cancellations</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Connect</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Newsletter</a></li>
+                        <li><a href="#">Instagram</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Partnerships</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copy">&copy; 2025 Rootwell. All rights reserved.</div>
+                <div class="footer-legal">
+                    <a href="#">Privacy</a>
+                    <a href="#">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile nav
+        const mobileToggle = document.getElementById('mobileToggle');
+        const navLinks = document.getElementById('navLinks');
+        mobileToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+        navLinks.querySelectorAll('a').forEach(l => l.addEventListener('click', () => navLinks.classList.remove('open')));
+
+        // FAQ accordion
+        document.querySelectorAll('.faq-question').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = btn.closest('.faq-item');
+                const answer = item.querySelector('.faq-answer');
+                const isOpen = btn.classList.contains('active');
+
+                document.querySelectorAll('.faq-question').forEach(b => {
+                    b.classList.remove('active');
+                    b.closest('.faq-item').querySelector('.faq-answer').style.maxHeight = '0';
+                });
+
+                if (!isOpen) {
+                    btn.classList.add('active');
+                    answer.style.maxHeight = answer.scrollHeight + 'px';
+                }
+            });
+        });
+
+        // Scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const t = document.querySelector(a.getAttribute('href'));
+                if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+    </script>
+</body>
+</html>

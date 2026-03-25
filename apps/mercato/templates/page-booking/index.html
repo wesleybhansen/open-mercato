@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book a Free Consultation | Let's Talk Strategy</title>
+<meta name="description" content="Schedule a free, no-obligation strategy call. We'll discuss your goals, challenges, and map out a clear path forward.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ───────────────────────────────────────────
+   RESET & BASE
+   ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1e293b;
+  background: #ffffff;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.2; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+img { max-width: 100%; display: block; }
+button, input, select, textarea { font: inherit; border: none; outline: none; }
+
+/* ───────────────────────────────────────────
+   DESIGN TOKENS
+   ─────────────────────────────────────────── */
+:root {
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+  --green-500: #22c55e;
+  --green-600: #16a34a;
+  --red-500: #ef4444;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ───────────────────────────────────────────
+   UTILITIES
+   ─────────────────────────────────────────── */
+.container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 96px 0; }
+.section-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--blue-600); margin-bottom: 16px;
+}
+.section-label svg { width: 16px; height: 16px; }
+.section-title {
+  font-size: clamp(28px, 4vw, 40px); font-weight: 800; color: var(--gray-900);
+  margin-bottom: 16px;
+}
+.section-subtitle {
+  font-size: 17px; color: var(--gray-500); max-width: 560px; line-height: 1.7;
+}
+
+/* ── Scroll reveal ── */
+.reveal {
+  opacity: 0; transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ───────────────────────────────────────────
+   NAVIGATION
+   ─────────────────────────────────────────── */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--gray-200);
+  transition: box-shadow var(--transition);
+}
+.nav.scrolled { box-shadow: var(--shadow-md); }
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 72px;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 20px;
+  color: var(--gray-900);
+}
+.nav-logo-icon {
+  width: 36px; height: 36px; background: var(--blue-600); border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-logo-icon svg { width: 20px; height: 20px; stroke: #fff; }
+.nav-links { display: flex; align-items: center; gap: 32px; }
+.nav-links a {
+  font-size: 14px; font-weight: 500; color: var(--gray-600);
+  transition: color var(--transition);
+}
+.nav-links a:hover { color: var(--blue-600); }
+.nav-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; background: var(--blue-600); color: #fff;
+  font-size: 14px; font-weight: 600; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background var(--transition), transform var(--transition);
+}
+.nav-cta:hover { background: var(--blue-700); transform: translateY(-1px); }
+.nav-cta svg { width: 16px; height: 16px; stroke: #fff; }
+
+/* Mobile hamburger */
+.nav-toggle {
+  display: none; width: 40px; height: 40px; background: none; cursor: pointer;
+  flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+}
+.nav-toggle span {
+  display: block; width: 22px; height: 2px; background: var(--gray-700);
+  border-radius: 2px; transition: var(--transition);
+}
+
+/* ───────────────────────────────────────────
+   HERO
+   ─────────────────────────────────────────── */
+.hero {
+  padding-top: 140px; padding-bottom: 80px;
+  background: linear-gradient(180deg, var(--blue-50) 0%, #fff 100%);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: -200px; right: -200px;
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; background: var(--blue-100); border-radius: 100px;
+  font-size: 13px; font-weight: 600; color: var(--blue-700); margin-bottom: 24px;
+}
+.hero-badge svg { width: 14px; height: 14px; stroke: var(--blue-600); }
+.hero h1 {
+  font-size: clamp(32px, 5vw, 52px); font-weight: 800; color: var(--gray-900);
+  margin-bottom: 20px; letter-spacing: -0.02em;
+}
+.hero h1 span { color: var(--blue-600); }
+.hero-sub {
+  font-size: 18px; color: var(--gray-500); line-height: 1.7; margin-bottom: 32px;
+  max-width: 480px;
+}
+.hero-trust {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+.hero-trust-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 500; color: var(--gray-600);
+}
+.hero-trust-item svg { width: 18px; height: 18px; stroke: var(--green-600); }
+
+/* ───────────────────────────────────────────
+   BOOKING CARD (right side of hero)
+   ─────────────────────────────────────────── */
+.booking-card {
+  background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-xl); overflow: hidden;
+}
+.booking-card-header {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.booking-card-header h3 {
+  font-size: 18px; font-weight: 700; color: var(--gray-900);
+}
+.booking-card-header .free-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; background: #ecfdf5; border-radius: 100px;
+  font-size: 12px; font-weight: 600; color: var(--green-600);
+}
+
+/* ── Calendar ── */
+.calendar { padding: 20px 28px; }
+.calendar-nav {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.calendar-nav-title { font-size: 15px; font-weight: 700; color: var(--gray-800); }
+.calendar-nav button {
+  width: 32px; height: 32px; background: var(--gray-50); border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: background var(--transition);
+}
+.calendar-nav button:hover { background: var(--gray-100); }
+.calendar-nav button svg { width: 16px; height: 16px; stroke: var(--gray-600); }
+.calendar-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px;
+}
+.calendar-weekdays span {
+  text-align: center; font-size: 11px; font-weight: 600; color: var(--gray-400);
+  text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 0;
+}
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.calendar-day {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500; color: var(--gray-700); border-radius: var(--radius-sm);
+  cursor: pointer; transition: all var(--transition); border: 2px solid transparent;
+  background: transparent;
+}
+.calendar-day:hover:not(.disabled):not(.empty) {
+  background: var(--blue-50); color: var(--blue-600);
+}
+.calendar-day.today {
+  background: var(--gray-100); font-weight: 700;
+}
+.calendar-day.selected {
+  background: var(--blue-600); color: #fff; font-weight: 700;
+}
+.calendar-day.disabled {
+  color: var(--gray-300); cursor: default;
+}
+.calendar-day.empty { cursor: default; }
+.calendar-day.available::after {
+  content: ''; position: absolute; bottom: 3px; width: 4px; height: 4px;
+  background: var(--green-500); border-radius: 50%;
+}
+.calendar-day { position: relative; }
+
+/* ── Time slots ── */
+.timeslots { padding: 0 28px 20px; }
+.timeslots-label {
+  font-size: 13px; font-weight: 600; color: var(--gray-500); margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.timeslots-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.timeslot-btn {
+  padding: 10px 8px; border-radius: 100px; font-size: 13px; font-weight: 600;
+  color: var(--blue-600); background: var(--blue-50); border: 1px solid var(--blue-100);
+  cursor: pointer; transition: all var(--transition); text-align: center;
+}
+.timeslot-btn:hover {
+  background: var(--blue-100); border-color: var(--blue-200);
+}
+.timeslot-btn.selected {
+  background: var(--blue-600); color: #fff; border-color: var(--blue-600);
+}
+
+/* ── Booking form ── */
+.booking-form { padding: 0 28px 28px; }
+.booking-form-divider {
+  height: 1px; background: var(--gray-100); margin-bottom: 20px;
+}
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; font-size: 13px; font-weight: 600; color: var(--gray-700);
+  margin-bottom: 6px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%; padding: 10px 14px; background: var(--gray-50);
+  border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+  font-size: 14px; color: var(--gray-800); transition: border-color var(--transition);
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--blue-500); background: #fff;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.form-group input.error,
+.form-group select.error {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+}
+.form-error {
+  font-size: 12px; color: var(--red-500); margin-top: 4px; display: none;
+}
+.form-error.show { display: block; }
+.form-group select { cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+  padding-right: 36px;
+}
+.booking-submit {
+  width: 100%; padding: 14px; background: var(--blue-600); color: #fff;
+  font-size: 15px; font-weight: 700; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background var(--transition), transform var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 4px;
+}
+.booking-submit:hover { background: var(--blue-700); transform: translateY(-1px); }
+.booking-submit svg { width: 18px; height: 18px; stroke: #fff; }
+.booking-note {
+  text-align: center; font-size: 12px; color: var(--gray-400); margin-top: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.booking-note svg { width: 14px; height: 14px; stroke: var(--gray-400); }
+
+/* ── Success state ── */
+.booking-success {
+  display: none; padding: 48px 28px; text-align: center;
+}
+.booking-success.show { display: block; }
+.booking-success-icon {
+  width: 64px; height: 64px; background: #ecfdf5; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+}
+.booking-success-icon svg { width: 32px; height: 32px; stroke: var(--green-600); }
+.booking-success h3 {
+  font-size: 22px; font-weight: 800; color: var(--gray-900); margin-bottom: 8px;
+}
+.booking-success p {
+  font-size: 15px; color: var(--gray-500); line-height: 1.6; max-width: 300px; margin: 0 auto;
+}
+
+.booking-form-content { transition: opacity 0.3s ease; }
+.booking-form-content.hidden { display: none; }
+
+/* ───────────────────────────────────────────
+   BENEFITS
+   ─────────────────────────────────────────── */
+.benefits { background: var(--gray-50); }
+.benefits-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 48px;
+}
+.benefit-card {
+  background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius-lg);
+  padding: 32px 24px; transition: box-shadow var(--transition), transform var(--transition);
+}
+.benefit-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+.benefit-icon {
+  width: 48px; height: 48px; background: var(--blue-50); border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+}
+.benefit-icon svg { width: 24px; height: 24px; stroke: var(--blue-600); }
+.benefit-card h3 {
+  font-size: 17px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px;
+}
+.benefit-card p {
+  font-size: 14px; color: var(--gray-500); line-height: 1.7;
+}
+
+/* ───────────────────────────────────────────
+   PROCESS / WHAT TO EXPECT
+   ─────────────────────────────────────────── */
+.process-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 56px;
+  position: relative;
+}
+.process-grid::before {
+  content: ''; position: absolute; top: 40px; left: calc(16.666% + 16px); right: calc(16.666% + 16px);
+  height: 2px; background: var(--blue-100);
+}
+.process-step { text-align: center; position: relative; }
+.process-number {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--blue-600); color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+  position: relative; z-index: 1; border: 4px solid #fff;
+  box-shadow: var(--shadow-md);
+}
+.process-step h3 {
+  font-size: 18px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px;
+}
+.process-step p {
+  font-size: 14px; color: var(--gray-500); line-height: 1.7; max-width: 280px; margin: 0 auto;
+}
+.process-icon {
+  width: 40px; height: 40px; background: var(--blue-50); border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+}
+.process-icon svg { width: 20px; height: 20px; stroke: var(--blue-600); }
+
+/* ───────────────────────────────────────────
+   TESTIMONIAL
+   ─────────────────────────────────────────── */
+.testimonial { background: var(--gray-900); color: #fff; }
+.testimonial-inner {
+  max-width: 720px; margin: 0 auto; text-align: center;
+}
+.testimonial-stars {
+  display: flex; justify-content: center; gap: 4px; margin-bottom: 24px;
+}
+.testimonial-stars svg { width: 20px; height: 20px; fill: #fbbf24; stroke: #fbbf24; }
+.testimonial blockquote {
+  font-size: clamp(18px, 2.5vw, 24px); font-weight: 500; line-height: 1.7;
+  color: rgba(255,255,255,0.92); margin-bottom: 32px; font-style: italic;
+}
+.testimonial-author {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+}
+.testimonial-avatar {
+  width: 48px; height: 48px; border-radius: 50%; background: var(--blue-600);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 18px; color: #fff;
+}
+.testimonial-meta strong {
+  display: block; font-size: 15px; font-weight: 700; color: #fff;
+}
+.testimonial-meta span {
+  font-size: 13px; color: rgba(255,255,255,0.5);
+}
+
+/* ───────────────────────────────────────────
+   FAQ
+   ─────────────────────────────────────────── */
+.faq-grid { max-width: 720px; margin: 48px auto 0; }
+.faq-item {
+  border: 1px solid var(--gray-200); border-radius: var(--radius-md);
+  margin-bottom: 12px; overflow: hidden; transition: box-shadow var(--transition);
+}
+.faq-item:hover { box-shadow: var(--shadow-sm); }
+.faq-question {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; background: none; cursor: pointer; text-align: left;
+  font-size: 15px; font-weight: 600; color: var(--gray-800);
+  transition: color var(--transition);
+}
+.faq-question:hover { color: var(--blue-600); }
+.faq-question svg {
+  width: 20px; height: 20px; stroke: var(--gray-400); flex-shrink: 0;
+  transition: transform var(--transition);
+}
+.faq-item.open .faq-question svg { transform: rotate(180deg); }
+.faq-item.open .faq-question { color: var(--blue-600); }
+.faq-answer {
+  max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.faq-answer-inner {
+  padding: 0 24px 18px;
+  font-size: 14px; color: var(--gray-500); line-height: 1.7;
+}
+
+/* ───────────────────────────────────────────
+   CTA BANNER
+   ─────────────────────────────────────────── */
+.cta-banner {
+  background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-800) 100%);
+  color: #fff; text-align: center; padding: 72px 24px;
+  position: relative; overflow: hidden;
+}
+.cta-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+.cta-banner h2 {
+  font-size: clamp(24px, 3.5vw, 36px); font-weight: 800; margin-bottom: 12px;
+  position: relative;
+}
+.cta-banner p {
+  font-size: 17px; color: rgba(255,255,255,0.8); margin-bottom: 32px;
+  position: relative;
+}
+.cta-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 16px 32px; background: #fff; color: var(--blue-700);
+  font-size: 16px; font-weight: 700; border-radius: var(--radius-sm);
+  cursor: pointer; transition: transform var(--transition), box-shadow var(--transition);
+  position: relative;
+}
+.cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+.cta-btn svg { width: 18px; height: 18px; stroke: var(--blue-700); }
+
+/* ───────────────────────────────────────────
+   FOOTER
+   ─────────────────────────────────────────── */
+.footer {
+  background: var(--gray-50); border-top: 1px solid var(--gray-200);
+  padding: 48px 0;
+}
+.footer-inner {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.footer-left {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 18px;
+  color: var(--gray-900);
+}
+.footer-left-icon {
+  width: 32px; height: 32px; background: var(--blue-600); border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.footer-left-icon svg { width: 18px; height: 18px; stroke: #fff; }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a {
+  font-size: 14px; color: var(--gray-500); transition: color var(--transition);
+}
+.footer-links a:hover { color: var(--blue-600); }
+.footer-copy { font-size: 13px; color: var(--gray-400); }
+
+/* ───────────────────────────────────────────
+   MOBILE NAV OVERLAY
+   ─────────────────────────────────────────── */
+.mobile-menu {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(0,0,0,0.4); opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.mobile-menu.open { opacity: 1; pointer-events: all; }
+.mobile-menu-inner {
+  position: absolute; top: 0; right: 0; width: 280px; height: 100%;
+  background: #fff; padding: 24px; transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+}
+.mobile-menu.open .mobile-menu-inner { transform: translateX(0); }
+.mobile-menu-close {
+  width: 36px; height: 36px; background: var(--gray-100); border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; margin-left: auto; margin-bottom: 24px;
+}
+.mobile-menu-close svg { width: 18px; height: 18px; stroke: var(--gray-600); }
+.mobile-menu-links { display: flex; flex-direction: column; gap: 4px; }
+.mobile-menu-links a {
+  padding: 12px 16px; font-size: 15px; font-weight: 500; color: var(--gray-700);
+  border-radius: var(--radius-sm); transition: background var(--transition);
+}
+.mobile-menu-links a:hover { background: var(--gray-50); }
+
+/* ───────────────────────────────────────────
+   RESPONSIVE
+   ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .nav-toggle { display: flex; }
+  .mobile-menu { display: block; }
+
+  .hero { padding-top: 110px; padding-bottom: 48px; }
+  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  .hero h1 { font-size: 32px; }
+  .hero-sub { font-size: 16px; }
+
+  .benefits-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .process-grid { grid-template-columns: 1fr; gap: 40px; }
+  .process-grid::before { display: none; }
+
+  .timeslots-grid { grid-template-columns: repeat(3, 1fr); }
+
+  .footer-inner { flex-direction: column; text-align: center; }
+  .footer-links { justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 0 16px; }
+  .section { padding: 64px 0; }
+
+  .hero { padding-top: 100px; }
+  .hero h1 { font-size: 28px; }
+  .hero-trust { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+  .benefits-grid { grid-template-columns: 1fr; }
+  .benefit-card { padding: 24px 20px; }
+
+  .calendar { padding: 16px 20px; }
+  .timeslots { padding: 0 20px 16px; }
+  .timeslots-grid { grid-template-columns: repeat(2, 1fr); }
+  .booking-form { padding: 0 20px 20px; }
+  .booking-card-header { padding: 20px; }
+
+  .footer-links { flex-direction: column; gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     NAVIGATION
+     ═══════════════════════════════════════════ -->
+<nav class="nav" id="nav">
+  <div class="container nav-inner">
+    <span class="nav-logo">
+      <span class="nav-logo-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </span>
+      YourBrand
+    </span>
+    <div class="nav-links">
+      <a href="#benefits">Why Book</a>
+      <a href="#process">How It Works</a>
+      <a href="#faq">FAQ</a>
+      <button class="nav-cta" onclick="document.getElementById('booking').scrollIntoView({behavior:'smooth'})">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Book Free Call
+      </button>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-inner">
+    <button class="mobile-menu-close" id="mobileClose" aria-label="Close menu">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="mobile-menu-links">
+      <a href="#benefits">Why Book</a>
+      <a href="#process">How It Works</a>
+      <a href="#faq">FAQ</a>
+      <a href="#booking" style="color:var(--blue-600); font-weight:600;">Book Free Call</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     HERO + BOOKING
+     ═══════════════════════════════════════════ -->
+<section class="hero" id="booking">
+  <div class="container hero-inner">
+    <!-- Left column: pitch -->
+    <div class="reveal">
+      <div class="hero-badge">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        30-Minute Strategy Session
+      </div>
+      <h1>Let's talk about<br>your <span>goals</span></h1>
+      <p class="hero-sub">Book a free, no-obligation consultation. We'll discuss where you are today, where you want to go, and map out the clearest path to get there.</p>
+      <div class="hero-trust">
+        <div class="hero-trust-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          100% Free
+        </div>
+        <div class="hero-trust-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          No Obligation
+        </div>
+        <div class="hero-trust-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Actionable Advice
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: booking card -->
+    <div class="reveal reveal-delay-2">
+      <div class="booking-card" id="bookingCard">
+        <div class="booking-card-header">
+          <h3>Pick a Date &amp; Time</h3>
+          <span class="free-badge">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;stroke:currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            FREE
+          </span>
+        </div>
+
+        <div class="booking-form-content" id="bookingFormContent">
+          <!-- Calendar -->
+          <div class="calendar">
+            <div class="calendar-nav">
+              <button id="calPrev" aria-label="Previous month">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span class="calendar-nav-title" id="calTitle"></span>
+              <button id="calNext" aria-label="Next month">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="calendar-grid" id="calGrid"></div>
+          </div>
+
+          <!-- Time slots -->
+          <div class="timeslots" id="timeslotsSection" style="display:none;">
+            <div class="timeslots-label" id="timeslotsLabel">Available times</div>
+            <div class="timeslots-grid" id="timeslotsGrid"></div>
+          </div>
+
+          <!-- Form -->
+          <div class="booking-form" id="formSection" style="display:none;">
+            <div class="booking-form-divider"></div>
+            <form id="bookingForm" novalidate>
+              <div class="form-group">
+                <label for="fname">Full Name</label>
+                <input type="text" id="fname" placeholder="Jane Smith" required>
+                <div class="form-error" id="fnameError">Please enter your name</div>
+              </div>
+              <div class="form-group">
+                <label for="femail">Email Address</label>
+                <input type="email" id="femail" placeholder="jane@example.com" required>
+                <div class="form-error" id="femailError">Please enter a valid email</div>
+              </div>
+              <div class="form-group">
+                <label for="ftopic">What would you like to discuss?</label>
+                <select id="ftopic" required>
+                  <option value="" disabled selected>Select a topic</option>
+                  <option value="strategy">Growth Strategy</option>
+                  <option value="product">Product / Service Feedback</option>
+                  <option value="marketing">Marketing &amp; Acquisition</option>
+                  <option value="operations">Operations &amp; Systems</option>
+                  <option value="funding">Funding &amp; Finance</option>
+                  <option value="other">Something Else</option>
+                </select>
+                <div class="form-error" id="ftopicError">Please select a topic</div>
+              </div>
+              <button type="submit" class="booking-submit">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Confirm Booking
+              </button>
+            </form>
+            <p class="booking-note">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Your information is safe. We never share or sell your data.
+            </p>
+          </div>
+        </div>
+
+        <!-- Success state -->
+        <div class="booking-success" id="bookingSuccess">
+          <div class="booking-success-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h3>You're All Set!</h3>
+          <p>Check your inbox for a confirmation email with meeting details and a calendar invite.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     BENEFITS
+     ═══════════════════════════════════════════ -->
+<section class="benefits section" id="benefits">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Why Book a Call
+      </span>
+      <h2 class="section-title">Get Clarity in 30 Minutes</h2>
+      <p class="section-subtitle" style="margin:0 auto;">Every call is tailored to where you are right now. Walk away with a concrete next step, not a sales pitch.</p>
+    </div>
+    <div class="benefits-grid">
+      <!-- 1 -->
+      <div class="benefit-card reveal reveal-delay-1">
+        <div class="benefit-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3>Diagnose the Bottleneck</h3>
+        <p>We'll identify the single biggest thing holding your business back and create a focused action plan.</p>
+      </div>
+      <!-- 2 -->
+      <div class="benefit-card reveal reveal-delay-2">
+        <div class="benefit-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>Expert Perspective</h3>
+        <p>Get an outside perspective from someone who has helped dozens of founders navigate exactly where you are.</p>
+      </div>
+      <!-- 3 -->
+      <div class="benefit-card reveal reveal-delay-3">
+        <div class="benefit-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3>Tailored Strategy</h3>
+        <p>No cookie-cutter advice. Your roadmap is built around your specific business model, stage, and resources.</p>
+      </div>
+      <!-- 4 -->
+      <div class="benefit-card reveal reveal-delay-4">
+        <div class="benefit-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Zero Risk</h3>
+        <p>Completely free with no strings attached. If we're not the right fit, you still leave with valuable insights.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PROCESS / WHAT TO EXPECT
+     ═══════════════════════════════════════════ -->
+<section class="section" id="process">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        What to Expect
+      </span>
+      <h2 class="section-title">Simple as 1-2-3</h2>
+      <p class="section-subtitle" style="margin:0 auto;">From booking to breakthrough, the whole process is designed to respect your time.</p>
+    </div>
+    <div class="process-grid">
+      <div class="process-step reveal reveal-delay-1">
+        <div class="process-number">1</div>
+        <div class="process-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <h3>Book</h3>
+        <p>Choose a date and time that works for you. You'll get instant confirmation and a calendar invite.</p>
+      </div>
+      <div class="process-step reveal reveal-delay-2">
+        <div class="process-number">2</div>
+        <div class="process-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <h3>Prepare</h3>
+        <p>We'll send you a brief intake form so we can make the most of our time together.</p>
+      </div>
+      <div class="process-step reveal reveal-delay-3">
+        <div class="process-number">3</div>
+        <div class="process-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3>Meet</h3>
+        <p>We'll hop on a video call, dig into your challenges, and you'll leave with a clear action plan.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     TESTIMONIAL
+     ═══════════════════════════════════════════ -->
+<section class="testimonial section">
+  <div class="container">
+    <div class="testimonial-inner reveal">
+      <div class="testimonial-stars">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <blockquote>"I expected a generic sales call but instead got a razor-sharp breakdown of my funnel and three changes I could make that week. Within a month, conversions were up 40%. Best free call I've ever taken."</blockquote>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">S</div>
+        <div class="testimonial-meta">
+          <strong>Sarah Chen</strong>
+          <span>Founder, Bloom Digital</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     FAQ
+     ═══════════════════════════════════════════ -->
+<section class="section" id="faq" style="background:var(--gray-50);">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        FAQ
+      </span>
+      <h2 class="section-title">Common Questions</h2>
+      <p class="section-subtitle" style="margin:0 auto;">Everything you need to know before booking your call.</p>
+    </div>
+    <div class="faq-grid">
+      <div class="faq-item reveal reveal-delay-1">
+        <button class="faq-question">
+          Is this really free? What's the catch?
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Yes, it's genuinely free with no strings attached. We offer these calls because the best client relationships start with trust and real value. If we're a great fit to work together, wonderful. If not, you still walk away with actionable insights you can implement immediately.</div>
+        </div>
+      </div>
+      <div class="faq-item reveal reveal-delay-2">
+        <button class="faq-question">
+          What should I prepare before the call?
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">After booking, you'll receive a short intake form asking about your business, current challenges, and goals. Fill that out ahead of time and we'll be able to dive right in. No need to create a presentation or anything formal.</div>
+        </div>
+      </div>
+      <div class="faq-item reveal reveal-delay-3">
+        <button class="faq-question">
+          How long does the consultation last?
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Calls are scheduled for 30 minutes. That's plenty of time to understand your situation, identify your biggest leverage point, and outline a concrete next step. We respect your time and keep things focused.</div>
+        </div>
+      </div>
+      <div class="faq-item reveal reveal-delay-4">
+        <button class="faq-question">
+          Can I reschedule or cancel?
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Absolutely. Life happens. You can reschedule or cancel anytime using the link in your confirmation email. We just ask for at least 24 hours' notice when possible so we can offer the slot to someone else.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     CTA BANNER
+     ═══════════════════════════════════════════ -->
+<section class="cta-banner reveal">
+  <h2>Ready to Get Started?</h2>
+  <p>Grab a free 30-minute strategy session. No pressure, just clarity.</p>
+  <button class="cta-btn" onclick="document.getElementById('booking').scrollIntoView({behavior:'smooth'})">
+    Book Your Free Call
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+  </button>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-left">
+      <span class="footer-left-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </span>
+      YourBrand
+    </div>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 YourBrand. All rights reserved.</p>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════ -->
+<script>
+(function() {
+  'use strict';
+
+  /* ── Nav scroll effect ── */
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive: true });
+
+  /* ── Mobile menu ── */
+  const toggle = document.getElementById('navToggle');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const mobileClose = document.getElementById('mobileClose');
+
+  toggle.addEventListener('click', () => mobileMenu.classList.add('open'));
+  mobileClose.addEventListener('click', () => mobileMenu.classList.remove('open'));
+  mobileMenu.addEventListener('click', (e) => {
+    if (e.target === mobileMenu) mobileMenu.classList.remove('open');
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => mobileMenu.classList.remove('open'));
+  });
+
+  /* ── Scroll reveal ── */
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+  /* ── Calendar ── */
+  const calTitle = document.getElementById('calTitle');
+  const calGrid = document.getElementById('calGrid');
+  const calPrev = document.getElementById('calPrev');
+  const calNext = document.getElementById('calNext');
+  const timeslotsSection = document.getElementById('timeslotsSection');
+  const timeslotsGrid = document.getElementById('timeslotsGrid');
+  const timeslotsLabel = document.getElementById('timeslotsLabel');
+  const formSection = document.getElementById('formSection');
+
+  const today = new Date();
+  let currentMonth = today.getMonth();
+  let currentYear = today.getFullYear();
+  let selectedDate = null;
+  let selectedTime = null;
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Simulated available dates: weekdays in current and next month that are today or later
+  function isAvailable(date) {
+    const day = date.getDay();
+    // Weekdays only (Mon-Fri), not past
+    if (day === 0 || day === 6) return false;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return date >= todayStart;
+  }
+
+  function renderCalendar() {
+    calTitle.textContent = monthNames[currentMonth] + ' ' + currentYear;
+    calGrid.innerHTML = '';
+
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('button');
+      empty.className = 'calendar-day empty';
+      empty.disabled = true;
+      calGrid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(currentYear, currentMonth, d);
+      const btn = document.createElement('button');
+      btn.className = 'calendar-day';
+      btn.textContent = d;
+      btn.type = 'button';
+
+      const isToday = (d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
+      if (isToday) btn.classList.add('today');
+
+      if (isAvailable(date)) {
+        btn.classList.add('available');
+        btn.addEventListener('click', () => selectDate(d, date));
+      } else {
+        btn.classList.add('disabled');
+        btn.disabled = true;
+      }
+
+      // Check if this is selected
+      if (selectedDate && d === selectedDate.getDate() && currentMonth === selectedDate.getMonth() && currentYear === selectedDate.getFullYear()) {
+        btn.classList.add('selected');
+      }
+
+      calGrid.appendChild(btn);
+    }
+  }
+
+  function selectDate(day, date) {
+    selectedDate = date;
+    selectedTime = null;
+    renderCalendar();
+    showTimeSlots(date);
+    formSection.style.display = 'none';
+  }
+
+  calPrev.addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
+  });
+  calNext.addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+  });
+
+  renderCalendar();
+
+  /* ── Time slots ── */
+  const timeSlots = ['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM'];
+
+  function showTimeSlots(date) {
+    timeslotsSection.style.display = 'block';
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    timeslotsLabel.textContent = dayName;
+    timeslotsGrid.innerHTML = '';
+
+    // Randomly remove a few slots to look realistic
+    const seed = date.getDate();
+    const available = timeSlots.filter((_, i) => (i + seed) % 5 !== 0);
+
+    available.forEach(time => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'timeslot-btn';
+      btn.textContent = time;
+      if (selectedTime === time) btn.classList.add('selected');
+      btn.addEventListener('click', () => selectTime(time));
+      timeslotsGrid.appendChild(btn);
+    });
+
+    // Smooth scroll to time slots on mobile
+    if (window.innerWidth < 768) {
+      setTimeout(() => timeslotsSection.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+  }
+
+  function selectTime(time) {
+    selectedTime = time;
+    // Re-render time buttons
+    timeslotsGrid.querySelectorAll('.timeslot-btn').forEach(btn => {
+      btn.classList.toggle('selected', btn.textContent === time);
+    });
+    formSection.style.display = 'block';
+    // Smooth scroll to form on mobile
+    if (window.innerWidth < 768) {
+      setTimeout(() => formSection.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+  }
+
+  /* ── Form validation ── */
+  const form = document.getElementById('bookingForm');
+  const fname = document.getElementById('fname');
+  const femail = document.getElementById('femail');
+  const ftopic = document.getElementById('ftopic');
+
+  function validateField(input, errorEl, validator) {
+    const valid = validator(input.value.trim());
+    input.classList.toggle('error', !valid);
+    errorEl.classList.toggle('show', !valid);
+    return valid;
+  }
+
+  // Live validation on blur
+  fname.addEventListener('blur', () => validateField(fname, document.getElementById('fnameError'), v => v.length >= 2));
+  femail.addEventListener('blur', () => validateField(femail, document.getElementById('femailError'), v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)));
+  ftopic.addEventListener('change', () => validateField(ftopic, document.getElementById('ftopicError'), v => v !== ''));
+
+  // Clear error on input
+  fname.addEventListener('input', () => { fname.classList.remove('error'); document.getElementById('fnameError').classList.remove('show'); });
+  femail.addEventListener('input', () => { femail.classList.remove('error'); document.getElementById('femailError').classList.remove('show'); });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const v1 = validateField(fname, document.getElementById('fnameError'), v => v.length >= 2);
+    const v2 = validateField(femail, document.getElementById('femailError'), v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
+    const v3 = validateField(ftopic, document.getElementById('ftopicError'), v => v !== '');
+
+    if (v1 && v2 && v3) {
+      // Show success
+      document.getElementById('bookingFormContent').classList.add('hidden');
+      document.getElementById('bookingSuccess').classList.add('show');
+
+      // Scroll to booking card
+      document.getElementById('bookingCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+
+  /* ── FAQ accordion ── */
+  document.querySelectorAll('.faq-question').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.parentElement;
+      const answer = item.querySelector('.faq-answer');
+      const isOpen = item.classList.contains('open');
+
+      // Close all
+      document.querySelectorAll('.faq-item').forEach(faq => {
+        faq.classList.remove('open');
+        faq.querySelector('.faq-answer').style.maxHeight = null;
+      });
+
+      // Open clicked (if it wasn't already open)
+      if (!isOpen) {
+        item.classList.add('open');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+      }
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

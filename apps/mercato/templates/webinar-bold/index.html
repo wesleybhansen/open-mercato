@@ -1,0 +1,2021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Launch Your Product in 30 Days — Free Live Webinar</title>
+    <meta name="description" content="Join our free live webinar and learn the exact framework to validate, build, and launch your product in 30 days. Limited spots available.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #FFFFFF;
+            --color-text: #0A0A0A;
+            --color-accent: #FFEC3E;
+            --color-border: #0A0A0A;
+            --color-white: #FFFFFF;
+            --color-gray-light: #F5F5F5;
+            --color-gray-mid: #E0E0E0;
+            --color-gray-dark: #666666;
+
+            --font-heading: 'Sora', sans-serif;
+            --font-body: 'Space Mono', monospace;
+
+            --border: 2px solid var(--color-border);
+            --shadow: 4px 4px 0 var(--color-border);
+            --shadow-lg: 6px 6px 0 var(--color-border);
+            --shadow-sm: 2px 2px 0 var(--color-border);
+
+            --radius: 0px;
+            --nav-height: 72px;
+
+            --transition-fast: 150ms ease;
+            --transition-base: 250ms ease;
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: var(--nav-height);
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-weight: 400;
+            color: var(--color-text);
+            background-color: var(--color-bg);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+
+        /* ========== TYPOGRAPHY ========== */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-heading);
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        h1 {
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            font-weight: 800;
+        }
+
+        h2 {
+            font-size: clamp(1.8rem, 4vw, 3rem);
+            font-weight: 700;
+        }
+
+        h3 {
+            font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+            font-weight: 700;
+        }
+
+        p {
+            font-size: clamp(0.875rem, 1.5vw, 1rem);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ========== UTILITY ========== */
+        .uppercase {
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .mono {
+            font-family: var(--font-body);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* ========== SCROLL REVEAL ========== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .reveal.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ========== NAVIGATION ========== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-height);
+            background: var(--color-bg);
+            border-bottom: var(--border);
+            z-index: 1000;
+            transition: box-shadow var(--transition-base);
+        }
+
+        .nav.scrolled {
+            box-shadow: 0 4px 0 var(--color-border);
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            user-select: none;
+            cursor: default;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            transition: color var(--transition-fast);
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--color-accent);
+            transition: width var(--transition-fast);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-cta {
+            font-family: var(--font-heading) !important;
+            font-weight: 700 !important;
+            font-size: 0.8rem !important;
+            padding: 10px 20px;
+            background: var(--color-accent);
+            color: var(--color-text);
+            border: var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-cta:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: var(--shadow);
+        }
+
+        .nav-cta:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        .nav-cta::after {
+            display: none !important;
+        }
+
+        /* Mobile hamburger */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 4px;
+            z-index: 1001;
+        }
+
+        .hamburger span {
+            display: block;
+            width: 24px;
+            height: 2px;
+            background: var(--color-text);
+            transition: transform var(--transition-base), opacity var(--transition-fast);
+        }
+
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Mobile nav */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: var(--nav-height);
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--color-bg);
+            border-top: var(--border);
+            z-index: 999;
+            padding: 40px 24px;
+        }
+
+        .mobile-nav.active {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .mobile-nav a {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            padding: 16px 0;
+            border-bottom: var(--border);
+            display: block;
+        }
+
+        .mobile-nav .nav-cta {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 1rem !important;
+            padding: 16px 24px;
+            width: 100%;
+        }
+
+        /* ========== HERO ========== */
+        .hero {
+            padding-top: calc(var(--nav-height) + 60px);
+            padding-bottom: 80px;
+            background: var(--color-bg);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: start;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--color-accent);
+            color: var(--color-text);
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 8px 16px;
+            border: var(--border);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+        }
+
+        .hero-badge svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .hero-headline {
+            margin-bottom: 20px;
+            line-height: 1.05;
+        }
+
+        .hero-subheadline {
+            font-family: var(--font-body);
+            font-size: clamp(0.95rem, 1.8vw, 1.1rem);
+            color: var(--color-gray-dark);
+            margin-bottom: 32px;
+            max-width: 520px;
+            line-height: 1.7;
+        }
+
+        .hero-date-card {
+            border: var(--border);
+            padding: 20px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: var(--color-gray-light);
+        }
+
+        .hero-date-card svg {
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .hero-date-card .date-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .hero-date-card .date-label {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-gray-dark);
+        }
+
+        .hero-date-card .date-value {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .hero-date-card .date-time {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            color: var(--color-gray-dark);
+        }
+
+        /* Countdown */
+        .countdown {
+            display: flex;
+            gap: 12px;
+        }
+
+        .countdown-block {
+            border: var(--border);
+            background: var(--color-bg);
+            box-shadow: var(--shadow);
+            padding: 16px 12px;
+            min-width: 72px;
+            text-align: center;
+        }
+
+        .countdown-number {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            line-height: 1;
+            display: block;
+        }
+
+        .countdown-label {
+            font-family: var(--font-body);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-gray-dark);
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* Registration form */
+        .form-card {
+            border: var(--border);
+            box-shadow: var(--shadow-lg);
+            background: var(--color-bg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-accent-bar {
+            height: 6px;
+            background: var(--color-accent);
+        }
+
+        .form-inner {
+            padding: 36px 32px;
+        }
+
+        .form-title {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.4rem;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .form-subtitle {
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            color: var(--color-gray-dark);
+            margin-bottom: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+
+        .form-label .optional {
+            font-weight: 400;
+            color: var(--color-gray-dark);
+            text-transform: none;
+            letter-spacing: normal;
+            font-family: var(--font-body);
+            font-size: 0.7rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            background: var(--color-bg);
+            color: var(--color-text);
+            transition: box-shadow var(--transition-fast);
+            outline: none;
+        }
+
+        .form-input::placeholder {
+            color: #AAAAAA;
+        }
+
+        .form-input:focus {
+            box-shadow: var(--shadow-sm);
+        }
+
+        .form-input.error {
+            border-color: #E53E3E;
+            box-shadow: 2px 2px 0 #E53E3E;
+        }
+
+        .form-error {
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            color: #E53E3E;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .form-error.visible {
+            display: block;
+        }
+
+        .form-submit {
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--color-accent);
+            color: var(--color-text);
+            border: var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+            margin-top: 8px;
+            position: relative;
+        }
+
+        .form-submit:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .form-submit:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        .form-submit.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .form-submit .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-text);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .form-submit.loading .spinner {
+            display: block;
+        }
+
+        .form-submit.loading .btn-text {
+            opacity: 0.6;
+        }
+
+        @keyframes spin {
+            to { transform: translateY(-50%) rotate(360deg); }
+        }
+
+        .form-privacy {
+            font-family: var(--font-body);
+            font-size: 0.7rem;
+            color: var(--color-gray-dark);
+            margin-top: 16px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .form-spots {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 12px;
+            border: var(--border);
+            background: var(--color-gray-light);
+        }
+
+        .form-spots svg {
+            width: 16px;
+            height: 16px;
+            color: #E53E3E;
+        }
+
+        .form-spots span {
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .spots-count {
+            color: #E53E3E;
+        }
+
+        /* Success state */
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: 40px 24px;
+        }
+
+        .form-success.active {
+            display: block;
+        }
+
+        .form-success .success-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: var(--color-accent);
+            border: var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form-success .success-icon svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .form-success h3 {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 2rem;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .form-success p {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            color: var(--color-gray-dark);
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .calendar-links {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .calendar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: var(--border);
+            box-shadow: var(--shadow-sm);
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+            background: var(--color-bg);
+        }
+
+        .calendar-link:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: var(--shadow);
+        }
+
+        .calendar-link svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* ========== SECTION SHARED ========== */
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-label {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--color-gray-dark);
+            margin-bottom: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-label::before {
+            content: '';
+            width: 24px;
+            height: 2px;
+            background: var(--color-accent);
+            display: inline-block;
+        }
+
+        .section-title {
+            margin-bottom: 48px;
+        }
+
+        /* ========== EVENT DETAILS ========== */
+        .details {
+            background: var(--color-gray-light);
+            border-top: var(--border);
+            border-bottom: var(--border);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .detail-card {
+            border: var(--border);
+            background: var(--color-bg);
+            padding: 32px 28px;
+            transition: box-shadow var(--transition-base), transform var(--transition-base);
+        }
+
+        .detail-card:hover {
+            box-shadow: var(--shadow);
+            transform: translate(-2px, -2px);
+        }
+
+        .detail-card-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--color-accent);
+            border: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .detail-card-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .detail-card h3 {
+            font-size: 1.15rem;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .detail-card p {
+            font-size: 0.85rem;
+            color: var(--color-gray-dark);
+            line-height: 1.6;
+        }
+
+        .detail-card .detail-tag {
+            display: inline-block;
+            font-family: var(--font-body);
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 4px 10px;
+            border: var(--border);
+            margin-top: 16px;
+        }
+
+        /* ========== SPEAKER ========== */
+        .speaker {
+            background: var(--color-bg);
+        }
+
+        .speaker-card {
+            border: var(--border);
+            box-shadow: var(--shadow-lg);
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            overflow: hidden;
+        }
+
+        .speaker-avatar {
+            background: var(--color-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            border-right: var(--border);
+        }
+
+        .speaker-avatar svg {
+            width: 120px;
+            height: 120px;
+        }
+
+        .speaker-info {
+            padding: 40px;
+        }
+
+        .speaker-name {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .speaker-title {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            color: var(--color-gray-dark);
+            margin-bottom: 20px;
+        }
+
+        .speaker-bio {
+            font-size: 0.9rem;
+            color: var(--color-gray-dark);
+            line-height: 1.7;
+            margin-bottom: 28px;
+            max-width: 560px;
+        }
+
+        .speaker-stats {
+            display: flex;
+            gap: 32px;
+        }
+
+        .speaker-stat {
+            text-align: left;
+        }
+
+        .speaker-stat-value {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.6rem;
+            display: block;
+            line-height: 1;
+        }
+
+        .speaker-stat-label {
+            font-family: var(--font-body);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-gray-dark);
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* ========== WHAT YOU'LL LEARN ========== */
+        .learn {
+            background: var(--color-gray-light);
+            border-top: var(--border);
+            border-bottom: var(--border);
+        }
+
+        .learn-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .learn-card {
+            border: var(--border);
+            background: var(--color-bg);
+            padding: 32px 28px;
+            transition: box-shadow var(--transition-base), transform var(--transition-base);
+        }
+
+        .learn-card:hover {
+            box-shadow: var(--shadow);
+            transform: translate(-2px, -2px);
+        }
+
+        .learn-card-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--color-accent);
+            border: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .learn-card-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .learn-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .learn-card p {
+            font-size: 0.85rem;
+            color: var(--color-gray-dark);
+            line-height: 1.6;
+        }
+
+        .learn-card .learn-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-body);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 20px;
+            padding: 6px 12px;
+            background: var(--color-accent);
+            border: var(--border);
+        }
+
+        .learn-card .learn-tag svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* ========== REPLAY ========== */
+        .replay {
+            padding: 0;
+        }
+
+        .replay-banner {
+            background: var(--color-accent);
+            border-top: var(--border);
+            border-bottom: var(--border);
+            padding: 60px 0;
+        }
+
+        .replay-inner {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .replay-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--color-bg);
+            border: var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .replay-icon svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .replay-content {
+            flex: 1;
+        }
+
+        .replay-content h3 {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: clamp(1.3rem, 3vw, 1.8rem);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .replay-content p {
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            color: var(--color-text);
+            max-width: 480px;
+            line-height: 1.6;
+        }
+
+        .replay-btn {
+            padding: 16px 28px;
+            background: var(--color-text);
+            color: var(--color-bg);
+            border: var(--border);
+            box-shadow: var(--shadow);
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .replay-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .replay-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* ========== FAQ ========== */
+        .faq {
+            background: var(--color-bg);
+        }
+
+        .faq-list {
+            max-width: 800px;
+        }
+
+        .faq-item {
+            border: var(--border);
+            margin-bottom: -2px;
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            background: var(--color-bg);
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-align: left;
+            color: var(--color-text);
+            transition: background var(--transition-fast);
+        }
+
+        .faq-question:hover {
+            background: var(--color-gray-light);
+        }
+
+        .faq-item.active .faq-question {
+            background: var(--color-accent);
+            border-bottom: var(--border);
+        }
+
+        .faq-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            transition: transform var(--transition-base);
+        }
+
+        .faq-item.active .faq-icon {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .faq-answer-inner {
+            padding: 20px 24px;
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            color: var(--color-gray-dark);
+            line-height: 1.7;
+        }
+
+        /* ========== CTA BANNER ========== */
+        .cta-banner {
+            background: var(--color-text);
+            padding: 80px 0;
+            border-top: var(--border);
+        }
+
+        .cta-banner-inner {
+            text-align: center;
+        }
+
+        .cta-banner h2 {
+            color: var(--color-accent);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .cta-banner p {
+            color: var(--color-gray-mid);
+            font-family: var(--font-body);
+            font-size: 1rem;
+            margin-bottom: 32px;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.7;
+        }
+
+        .cta-banner-btn {
+            display: inline-block;
+            padding: 18px 40px;
+            background: var(--color-accent);
+            color: var(--color-text);
+            border: 2px solid var(--color-accent);
+            box-shadow: 4px 4px 0 var(--color-accent);
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+            text-decoration: none;
+        }
+
+        .cta-banner-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 var(--color-accent);
+        }
+
+        .cta-banner-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* ========== FOOTER ========== */
+        .footer {
+            border-top: var(--border);
+            padding: 40px 0;
+            background: var(--color-bg);
+        }
+
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            user-select: none;
+            cursor: default;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .footer-links a {
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            color: var(--color-gray-dark);
+            transition: color var(--transition-fast);
+        }
+
+        .footer-links a:hover {
+            color: var(--color-text);
+        }
+
+        .footer-copy {
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            color: var(--color-gray-dark);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hamburger {
+                display: flex;
+            }
+
+            .hero {
+                padding-top: calc(var(--nav-height) + 40px);
+                padding-bottom: 60px;
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .countdown {
+                flex-wrap: wrap;
+            }
+
+            .countdown-block {
+                min-width: 60px;
+            }
+
+            .form-inner {
+                padding: 28px 24px;
+            }
+
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .speaker-card {
+                grid-template-columns: 1fr;
+            }
+
+            .speaker-avatar {
+                border-right: none;
+                border-bottom: var(--border);
+                padding: 32px;
+            }
+
+            .speaker-avatar svg {
+                width: 80px;
+                height: 80px;
+            }
+
+            .speaker-info {
+                padding: 28px;
+            }
+
+            .speaker-stats {
+                flex-wrap: wrap;
+                gap: 20px;
+            }
+
+            .learn-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .replay-inner {
+                flex-direction: column;
+                text-align: center;
+                gap: 24px;
+            }
+
+            .replay-content p {
+                margin: 0 auto;
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .section {
+                padding: 60px 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 16px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .countdown-block {
+                min-width: 54px;
+                padding: 12px 8px;
+            }
+
+            .countdown-number {
+                font-size: 1.3rem;
+            }
+
+            .hero-date-card {
+                flex-direction: column;
+                text-align: center;
+                gap: 12px;
+            }
+
+            .form-title {
+                font-size: 1.2rem;
+            }
+
+            .calendar-links {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .calendar-link {
+                justify-content: center;
+            }
+
+            .speaker-stats {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .replay-icon {
+                width: 64px;
+                height: 64px;
+            }
+
+            .replay-icon svg {
+                width: 28px;
+                height: 28px;
+            }
+
+            .cta-banner-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .footer-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== NAVIGATION ========== -->
+    <nav class="nav" id="nav">
+        <div class="nav-inner">
+            <span class="nav-logo">LAUNCHPAD_</span>
+            <ul class="nav-links">
+                <li><a href="#details">Details</a></li>
+                <li><a href="#speaker">Speaker</a></li>
+                <li><a href="#learn">Resources</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#hero-form" class="nav-cta">Register Free</a></li>
+            </ul>
+            <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div class="mobile-nav" id="mobile-nav">
+            <a href="#details" class="mobile-nav-link">Details</a>
+            <a href="#speaker" class="mobile-nav-link">Speaker</a>
+            <a href="#learn" class="mobile-nav-link">Resources</a>
+            <a href="#faq" class="mobile-nav-link">FAQ</a>
+            <a href="#hero-form" class="nav-cta mobile-nav-link">Register Free</a>
+        </div>
+    </nav>
+
+    <!-- ========== HERO ========== -->
+    <section class="hero" id="hero">
+        <div class="container">
+            <div class="hero-grid">
+                <!-- Left Column -->
+                <div class="hero-left">
+                    <div class="hero-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square">
+                            <circle cx="12" cy="12" r="5"/>
+                            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                        </svg>
+                        LIVE WEBINAR
+                    </div>
+                    <h1 class="hero-headline">Launch Your Product<br>in 30 Days or Less</h1>
+                    <p class="hero-subheadline">The no-fluff, step-by-step framework used by 500+ founders to go from zero to paying customers. No VC required. No audience needed. Just execution.</p>
+
+                    <div class="hero-date-card">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <rect x="3" y="4" width="18" height="18"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        <div class="date-info">
+                            <span class="date-label">When</span>
+                            <span class="date-value">March 20, 2026</span>
+                            <span class="date-time">7:00 PM UTC / 2:00 PM EST / 11:00 AM PST</span>
+                        </div>
+                    </div>
+
+                    <div class="countdown" id="countdown">
+                        <div class="countdown-block">
+                            <span class="countdown-number" id="cd-days">00</span>
+                            <span class="countdown-label">Days</span>
+                        </div>
+                        <div class="countdown-block">
+                            <span class="countdown-number" id="cd-hours">00</span>
+                            <span class="countdown-label">Hours</span>
+                        </div>
+                        <div class="countdown-block">
+                            <span class="countdown-number" id="cd-minutes">00</span>
+                            <span class="countdown-label">Min</span>
+                        </div>
+                        <div class="countdown-block">
+                            <span class="countdown-number" id="cd-seconds">00</span>
+                            <span class="countdown-label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Form -->
+                <div class="hero-right" id="hero-form">
+                    <div class="form-card">
+                        <div class="form-accent-bar"></div>
+                        <div class="form-inner" id="form-container">
+                            <form id="registration-form" novalidate>
+                                <h3 class="form-title">Save Your Spot</h3>
+                                <p class="form-subtitle">Free. Live. No replay paywall.</p>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="reg-name">Full Name</label>
+                                    <input class="form-input" type="text" id="reg-name" name="name" placeholder="Jane Doe" required>
+                                    <p class="form-error" id="name-error">Please enter your name.</p>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="reg-email">Email Address</label>
+                                    <input class="form-input" type="email" id="reg-email" name="email" placeholder="jane@company.com" required>
+                                    <p class="form-error" id="email-error">Please enter a valid email address.</p>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="reg-company">Company <span class="optional">(optional)</span></label>
+                                    <input class="form-input" type="text" id="reg-company" name="company" placeholder="Acme Inc.">
+                                </div>
+
+                                <button type="submit" class="form-submit" id="form-submit">
+                                    <span class="btn-text">Register for Free</span>
+                                    <span class="spinner"></span>
+                                </button>
+
+                                <p class="form-privacy">We respect your privacy. No spam, ever. Unsubscribe anytime.</p>
+
+                                <div class="form-spots">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                        <circle cx="12" cy="12" r="6"/>
+                                    </svg>
+                                    <span><span class="spots-count" id="spots-count">247</span> spots remaining</span>
+                                </div>
+                            </form>
+
+                            <div class="form-success" id="form-success">
+                                <div class="success-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                </div>
+                                <h3>You're In!</h3>
+                                <p>Check your inbox for the confirmation email with your unique join link. Add the event to your calendar so you don't miss it.</p>
+                                <div class="calendar-links">
+                                    <a href="#" class="calendar-link" id="gcal-link" target="_blank" rel="noopener noreferrer">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                                            <rect x="3" y="4" width="18" height="18"/>
+                                            <line x1="16" y1="2" x2="16" y2="6"/>
+                                            <line x1="8" y1="2" x2="8" y2="6"/>
+                                            <line x1="3" y1="10" x2="21" y2="10"/>
+                                        </svg>
+                                        Google Calendar
+                                    </a>
+                                    <button class="calendar-link" id="ics-download">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                        Download .ics
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== EVENT DETAILS ========== -->
+    <section class="section details" id="details">
+        <div class="container">
+            <div class="reveal">
+                <p class="section-label">What We'll Cover</p>
+                <h2 class="section-title">Everything You Need<br>to Ship Fast</h2>
+            </div>
+            <div class="details-grid">
+                <div class="detail-card reveal">
+                    <div class="detail-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <path d="M9 11l3 3L22 4"/>
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                        </svg>
+                    </div>
+                    <h3>Market Validation Framework</h3>
+                    <p>Stop building things nobody wants. Learn the 48-hour validation method that saves you months of wasted effort and thousands in development costs.</p>
+                    <span class="detail-tag">Framework</span>
+                </div>
+                <div class="detail-card reveal">
+                    <div class="detail-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <rect x="3" y="4" width="18" height="18"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                            <line x1="10" y1="14" x2="14" y2="14"/>
+                        </svg>
+                    </div>
+                    <h3>30-Day Launch Timeline</h3>
+                    <p>A day-by-day execution plan that breaks the entire launch process into manageable tasks. No guesswork, no overwhelm, just clear action steps from day one to launch day.</p>
+                    <span class="detail-tag">Roadmap</span>
+                </div>
+                <div class="detail-card reveal">
+                    <div class="detail-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 010 7.75"/>
+                        </svg>
+                    </div>
+                    <h3>Customer Acquisition Playbook</h3>
+                    <p>The exact cold outreach templates, community strategies, and zero-budget tactics that landed our first 100 paying customers without ads or a massive following.</p>
+                    <span class="detail-tag">Playbook</span>
+                </div>
+                <div class="detail-card reveal">
+                    <div class="detail-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                        </svg>
+                    </div>
+                    <h3>Live Q&A + Bonus Templates</h3>
+                    <p>Get your specific questions answered in real time. Plus walk away with our complete template library including landing pages, email sequences, and pitch decks.</p>
+                    <span class="detail-tag">Interactive</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== SPEAKER ========== -->
+    <section class="section speaker" id="speaker">
+        <div class="container">
+            <div class="reveal">
+                <p class="section-label">Your Host</p>
+                <h2 class="section-title">Meet the Speaker</h2>
+            </div>
+            <div class="speaker-card reveal">
+                <div class="speaker-avatar">
+                    <svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square">
+                        <circle cx="60" cy="45" r="20"/>
+                        <path d="M25 105c0-20 15-35 35-35s35 15 35 35"/>
+                        <rect x="10" y="10" width="100" height="100" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="speaker-info">
+                    <h3 class="speaker-name">Alex Chen</h3>
+                    <p class="speaker-title">Founder & CEO, Launchpad Ventures // 3x Product Launcher</p>
+                    <p class="speaker-bio">Serial entrepreneur who has launched 12 products across SaaS, digital goods, and physical products. Former product lead at a high-growth startup. Now helps first-time founders skip the trial-and-error phase and get to revenue in record time. Speaker at ProductHunt, IndieHackers, and MicroConf.</p>
+                    <div class="speaker-stats">
+                        <div class="speaker-stat">
+                            <span class="speaker-stat-value">500+</span>
+                            <span class="speaker-stat-label">Founders Coached</span>
+                        </div>
+                        <div class="speaker-stat">
+                            <span class="speaker-stat-value">$4.2M</span>
+                            <span class="speaker-stat-label">Revenue Generated</span>
+                        </div>
+                        <div class="speaker-stat">
+                            <span class="speaker-stat-value">12</span>
+                            <span class="speaker-stat-label">Products Launched</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== WHAT YOU'LL LEARN ========== -->
+    <section class="section learn" id="learn">
+        <div class="container">
+            <div class="reveal">
+                <p class="section-label">Free Resources</p>
+                <h2 class="section-title">Walk Away With<br>Actionable Templates</h2>
+            </div>
+            <div class="learn-grid">
+                <div class="learn-card reveal">
+                    <div class="learn-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="9" y1="13" x2="15" y2="13"/>
+                            <line x1="9" y1="17" x2="15" y2="17"/>
+                        </svg>
+                    </div>
+                    <h3>Launch Checklist Template</h3>
+                    <p>A comprehensive 47-point checklist covering every critical step from idea validation through post-launch. Never miss a step or wonder what comes next in your launch sequence.</p>
+                    <span class="learn-tag">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Included Free
+                    </span>
+                </div>
+                <div class="learn-card reveal">
+                    <div class="learn-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                            <polyline points="22 6 12 13 2 6"/>
+                        </svg>
+                    </div>
+                    <h3>Customer Outreach Scripts</h3>
+                    <p>Copy-paste email and DM templates for cold outreach, partnership proposals, and beta invitations. Tested across 1,000+ sends with response rates above 35 percent.</p>
+                    <span class="learn-tag">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Included Free
+                    </span>
+                </div>
+                <div class="learn-card reveal">
+                    <div class="learn-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                        </svg>
+                    </div>
+                    <h3>Pricing Strategy Guide</h3>
+                    <p>Determine the optimal price point for your product with our data-driven framework. Includes competitor analysis templates, willingness-to-pay surveys, and pricing tier structures.</p>
+                    <span class="learn-tag">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Included Free
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== REPLAY ========== -->
+    <section class="section replay" id="replay">
+        <div class="replay-banner">
+            <div class="container">
+                <div class="replay-inner reveal">
+                    <div class="replay-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                    </div>
+                    <div class="replay-content">
+                        <h3>Can't Make It Live?</h3>
+                        <p>No worries. Register now and we'll send you the full replay plus all bonus materials within 24 hours of the live session. Same content, your schedule.</p>
+                    </div>
+                    <a href="#hero-form" class="replay-btn">Register for the Replay</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FAQ ========== -->
+    <section class="section faq" id="faq">
+        <div class="container">
+            <div class="reveal">
+                <p class="section-label">Questions</p>
+                <h2 class="section-title">Frequently Asked</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Is this webinar really free?</span>
+                        <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Yes, 100% free. No credit card required, no hidden upsell during the session. We believe in providing massive value upfront. There are no paywalls on the replay either. We will mention our paid programs at the end for those who want continued support, but the webinar itself is packed with actionable takeaways you can implement immediately.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Who is this webinar for?</span>
+                        <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            This session is designed for aspiring founders, indie hackers, side-project builders, and anyone who has an idea but hasn't shipped yet. Whether you're technical or non-technical, have a budget or bootstrapping with zero dollars, the frameworks we cover are universal and battle-tested. If you've been stuck in the planning phase, this is your push.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Will there be a replay available?</span>
+                        <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Absolutely. Everyone who registers will receive the full replay recording within 24 hours of the live session, along with all bonus templates and resources. That said, attending live gives you the chance to ask questions directly and get personalized feedback, which is incredibly valuable.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>What if I don't have a product idea yet?</span>
+                        <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Perfect timing. The first module of our framework specifically covers idea generation and validation. We'll walk through how to identify real problems worth solving, evaluate market size, and test demand before you write a single line of code or create a single design. Many of our most successful students came in with zero ideas and left with validated concepts.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CTA BANNER ========== -->
+    <section class="cta-banner">
+        <div class="container">
+            <div class="cta-banner-inner reveal">
+                <h2>Stop Planning.<br>Start Shipping.</h2>
+                <p>Join 500+ founders who stopped overthinking and started executing. Your 30-day launch countdown begins the moment you register.</p>
+                <a href="#hero-form" class="cta-banner-btn">Claim Your Free Spot</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <span class="footer-brand">LAUNCHPAD_</span>
+                <ul class="footer-links">
+                    <li><a href="#details">Details</a></li>
+                    <li><a href="#speaker">Speaker</a></li>
+                    <li><a href="#learn">Resources</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+                <p class="footer-copy">&copy; 2026 Launchpad Ventures. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ========== JAVASCRIPT ========== -->
+    <script>
+    (function() {
+        'use strict';
+
+        // ========== COUNTDOWN TIMER ==========
+        const TARGET_DATE = new Date('2026-03-20T19:00:00Z');
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = TARGET_DATE - now;
+
+            if (diff <= 0) {
+                document.getElementById('cd-days').textContent = '00';
+                document.getElementById('cd-hours').textContent = '00';
+                document.getElementById('cd-minutes').textContent = '00';
+                document.getElementById('cd-seconds').textContent = '00';
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
+            document.getElementById('cd-hours').textContent = String(hours).padStart(2, '0');
+            document.getElementById('cd-minutes').textContent = String(minutes).padStart(2, '0');
+            document.getElementById('cd-seconds').textContent = String(seconds).padStart(2, '0');
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+
+        // ========== SPOTS REMAINING SIMULATION ==========
+        let spotsRemaining = 247;
+        const spotsEl = document.getElementById('spots-count');
+        const MIN_SPOTS = 50;
+
+        function decrementSpots() {
+            if (spotsRemaining <= MIN_SPOTS) return;
+
+            const decrement = Math.floor(Math.random() * 3) + 1;
+            spotsRemaining = Math.max(MIN_SPOTS, spotsRemaining - decrement);
+            spotsEl.textContent = spotsRemaining;
+
+            const nextDelay = (Math.random() * 30 + 15) * 1000;
+            setTimeout(decrementSpots, nextDelay);
+        }
+
+        const firstDelay = (Math.random() * 30 + 15) * 1000;
+        setTimeout(decrementSpots, firstDelay);
+
+        // ========== FORM VALIDATION & SUBMISSION ==========
+        const form = document.getElementById('registration-form');
+        const nameInput = document.getElementById('reg-name');
+        const emailInput = document.getElementById('reg-email');
+        const nameError = document.getElementById('name-error');
+        const emailError = document.getElementById('email-error');
+        const submitBtn = document.getElementById('form-submit');
+        const formSuccess = document.getElementById('form-success');
+
+        function validateEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function clearErrors() {
+            nameInput.classList.remove('error');
+            emailInput.classList.remove('error');
+            nameError.classList.remove('visible');
+            emailError.classList.remove('visible');
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearErrors();
+
+            let valid = true;
+
+            if (!nameInput.value.trim()) {
+                nameInput.classList.add('error');
+                nameError.classList.add('visible');
+                valid = false;
+            }
+
+            if (!validateEmail(emailInput.value.trim())) {
+                emailInput.classList.add('error');
+                emailError.classList.add('visible');
+                valid = false;
+            }
+
+            if (!valid) return;
+
+            submitBtn.classList.add('loading');
+
+            setTimeout(function() {
+                submitBtn.classList.remove('loading');
+                form.style.display = 'none';
+                formSuccess.classList.add('active');
+            }, 1500);
+        });
+
+        // Clear errors on input
+        nameInput.addEventListener('input', function() {
+            nameInput.classList.remove('error');
+            nameError.classList.remove('visible');
+        });
+
+        emailInput.addEventListener('input', function() {
+            emailInput.classList.remove('error');
+            emailError.classList.remove('visible');
+        });
+
+        // ========== CALENDAR LINK GENERATION ==========
+        const eventTitle = 'Launch Your Product in 30 Days — Free Live Webinar';
+        const eventDescription = 'Join this free live webinar to learn the step-by-step framework for launching your product in 30 days. Hosted by Alex Chen, Founder of Launchpad Ventures.';
+        const eventLocation = 'Online (link will be emailed)';
+        const eventStart = '20260320T190000Z';
+        const eventEnd = '20260320T203000Z';
+
+        // Google Calendar link
+        const gcalParams = new URLSearchParams({
+            action: 'TEMPLATE',
+            text: eventTitle,
+            dates: eventStart + '/' + eventEnd,
+            details: eventDescription,
+            location: eventLocation,
+            ctz: 'UTC'
+        });
+
+        document.getElementById('gcal-link').href = 'https://calendar.google.com/calendar/render?' + gcalParams.toString();
+
+        // .ics file download
+        document.getElementById('ics-download').addEventListener('click', function() {
+            var icsContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Launchpad//Webinar//EN',
+                'BEGIN:VEVENT',
+                'DTSTART:' + eventStart,
+                'DTEND:' + eventEnd,
+                'SUMMARY:' + eventTitle,
+                'DESCRIPTION:' + eventDescription,
+                'LOCATION:' + eventLocation,
+                'STATUS:CONFIRMED',
+                'END:VEVENT',
+                'END:VCALENDAR'
+            ].join('\r\n');
+
+            var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'webinar-launch-in-30-days.ics';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // ========== FAQ ACCORDION ==========
+        var faqItems = document.querySelectorAll('.faq-item');
+
+        faqItems.forEach(function(item) {
+            var questionBtn = item.querySelector('.faq-question');
+            var answer = item.querySelector('.faq-answer');
+
+            questionBtn.addEventListener('click', function() {
+                var isActive = item.classList.contains('active');
+
+                // Close all
+                faqItems.forEach(function(otherItem) {
+                    otherItem.classList.remove('active');
+                    otherItem.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+                    otherItem.querySelector('.faq-answer').style.maxHeight = '0';
+                });
+
+                // Open clicked if it was closed
+                if (!isActive) {
+                    item.classList.add('active');
+                    questionBtn.setAttribute('aria-expanded', 'true');
+                    answer.style.maxHeight = answer.scrollHeight + 'px';
+                }
+            });
+        });
+
+        // ========== SCROLL REVEAL (Intersection Observer) ==========
+        var revealElements = document.querySelectorAll('.reveal');
+
+        var revealObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -40px 0px'
+        });
+
+        revealElements.forEach(function(el) {
+            revealObserver.observe(el);
+        });
+
+        // ========== MOBILE MENU TOGGLE ==========
+        var hamburger = document.getElementById('hamburger');
+        var mobileNav = document.getElementById('mobile-nav');
+        var mobileLinks = document.querySelectorAll('.mobile-nav-link');
+
+        hamburger.addEventListener('click', function() {
+            hamburger.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        });
+
+        mobileLinks.forEach(function(link) {
+            link.addEventListener('click', function() {
+                hamburger.classList.remove('active');
+                mobileNav.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        });
+
+        // ========== NAV SCROLL SHADOW ==========
+        var nav = document.getElementById('nav');
+
+        window.addEventListener('scroll', function() {
+            if (window.scrollY > 10) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        }, { passive: true });
+
+    })();
+    </script>
+</body>
+</html>

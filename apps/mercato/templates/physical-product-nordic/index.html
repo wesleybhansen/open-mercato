@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Æther — Crafted for Everyday Moments</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --white: #fafaf8;
+            --off-white: #f5f3ef;
+            --warm-gray-light: #eae7e1;
+            --warm-gray-mid: #d4d0c8;
+            --charcoal: #2c2c2c;
+            --text-secondary: #6b6563;
+            --text-muted: #9a9590;
+            --terracotta: #c4754b;
+            --terracotta-hover: #b5683f;
+            --pine: #5a7a63;
+            --dusty-blue: #7a8fa6;
+            --border: rgba(0,0,0,0.08);
+            --border-strong: rgba(0,0,0,0.12);
+            --shadow-subtle: 0 2px 20px rgba(0,0,0,0.04);
+            --shadow-hover: 0 4px 30px rgba(0,0,0,0.07);
+            --radius: 8px;
+            --font-display: 'DM Serif Display', Georgia, serif;
+            --font-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+            --section-padding: 130px 0;
+            --container: 1200px;
+            --transition: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--charcoal);
+            background: var(--white);
+            font-size: 17px;
+            line-height: 1.7;
+            font-weight: 300;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: var(--container);
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+
+        .eyebrow {
+            font-family: var(--font-body);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            font-weight: 400;
+            line-height: 1.2;
+        }
+
+        h1 {
+            font-size: clamp(38px, 5vw, 56px);
+            letter-spacing: -0.5px;
+            color: var(--charcoal);
+        }
+
+        h2 {
+            font-size: clamp(30px, 3.5vw, 42px);
+            letter-spacing: -0.3px;
+            color: var(--charcoal);
+        }
+
+        h3 {
+            font-size: 22px;
+            letter-spacing: -0.2px;
+        }
+
+        p {
+            color: var(--text-secondary);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+        }
+
+        /* Image Placeholders */
+        .img-placeholder {
+            background: var(--warm-gray-light);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .img-placeholder::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            pointer-events: none;
+        }
+
+        .img-placeholder svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--warm-gray-mid);
+            stroke-width: 1.2;
+            fill: none;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            padding: 14px 32px;
+            border-radius: var(--radius);
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-primary {
+            background: var(--terracotta);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--terracotta-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(196, 117, 75, 0.2);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--charcoal);
+            border: 1px solid var(--border-strong);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--charcoal);
+            background: rgba(0,0,0,0.02);
+        }
+
+        /* Scroll Reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
+                        transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ==================== NAVIGATION ==================== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(250, 250, 248, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 72px;
+        }
+
+        .nav-logo {
+            font-family: var(--font-display);
+            font-size: 22px;
+            color: var(--charcoal);
+            letter-spacing: 1px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 36px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            transition: color var(--transition);
+            letter-spacing: 0.3px;
+        }
+
+        .nav-links a:hover {
+            color: var(--charcoal);
+        }
+
+        .nav-shop {
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            color: var(--charcoal) !important;
+            padding: 9px 22px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            transition: all var(--transition) !important;
+        }
+
+        .nav-shop:hover {
+            background: var(--charcoal) !important;
+            color: #fff !important;
+            border-color: var(--charcoal);
+        }
+
+        .nav-mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .nav-mobile-toggle svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--charcoal);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* ==================== HERO ==================== */
+        .hero {
+            padding: 160px 0 130px;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+
+        .hero-content {
+            max-width: 500px;
+        }
+
+        .hero h1 {
+            margin-bottom: 24px;
+        }
+
+        .hero-description {
+            font-size: 18px;
+            line-height: 1.75;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 420px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .hero-image {
+            aspect-ratio: 4/5;
+            width: 100%;
+        }
+
+        /* ==================== FEATURES ==================== */
+        .features {
+            padding: var(--section-padding);
+            border-top: 1px solid var(--border);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+        }
+
+        .feature-card {
+            transition: transform var(--transition);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .feature-image {
+            aspect-ratio: 1;
+            width: 100%;
+            margin-bottom: 28px;
+        }
+
+        .feature-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--terracotta);
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .feature-card h3 {
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* ==================== MATERIALS ==================== */
+        .materials {
+            padding: var(--section-padding);
+            background: var(--off-white);
+        }
+
+        .materials-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+
+        .materials-image {
+            aspect-ratio: 3/4;
+            width: 100%;
+        }
+
+        .materials-content h2 {
+            margin-bottom: 40px;
+        }
+
+        .material-item {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .material-item:first-child {
+            border-top: 1px solid var(--border);
+        }
+
+        .material-name {
+            font-family: var(--font-display);
+            font-size: 18px;
+            margin-bottom: 6px;
+            color: var(--charcoal);
+        }
+
+        .material-desc {
+            font-size: 14px;
+            line-height: 1.65;
+            color: var(--text-secondary);
+        }
+
+        /* ==================== STORY ==================== */
+        .story {
+            padding: 150px 0;
+        }
+
+        .story-inner {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .story h2 {
+            margin-bottom: 32px;
+        }
+
+        .story p {
+            font-size: 17px;
+            line-height: 1.85;
+            margin-bottom: 20px;
+        }
+
+        .story p:last-of-type {
+            margin-bottom: 48px;
+        }
+
+        .founder-image {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            margin: 0 auto 14px;
+        }
+
+        .founder-name {
+            font-family: var(--font-display);
+            font-size: 16px;
+            color: var(--charcoal);
+            margin-bottom: 2px;
+        }
+
+        .founder-title {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* ==================== PRODUCT LINEUP ==================== */
+        .products {
+            padding: var(--section-padding);
+            background: var(--off-white);
+        }
+
+        .products-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .products-header h2 {
+            margin-bottom: 12px;
+        }
+
+        .products-header p {
+            font-size: 17px;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .product-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all var(--transition);
+        }
+
+        .product-card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-3px);
+        }
+
+        .product-card-image {
+            aspect-ratio: 1;
+            width: 100%;
+            border-radius: 0;
+        }
+
+        .product-card-image::after {
+            border-radius: 0;
+        }
+
+        .product-card-body {
+            padding: 28px;
+        }
+
+        .product-card-name {
+            font-family: var(--font-display);
+            font-size: 20px;
+            color: var(--charcoal);
+            margin-bottom: 6px;
+        }
+
+        .product-card-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 18px;
+        }
+
+        .product-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .product-price {
+            font-family: var(--font-display);
+            font-size: 20px;
+            color: var(--charcoal);
+        }
+
+        .btn-add-cart {
+            font-family: var(--font-body);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 10px 20px;
+            background: var(--charcoal);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.3px;
+        }
+
+        .btn-add-cart:hover {
+            background: var(--terracotta);
+            transform: translateY(-1px);
+        }
+
+        /* ==================== SOCIAL PROOF ==================== */
+        .social-proof {
+            padding: var(--section-padding);
+            border-top: 1px solid var(--border);
+        }
+
+        .press-section {
+            text-align: center;
+            margin-bottom: 100px;
+        }
+
+        .press-section .eyebrow {
+            margin-bottom: 32px;
+        }
+
+        .press-logos {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 56px;
+            flex-wrap: wrap;
+        }
+
+        .press-name {
+            font-family: var(--font-display);
+            font-size: 20px;
+            color: var(--warm-gray-mid);
+            font-style: italic;
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 60px;
+        }
+
+        .testimonial {
+            padding-top: 28px;
+            border-top: 1px solid var(--border);
+        }
+
+        .testimonial-quote {
+            font-family: var(--font-display);
+            font-size: 19px;
+            font-style: italic;
+            line-height: 1.6;
+            color: var(--charcoal);
+            margin-bottom: 24px;
+        }
+
+        .testimonial-author {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--charcoal);
+        }
+
+        .testimonial-detail {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* ==================== SUSTAINABILITY ==================== */
+        .sustainability {
+            padding: var(--section-padding);
+            background: var(--off-white);
+        }
+
+        .sustainability-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .sustainability-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 48px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .sustain-item {
+            text-align: center;
+        }
+
+        .sustain-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 20px;
+        }
+
+        .sustain-icon svg {
+            width: 48px;
+            height: 48px;
+            stroke: var(--pine);
+            stroke-width: 1.2;
+            fill: none;
+        }
+
+        .sustain-item h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .sustain-item p {
+            font-size: 14px;
+            line-height: 1.65;
+            color: var(--text-secondary);
+        }
+
+        /* ==================== FAQ ==================== */
+        .faq {
+            padding: var(--section-padding);
+        }
+
+        .faq-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .faq-list {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .faq-item:first-child {
+            border-top: 1px solid var(--border);
+        }
+
+        .faq-question {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 28px 0;
+            cursor: pointer;
+            gap: 24px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-family: var(--font-display);
+            font-size: 18px;
+            color: var(--charcoal);
+            transition: color var(--transition);
+        }
+
+        .faq-question:hover {
+            color: var(--terracotta);
+        }
+
+        .faq-toggle {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+
+        .faq-toggle::before,
+        .faq-toggle::after {
+            content: '';
+            position: absolute;
+            background: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .faq-toggle::before {
+            width: 14px;
+            height: 1px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .faq-toggle::after {
+            width: 1px;
+            height: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .faq-item.active .faq-toggle::after {
+            transform: translate(-50%, -50%) rotate(90deg);
+            opacity: 0;
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
+                        padding 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 200px;
+        }
+
+        .faq-answer-inner {
+            padding-bottom: 28px;
+        }
+
+        .faq-answer p {
+            font-size: 15px;
+            line-height: 1.75;
+            color: var(--text-secondary);
+        }
+
+        /* ==================== NEWSLETTER ==================== */
+        .newsletter {
+            padding: var(--section-padding);
+            background: var(--off-white);
+        }
+
+        .newsletter-inner {
+            max-width: 480px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .newsletter h2 {
+            margin-bottom: 12px;
+        }
+
+        .newsletter-desc {
+            font-size: 16px;
+            margin-bottom: 36px;
+        }
+
+        .newsletter-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .newsletter-input {
+            flex: 1;
+            padding: 14px 18px;
+            font-family: var(--font-body);
+            font-size: 15px;
+            font-weight: 300;
+            color: var(--charcoal);
+            background: var(--white);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .newsletter-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .newsletter-input:focus {
+            border-color: var(--terracotta);
+        }
+
+        .newsletter-btn {
+            padding: 14px 28px;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--charcoal);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .newsletter-btn:hover {
+            background: var(--terracotta);
+        }
+
+        .newsletter-privacy {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 14px;
+        }
+
+        /* ==================== FOOTER ==================== */
+        .footer {
+            padding: 80px 0 48px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(3, 1fr);
+            gap: 60px;
+            margin-bottom: 64px;
+        }
+
+        .footer-brand p {
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            margin-top: 14px;
+            max-width: 260px;
+        }
+
+        .footer-col h4 {
+            font-family: var(--font-body);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col li {
+            margin-bottom: 12px;
+        }
+
+        .footer-col a {
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: color var(--transition);
+        }
+
+        .footer-col a:hover {
+            color: var(--charcoal);
+        }
+
+        .footer-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-copyright {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-social a {
+            color: var(--text-muted);
+            transition: color var(--transition);
+        }
+
+        .footer-social a:hover {
+            color: var(--charcoal);
+        }
+
+        .footer-social svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* ==================== MOBILE NAV ==================== */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 72px;
+            left: 0;
+            right: 0;
+            background: rgba(250, 250, 248, 0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 24px 40px 32px;
+            z-index: 99;
+            transform: translateY(-10px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-nav.open {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .mobile-nav a {
+            display: block;
+            font-size: 16px;
+            color: var(--text-secondary);
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+            transition: color var(--transition);
+        }
+
+        .mobile-nav a:last-child {
+            border-bottom: none;
+        }
+
+        .mobile-nav a:hover {
+            color: var(--charcoal);
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 1024px) {
+            :root {
+                --section-padding: 100px 0;
+            }
+
+            .container {
+                padding: 0 32px;
+            }
+
+            .hero-grid {
+                gap: 48px;
+            }
+
+            .materials-grid {
+                gap: 48px;
+            }
+
+            .testimonials-grid {
+                gap: 40px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --section-padding: 80px 0;
+            }
+
+            .container {
+                padding: 0 24px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .nav-mobile-toggle {
+                display: block;
+            }
+
+            .mobile-nav {
+                display: block;
+            }
+
+            .hero {
+                padding: 120px 0 80px;
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .hero-content {
+                max-width: 100%;
+            }
+
+            .hero-image {
+                aspect-ratio: 4/3;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .feature-image {
+                aspect-ratio: 16/10;
+            }
+
+            .materials-grid {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .sustainability-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 40px;
+            }
+
+            .press-logos {
+                gap: 32px;
+            }
+
+            .newsletter-form {
+                flex-direction: column;
+            }
+
+            .story {
+                padding: 100px 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --section-padding: 64px 0;
+            }
+
+            .container {
+                padding: 0 20px;
+            }
+
+            .hero {
+                padding: 100px 0 64px;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-buttons .btn {
+                text-align: center;
+                justify-content: center;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="#" class="nav-logo">Æther</a>
+                <ul class="nav-links">
+                    <li><a href="#features">Products</a></li>
+                    <li><a href="#materials">Materials</a></li>
+                    <li><a href="#story">Our Story</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                    <li><a href="#shop" class="nav-shop">Shop Now</a></li>
+                </ul>
+                <button class="nav-mobile-toggle" onclick="toggleMobileNav()" aria-label="Toggle menu">
+                    <svg viewBox="0 0 24 24" id="menuIcon">
+                        <line x1="4" y1="7" x2="20" y2="7"/>
+                        <line x1="4" y1="12" x2="20" y2="12"/>
+                        <line x1="4" y1="17" x2="20" y2="17"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="mobile-nav" id="mobileNav">
+        <a href="#features" onclick="closeMobileNav()">Products</a>
+        <a href="#materials" onclick="closeMobileNav()">Materials</a>
+        <a href="#story" onclick="closeMobileNav()">Our Story</a>
+        <a href="#faq" onclick="closeMobileNav()">FAQ</a>
+        <a href="#shop" onclick="closeMobileNav()">Shop Now</a>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-grid">
+                <div class="hero-content reveal">
+                    <span class="eyebrow">Thoughtfully made</span>
+                    <h1>Crafted for everyday moments.</h1>
+                    <p class="hero-description">Simple, purposeful objects designed with care. Made from honest materials, built to age beautifully alongside your daily rituals.</p>
+                    <div class="hero-buttons">
+                        <a href="#shop" class="btn btn-primary">Discover</a>
+                        <a href="#story" class="btn btn-outline">Our Story</a>
+                    </div>
+                </div>
+                <div class="img-placeholder hero-image reveal" style="transition-delay: 0.1s;">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="container">
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="img-placeholder feature-image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <span class="feature-label">Source</span>
+                    <h3>Sustainably Sourced</h3>
+                    <p>Every material traced back to its origin. We partner with certified suppliers who share our commitment to the environment.</p>
+                </div>
+                <div class="feature-card reveal" style="transition-delay: 0.1s;">
+                    <div class="img-placeholder feature-image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <span class="feature-label">Craft</span>
+                    <h3>Handcrafted Detail</h3>
+                    <p>Small-batch production means every piece receives individual attention. Imperfections are not flaws — they're signatures of the maker's hand.</p>
+                </div>
+                <div class="feature-card reveal" style="transition-delay: 0.2s;">
+                    <div class="img-placeholder feature-image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <span class="feature-label">Endure</span>
+                    <h3>Built to Last</h3>
+                    <p>Designed for years, not seasons. Our products develop character with age, becoming more personal the longer you use them.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Materials -->
+    <section class="materials" id="materials">
+        <div class="container">
+            <div class="materials-grid">
+                <div class="img-placeholder materials-image reveal">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                </div>
+                <div class="materials-content reveal" style="transition-delay: 0.1s;">
+                    <span class="eyebrow">Materials</span>
+                    <h2>Honest ingredients, nothing more.</h2>
+                    <div class="materials-list">
+                        <div class="material-item">
+                            <div class="material-name">Organic Cotton</div>
+                            <p class="material-desc">GOTS-certified, grown without synthetic pesticides. Sourced from family farms in Portugal.</p>
+                        </div>
+                        <div class="material-item">
+                            <div class="material-name">Plant-Based Dyes</div>
+                            <p class="material-desc">Colors derived from indigo, madder root, and walnut hulls. Gentle on skin, gentle on the earth.</p>
+                        </div>
+                        <div class="material-item">
+                            <div class="material-name">Brass Hardware</div>
+                            <p class="material-desc">Solid brass, not plated. Develops a warm patina over time that makes each piece uniquely yours.</p>
+                        </div>
+                        <div class="material-item">
+                            <div class="material-name">Recycled Packaging</div>
+                            <p class="material-desc">100% post-consumer recycled kraft paper. Compostable, minimal, and entirely plastic-free.</p>
+                        </div>
+                        <div class="material-item">
+                            <div class="material-name">Natural Beeswax</div>
+                            <p class="material-desc">Applied as a finish coat for protection. Ethically harvested from small-scale apiaries.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Story -->
+    <section class="story" id="story">
+        <div class="container">
+            <div class="story-inner reveal">
+                <span class="eyebrow">Our Story</span>
+                <h2>Born from a simple question.</h2>
+                <p>What if the objects we use every day were made with the same care as the moments they're part of? We started Æther in a small workshop with that question and a belief that thoughtful design shouldn't be reserved for special occasions.</p>
+                <p>Today, every product we make still begins the same way — with a conversation about what matters. No trends, no shortcuts. Just honest materials shaped by skilled hands into objects that quietly improve your daily life.</p>
+                <div class="img-placeholder founder-image">
+                    <svg viewBox="0 0 24 24" style="width:24px;height:24px;"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+                </div>
+                <div class="founder-name">Elena Aström</div>
+                <div class="founder-title">Founder &amp; Maker</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products -->
+    <section class="products" id="shop">
+        <div class="container">
+            <div class="products-header reveal">
+                <span class="eyebrow">The Collection</span>
+                <h2>Everyday essentials.</h2>
+                <p>Objects designed to fit quietly into your routine.</p>
+            </div>
+            <div class="products-grid">
+                <div class="product-card reveal">
+                    <div class="img-placeholder product-card-image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <div class="product-card-body">
+                        <div class="product-card-name">The Daily Tote</div>
+                        <p class="product-card-desc">Organic cotton canvas, vegetable-tanned leather handles. Fits a laptop, a book, and your day.</p>
+                        <div class="product-card-footer">
+                            <span class="product-price">$68</span>
+                            <button class="btn-add-cart">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card reveal" style="transition-delay: 0.1s;">
+                    <div class="img-placeholder product-card-image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <div class="product-card-body">
+                        <div class="product-card-name">Ritual Candle Set</div>
+                        <p class="product-card-desc">Hand-poured soy wax with essential oils. Three scents for morning, afternoon, and evening.</p>
+                        <div class="product-card-footer">
+                            <span class="product-price">$42</span>
+                            <button class="btn-add-cart">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card reveal" style="transition-delay: 0.2s;">
+                    <div class="img-placeholder product-card-image">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <div class="product-card-body">
+                        <div class="product-card-name">Ceramic Pour-Over</div>
+                        <p class="product-card-desc">Stoneware dripper with matte glaze. Designed for a slow, intentional morning coffee ritual.</p>
+                        <div class="product-card-footer">
+                            <span class="product-price">$36</span>
+                            <button class="btn-add-cart">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof -->
+    <section class="social-proof">
+        <div class="container">
+            <div class="press-section reveal">
+                <span class="eyebrow">As Featured In</span>
+                <div class="press-logos">
+                    <span class="press-name">Kinfolk</span>
+                    <span class="press-name">Monocle</span>
+                    <span class="press-name">Cereal</span>
+                    <span class="press-name">Apartamento</span>
+                    <span class="press-name">Dwell</span>
+                </div>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial reveal">
+                    <p class="testimonial-quote">"These are the kind of objects that make you slow down. I reach for my pour-over every morning now — it's become a ritual, not a chore."</p>
+                    <div class="testimonial-author">Maria K.</div>
+                    <div class="testimonial-detail">Ceramic Pour-Over</div>
+                </div>
+                <div class="testimonial reveal" style="transition-delay: 0.1s;">
+                    <p class="testimonial-quote">"I've never received so many compliments on a bag. And the canvas is getting better with age — softer, more personal."</p>
+                    <div class="testimonial-author">James L.</div>
+                    <div class="testimonial-detail">The Daily Tote</div>
+                </div>
+                <div class="testimonial reveal" style="transition-delay: 0.2s;">
+                    <p class="testimonial-quote">"Finally, products that match how I want to live. Simple, considered, no unnecessary anything. Exactly right."</p>
+                    <div class="testimonial-author">Yuki T.</div>
+                    <div class="testimonial-detail">Repeat customer</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sustainability -->
+    <section class="sustainability">
+        <div class="container">
+            <div class="sustainability-header reveal">
+                <span class="eyebrow">Our Commitments</span>
+                <h2>Better by nature.</h2>
+            </div>
+            <div class="sustainability-grid">
+                <div class="sustain-item reveal">
+                    <div class="sustain-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 22c-4.97 0-9-2.69-9-6v-2c0-3.31 4.03-6 9-6s9 2.69 9 6v2c0 3.31-4.03 6-9 6z"/>
+                            <path d="M12 8V2"/>
+                            <path d="M8 4l4-2 4 2"/>
+                            <circle cx="12" cy="14" r="2"/>
+                        </svg>
+                    </div>
+                    <h3>Carbon Neutral Shipping</h3>
+                    <p>Every order ships carbon neutral. We offset 110% of our logistics emissions through verified reforestation projects.</p>
+                </div>
+                <div class="sustain-item reveal" style="transition-delay: 0.1s;">
+                    <div class="sustain-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                            <line x1="12" y1="22.08" x2="12" y2="12"/>
+                        </svg>
+                    </div>
+                    <h3>Recyclable Packaging</h3>
+                    <p>Zero plastic, always. Our packaging is 100% post-consumer recycled and fully compostable. Designed to disappear.</p>
+                </div>
+                <div class="sustain-item reveal" style="transition-delay: 0.2s;">
+                    <div class="sustain-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3>1% for the Planet</h3>
+                    <p>We donate 1% of annual revenue to environmental nonprofits. Building a business that gives back isn't optional — it's foundational.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="faq-header reveal">
+                <span class="eyebrow">Questions</span>
+                <h2>Things people ask.</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        <span>What are your shipping times?</span>
+                        <span class="faq-toggle"></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            <p>Domestic orders typically ship within 2-3 business days and arrive in 5-7 days. International orders take 7-14 business days depending on the destination. All orders include tracking.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        <span>Do you offer returns or exchanges?</span>
+                        <span class="faq-toggle"></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            <p>We offer full refunds or exchanges within 30 days of delivery, provided items are in their original condition. We'll send you a prepaid return label — no hassle, no questions.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        <span>Where are your products made?</span>
+                        <span class="faq-toggle"></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            <p>All products are made in our workshop in Portland, Oregon, with materials sourced primarily from Portugal, Japan, and the Pacific Northwest. We visit every supplier in person.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        <span>How do I care for my products?</span>
+                        <span class="faq-toggle"></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            <p>Each product ships with a detailed care card. Generally, our items improve with age and regular use. Spot clean cotton items, avoid harsh chemicals on ceramics, and let leather develop its natural patina.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        <span>Do you offer gift wrapping?</span>
+                        <span class="faq-toggle"></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            <p>Yes. Our gift wrapping uses the same recycled kraft paper as our standard packaging, finished with a hand-stamped wax seal and a cotton ribbon. It's $5 per item at checkout.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        <span>Can I visit your workshop?</span>
+                        <span class="faq-toggle"></span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            <p>We open our studio doors the first Saturday of every month for tours and workshops. Sign up through our newsletter to get early access to these events — they fill up quickly.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter -->
+    <section class="newsletter">
+        <div class="container">
+            <div class="newsletter-inner reveal">
+                <span class="eyebrow">Newsletter</span>
+                <h2>Stay in the loop.</h2>
+                <p class="newsletter-desc">New releases, maker stories, and the occasional workshop invite. No noise — just what matters.</p>
+                <form class="newsletter-form" onsubmit="event.preventDefault()">
+                    <input type="email" class="newsletter-input" placeholder="Your email address" required>
+                    <button type="submit" class="newsletter-btn">Subscribe</button>
+                </form>
+                <p class="newsletter-privacy">We respect your inbox. Unsubscribe anytime.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="#" class="nav-logo">Æther</a>
+                    <p>Thoughtfully made objects for everyday moments. Portland, Oregon.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Shop</h4>
+                    <ul>
+                        <li><a href="#">All Products</a></li>
+                        <li><a href="#">New Arrivals</a></li>
+                        <li><a href="#">Bestsellers</a></li>
+                        <li><a href="#">Gift Cards</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">Our Story</a></li>
+                        <li><a href="#">Materials</a></li>
+                        <li><a href="#">Sustainability</a></li>
+                        <li><a href="#">Journal</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Contact Us</a></li>
+                        <li><a href="#">Shipping & Returns</a></li>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span class="footer-copyright">&copy; 2025 Æther. All rights reserved.</span>
+                <div class="footer-social">
+                    <a href="#" aria-label="Instagram">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5"/></svg>
+                    </a>
+                    <a href="#" aria-label="Pinterest">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.08 2.46 7.58 5.98 9.1-.08-.74-.16-1.86.03-2.66.17-.72 1.1-4.67 1.1-4.67s-.28-.56-.28-1.4c0-1.31.76-2.29 1.71-2.29.81 0 1.2.6 1.2 1.33 0 .81-.52 2.02-.78 3.14-.22.94.47 1.71 1.4 1.71 1.68 0 2.97-1.77 2.97-4.33 0-2.27-1.63-3.85-3.96-3.85-2.7 0-4.28 2.02-4.28 4.11 0 .81.31 1.69.7 2.16.08.1.09.18.07.28-.07.3-.24.94-.27 1.07-.04.17-.14.21-.33.13-1.24-.58-2.02-2.39-2.02-3.85 0-3.13 2.28-6.01 6.57-6.01 3.45 0 6.13 2.46 6.13 5.74 0 3.43-2.16 6.19-5.16 6.19-1.01 0-1.96-.52-2.28-1.14l-.62 2.37c-.22.87-.83 1.96-1.24 2.63.93.29 1.92.44 2.95.44 5.52 0 10-4.48 10-10S17.52 2 12 2z"/></svg>
+                    </a>
+                    <a href="#" aria-label="Twitter">
+                        <svg viewBox="0 0 24 24"><path d="M4 4l11.73 16H20L8.27 4z"/><path d="M4 20l6.77-7.13"/><path d="M20 4l-6.77 7.13"/></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Scroll Reveal
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -40px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // FAQ Accordion
+        function toggleFaq(button) {
+            const item = button.parentElement;
+            const wasActive = item.classList.contains('active');
+
+            document.querySelectorAll('.faq-item').forEach(faq => {
+                faq.classList.remove('active');
+            });
+
+            if (!wasActive) {
+                item.classList.add('active');
+            }
+        }
+
+        // Mobile Nav
+        let mobileNavOpen = false;
+
+        function toggleMobileNav() {
+            mobileNavOpen = !mobileNavOpen;
+            const nav = document.getElementById('mobileNav');
+            const icon = document.getElementById('menuIcon');
+
+            if (mobileNavOpen) {
+                nav.classList.add('open');
+                icon.innerHTML = '<line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>';
+            } else {
+                nav.classList.remove('open');
+                icon.innerHTML = '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>';
+            }
+        }
+
+        function closeMobileNav() {
+            mobileNavOpen = false;
+            document.getElementById('mobileNav').classList.remove('open');
+            document.getElementById('menuIcon').innerHTML = '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>';
+        }
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    e.preventDefault();
+                    const navHeight = 72;
+                    const targetPos = target.getBoundingClientRect().top + window.pageYOffset - navHeight;
+                    window.scrollTo({ top: targetPos, behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>

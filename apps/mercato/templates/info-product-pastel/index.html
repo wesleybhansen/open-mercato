@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Course — Placeholder Tagline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #f8f6fc;
+  --bg-rose: #fdf2f4;
+  --bg-cream: #fefdfb;
+  --bg-lav: #f0ecf8;
+  --white: #ffffff;
+
+  --plum: #2d2240;
+  --plum-light: #3d3258;
+  --body: #6b6080;
+  --muted: #9e95ab;
+  --border: #e6e0f0;
+  --border-light: #ede8f5;
+
+  --coral: #e8786f;
+  --coral-dark: #d4635a;
+  --coral-light: rgba(232, 120, 111, 0.1);
+  --coral-mid: rgba(232, 120, 111, 0.18);
+  --lavender: #9b8ec4;
+  --lavender-light: rgba(155, 142, 196, 0.1);
+  --mint: #7ec4a8;
+  --mint-light: rgba(126, 196, 168, 0.12);
+  --peach: #f0b78f;
+  --peach-light: rgba(240, 183, 143, 0.15);
+
+  --serif: 'DM Serif Display', Georgia, serif;
+  --body-font: 'Nunito', -apple-system, sans-serif;
+
+  --container: 1080px;
+  --section-pad: clamp(72px, 9vw, 128px);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --radius: 18px;
+  --radius-sm: 12px;
+
+  --shadow-sm: 0 2px 8px rgba(45,34,64,0.04);
+  --shadow-md: 0 6px 24px rgba(45,34,64,0.06);
+  --shadow-lg: 0 16px 48px rgba(45,34,64,0.08);
+}
+
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--body-font); background: var(--bg); color: var(--plum); line-height: 1.6; overflow-x: hidden; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+.reveal {
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.65s var(--ease-out), transform 0.65s var(--ease-out);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.rd1 { transition-delay: 0.1s; } .rd2 { transition-delay: 0.2s; }
+.rd3 { transition-delay: 0.3s; } .rd4 { transition-delay: 0.4s; }
+
+.pill-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--coral); background: var(--coral-light);
+  padding: 6px 16px; border-radius: 100px;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   NAV
+   ============================================ */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: 0 24px; transition: background 0.35s, box-shadow 0.35s;
+}
+.nav.scrolled {
+  background: rgba(248, 246, 252, 0.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 var(--border-light);
+}
+.nav-inner {
+  max-width: var(--container); margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; height: 68px;
+}
+.nav-brand {
+  font-family: var(--serif); font-size: 20px; color: var(--plum);
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-brand-icon {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--coral), var(--lavender));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: white;
+}
+.nav-links { display: flex; align-items: center; gap: 28px; }
+.nav-links a {
+  font-size: 14px; font-weight: 600; color: var(--body);
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--plum); }
+.nav-links a.nav-cta {
+  padding: 10px 24px; background: var(--coral); color: white;
+  border-radius: 100px; font-weight: 700;
+  transition: background 0.2s, transform 0.2s var(--ease-out), box-shadow 0.2s;
+}
+.nav-links a.nav-cta:hover {
+  background: var(--coral-dark); color: white;
+  transform: translateY(-1px); box-shadow: 0 4px 16px rgba(232,120,111,0.25);
+}
+.nav-mobile { display: none; flex-direction: column; gap: 5px; padding: 4px; }
+.nav-mobile span { width: 20px; height: 2px; background: var(--plum); border-radius: 2px; transition: 0.3s; }
+
+/* ============================================
+   HERO
+   ============================================ */
+.hero {
+  padding: 144px 24px 0;
+  position: relative; overflow: hidden;
+}
+/* Gradient blobs */
+.hero::before {
+  content: ''; position: absolute; top: -80px; right: -120px;
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,120,111,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero::after {
+  content: ''; position: absolute; top: 200px; left: -160px;
+  width: 400px; height: 400px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(155,142,196,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner {
+  max-width: var(--container); margin: 0 auto;
+  display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center;
+  position: relative;
+}
+.hero-content {}
+.hero h1 {
+  font-family: var(--serif); font-size: clamp(36px, 4.5vw, 56px);
+  font-weight: 400; line-height: 1.15; letter-spacing: -0.01em;
+  margin-bottom: 18px;
+}
+.hero h1 em { font-style: italic; color: var(--coral); }
+.hero-sub {
+  font-size: 17px; color: var(--body); line-height: 1.75; margin-bottom: 28px;
+  max-width: 440px;
+}
+.hero-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.btn-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 15px 32px; background: var(--coral); color: white;
+  font-size: 15px; font-weight: 700; border-radius: 100px;
+  transition: background 0.2s, transform 0.2s var(--ease-out), box-shadow 0.2s;
+}
+.btn-pill:hover {
+  background: var(--coral-dark); transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(232,120,111,0.25);
+}
+.hero-price {
+  font-size: 14px; color: var(--muted); font-weight: 600;
+}
+.hero-price strong { color: var(--plum); font-size: 17px; }
+
+.hero-product { display: flex; justify-content: center; position: relative; }
+.product-mockup {
+  width: 100%; max-width: 340px; aspect-ratio: 3/4;
+  background: linear-gradient(145deg, var(--bg-lav), var(--bg-rose));
+  border-radius: var(--radius); border: 1px solid var(--border-light);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 14px; font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  position: relative; overflow: hidden;
+}
+.product-mockup::before {
+  content: ''; position: absolute; inset: 14px;
+  border: 2px dashed var(--border); border-radius: calc(var(--radius) - 6px);
+}
+/* Floating decorative blobs */
+.hero-blob {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  animation: blobFloat 8s ease-in-out infinite;
+}
+.hero-blob-1 {
+  width: 80px; height: 80px; top: -20px; right: -10px;
+  background: var(--coral-light); animation-delay: 0s;
+}
+.hero-blob-2 {
+  width: 50px; height: 50px; bottom: 30px; left: -20px;
+  background: var(--lavender-light); animation-delay: -4s;
+}
+@keyframes blobFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
+}
+
+/* ============================================
+   SOCIAL PROOF
+   ============================================ */
+.proof {
+  padding: 48px 24px;
+  margin-top: var(--section-pad);
+  background: var(--bg-cream);
+  border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);
+}
+.proof-inner {
+  max-width: var(--container); margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  gap: 32px; flex-wrap: wrap;
+}
+.proof-avatars { display: flex; }
+.proof-avatars span {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2.5px solid var(--bg-cream); margin-left: -10px;
+}
+.proof-avatars span:first-child { margin-left: 0; }
+.proof-avatars span:nth-child(1) { background: linear-gradient(135deg, var(--coral), #f0a090); }
+.proof-avatars span:nth-child(2) { background: linear-gradient(135deg, var(--lavender), #c4b8e8); }
+.proof-avatars span:nth-child(3) { background: linear-gradient(135deg, var(--mint), #a8dcc4); }
+.proof-avatars span:nth-child(4) { background: linear-gradient(135deg, var(--peach), #f5cdb0); }
+.proof-text { font-size: 14px; color: var(--body); font-weight: 600; }
+.proof-text strong { color: var(--plum); }
+.proof-stars { color: #fbbf24; font-size: 15px; letter-spacing: 2px; }
+.proof-divider { width: 1px; height: 28px; background: var(--border); }
+
+/* ============================================
+   PROBLEM
+   ============================================ */
+.problem { padding: var(--section-pad) 24px; }
+.problem-inner { max-width: 660px; margin: 0 auto; text-align: center; }
+.problem h2 {
+  font-family: var(--serif); font-size: clamp(26px, 3vw, 38px);
+  font-weight: 400; line-height: 1.25; margin-bottom: 24px;
+}
+.problem-text {
+  font-size: 16px; color: var(--body); line-height: 1.8; margin-bottom: 20px;
+}
+.callout-box {
+  margin: 36px 0; padding: 28px 32px;
+  background: var(--bg-rose); border-radius: var(--radius);
+  border-left: 4px solid var(--coral);
+  text-align: left;
+}
+.callout-box p {
+  font-size: 16px; color: var(--plum-light); line-height: 1.7;
+  font-weight: 600; font-style: italic;
+}
+
+/* ============================================
+   CURRICULUM
+   ============================================ */
+.curriculum {
+  padding: var(--section-pad) 24px;
+  background: var(--bg-cream);
+  border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);
+}
+.curriculum-inner { max-width: var(--container); margin: 0 auto; }
+.curriculum-header { text-align: center; max-width: 500px; margin: 0 auto 48px; }
+.curriculum-header h2 {
+  font-family: var(--serif); font-size: clamp(26px, 3vw, 38px);
+  font-weight: 400; line-height: 1.25; margin-bottom: 12px;
+}
+.curriculum-header p { font-size: 15px; color: var(--body); }
+.curriculum-list { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.cur-item {
+  background: var(--white); border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm); overflow: hidden;
+  transition: box-shadow 0.3s;
+}
+.cur-item:hover { box-shadow: var(--shadow-sm); }
+.cur-trigger {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; padding: 18px 20px; text-align: left;
+}
+.cur-num {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: white; flex-shrink: 0;
+}
+.cur-item:nth-child(1) .cur-num { background: var(--coral); }
+.cur-item:nth-child(2) .cur-num { background: var(--lavender); }
+.cur-item:nth-child(3) .cur-num { background: var(--mint); }
+.cur-item:nth-child(4) .cur-num { background: var(--peach); }
+.cur-item:nth-child(5) .cur-num { background: #7eb8c4; }
+.cur-item:nth-child(6) .cur-num { background: #c490b0; }
+.cur-title {
+  flex: 1; font-size: 15px; font-weight: 700; color: var(--plum);
+}
+.cur-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--bg); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; font-size: 12px;
+  color: var(--muted); transition: transform 0.3s var(--ease-out), background 0.3s;
+}
+.cur-item.open .cur-icon {
+  transform: rotate(45deg); background: var(--coral-light); color: var(--coral);
+}
+.cur-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.4s var(--ease-out);
+}
+.cur-item.open .cur-body { max-height: 140px; }
+.cur-body p {
+  font-size: 14px; color: var(--body); line-height: 1.7;
+  padding: 0 20px 18px 70px;
+}
+
+/* ============================================
+   AUTHOR
+   ============================================ */
+.author { padding: var(--section-pad) 24px; }
+.author-inner {
+  max-width: var(--container); margin: 0 auto;
+  display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 56px; align-items: center;
+}
+.author-photo {
+  width: 100%; aspect-ratio: 1/1; border-radius: 50%;
+  background: linear-gradient(145deg, var(--bg-lav), var(--bg-rose));
+  border: 1px solid var(--border-light);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 14px; font-weight: 600;
+  max-width: 360px; margin: 0 auto;
+  position: relative; overflow: hidden;
+}
+.author-photo::before {
+  content: ''; position: absolute;
+  inset: 12px; border-radius: 50%;
+  border: 2px dashed var(--border);
+}
+.author-content h2 {
+  font-family: var(--serif); font-size: clamp(24px, 2.8vw, 34px);
+  font-weight: 400; line-height: 1.25; margin-bottom: 18px;
+}
+.author-content h2 em { color: var(--coral); font-style: italic; }
+.author-content p {
+  font-size: 15px; color: var(--body); line-height: 1.8; margin-bottom: 14px;
+}
+.author-wave { font-size: 28px; margin-bottom: 12px; display: block; }
+
+/* ============================================
+   TESTIMONIALS
+   ============================================ */
+.testimonials {
+  padding: var(--section-pad) 24px;
+  background: var(--bg-rose);
+  border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);
+}
+.testimonials-inner { max-width: var(--container); margin: 0 auto; }
+.testimonials-header { text-align: center; margin-bottom: 48px; }
+.testimonials-header h2 {
+  font-family: var(--serif); font-size: clamp(26px, 3vw, 38px);
+  font-weight: 400; line-height: 1.25;
+}
+.test-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.test-card {
+  background: var(--white); border: 1px solid var(--border-light);
+  border-radius: var(--radius); padding: 28px 24px;
+  transition: box-shadow 0.3s, transform 0.3s var(--ease-out);
+}
+.test-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+.test-stars { color: #fbbf24; font-size: 13px; margin-bottom: 14px; letter-spacing: 2px; }
+.test-quote {
+  font-size: 14px; line-height: 1.75; color: var(--body);
+  margin-bottom: 20px; font-style: italic;
+}
+.test-author { display: flex; align-items: center; gap: 11px; }
+.test-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: white;
+}
+.test-avatar.a { background: linear-gradient(135deg, var(--coral), #f0a090); }
+.test-avatar.b { background: linear-gradient(135deg, var(--lavender), #c4b8e8); }
+.test-avatar.c { background: linear-gradient(135deg, var(--mint), #a8dcc4); }
+.test-name { font-size: 14px; font-weight: 700; }
+.test-role { font-size: 12px; color: var(--muted); }
+
+/* ============================================
+   BONUSES
+   ============================================ */
+.bonuses { padding: var(--section-pad) 24px; }
+.bonuses-inner { max-width: var(--container); margin: 0 auto; }
+.bonuses-header { text-align: center; max-width: 460px; margin: 0 auto 48px; }
+.bonuses-header h2 {
+  font-family: var(--serif); font-size: clamp(26px, 3vw, 38px);
+  font-weight: 400; line-height: 1.25; margin-bottom: 10px;
+}
+.bonuses-header p { font-size: 15px; color: var(--body); }
+.bonuses-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.bonus-card {
+  border-radius: var(--radius); padding: 28px 24px;
+  border: 1px solid transparent; position: relative;
+}
+.bonus-card:nth-child(1) { background: linear-gradient(145deg, #fce8e6, #fdf2f4); border-color: rgba(232,120,111,0.12); }
+.bonus-card:nth-child(2) { background: linear-gradient(145deg, #ece8f8, #f0ecf8); border-color: rgba(155,142,196,0.12); }
+.bonus-card:nth-child(3) { background: linear-gradient(145deg, #e4f2ec, #ecf8f2); border-color: rgba(126,196,168,0.15); }
+.bonus-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px; font-size: 20px;
+}
+.bonus-card:nth-child(1) .bonus-icon { background: var(--coral-light); }
+.bonus-card:nth-child(2) .bonus-icon { background: var(--lavender-light); }
+.bonus-card:nth-child(3) .bonus-icon { background: var(--mint-light); }
+.bonus-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.bonus-card p { font-size: 14px; color: var(--body); line-height: 1.65; }
+.bonus-value {
+  position: absolute; top: 16px; right: 16px;
+  font-size: 11px; font-weight: 700; border-radius: 100px;
+  padding: 3px 10px;
+}
+.bonus-card:nth-child(1) .bonus-value { color: var(--coral); background: rgba(232,120,111,0.12); }
+.bonus-card:nth-child(2) .bonus-value { color: var(--lavender); background: rgba(155,142,196,0.12); }
+.bonus-card:nth-child(3) .bonus-value { color: var(--mint); background: rgba(126,196,168,0.15); }
+
+/* ============================================
+   PRICING
+   ============================================ */
+.pricing { padding: var(--section-pad) 24px; background: var(--bg-cream); border-top: 1px solid var(--border-light); }
+.pricing-inner { max-width: 520px; margin: 0 auto; text-align: center; }
+.pricing-header h2 {
+  font-family: var(--serif); font-size: clamp(28px, 3.5vw, 44px);
+  font-weight: 400; line-height: 1.2; margin-bottom: 24px;
+}
+.pricing-card {
+  background: var(--white); border: 2px solid var(--coral);
+  border-radius: calc(var(--radius) + 4px); padding: 40px 32px;
+  text-align: left; position: relative; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(232,120,111,0.1);
+}
+/* Confetti dots */
+.pricing-card::before {
+  content: ''; position: absolute; top: 12px; right: 16px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--lavender-light);
+  box-shadow:
+    -20px 8px 0 var(--coral-light),
+    -44px -2px 0 var(--mint-light),
+    12px 24px 0 var(--peach-light),
+    -8px 36px 0 var(--lavender-light);
+}
+.pricing-card::after {
+  content: ''; position: absolute; bottom: 16px; left: 20px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--mint-light);
+  box-shadow:
+    16px -6px 0 var(--coral-light),
+    40px 2px 0 var(--lavender-light);
+}
+.pricing-popular {
+  display: inline-block; font-size: 11px; font-weight: 800;
+  color: white; background: var(--coral); padding: 4px 14px;
+  border-radius: 100px; text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+.pricing-amount { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.pricing-dollar { font-size: 20px; font-weight: 800; color: var(--body); margin-top: 6px; }
+.pricing-value { font-family: var(--serif); font-size: 52px; font-weight: 400; line-height: 1; }
+.pricing-note { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.pricing-list {
+  list-style: none; margin-bottom: 28px;
+  padding-top: 20px; border-top: 1px solid var(--border-light);
+}
+.pricing-list li {
+  font-size: 14px; color: var(--body); padding: 6px 0;
+  display: flex; align-items: center; gap: 10px;
+}
+.pricing-list li::before {
+  content: '♥'; color: var(--coral); font-size: 11px;
+}
+.btn-pricing {
+  display: block; width: 100%; padding: 16px;
+  background: var(--coral); color: white; text-align: center;
+  font-size: 16px; font-weight: 700; border-radius: 100px;
+  transition: background 0.2s, transform 0.2s var(--ease-out), box-shadow 0.2s;
+}
+.btn-pricing:hover {
+  background: var(--coral-dark); transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(232,120,111,0.25);
+}
+.pricing-guarantee {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin-top: 16px; font-size: 13px; color: var(--muted);
+}
+
+/* ============================================
+   FAQ
+   ============================================ */
+.faq { padding: var(--section-pad) 24px; }
+.faq-inner { max-width: 620px; margin: 0 auto; }
+.faq-header { text-align: center; margin-bottom: 40px; }
+.faq-header h2 {
+  font-family: var(--serif); font-size: clamp(26px, 3vw, 36px);
+  font-weight: 400; line-height: 1.25;
+}
+.faq-list { display: flex; flex-direction: column; gap: 10px; }
+.faq-item {
+  background: var(--white); border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+.faq-q {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 18px 20px; font-size: 15px; font-weight: 700;
+  color: var(--plum); text-align: left; transition: color 0.2s;
+}
+.faq-q:hover { color: var(--coral); }
+.faq-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--bg); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.3s var(--ease-out), background 0.3s, color 0.3s;
+}
+.faq-item.open .faq-icon {
+  transform: rotate(45deg); background: var(--coral-light); color: var(--coral);
+}
+.faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s var(--ease-out); }
+.faq-item.open .faq-a { max-height: 180px; }
+.faq-a p {
+  font-size: 14px; color: var(--body); line-height: 1.75;
+  padding: 0 20px 18px;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+.footer {
+  padding: 48px 24px 28px;
+  border-top: 1px solid var(--border-light);
+  text-align: center;
+}
+.footer-inner { max-width: var(--container); margin: 0 auto; }
+.footer-brand {
+  font-family: var(--serif); font-size: 18px; margin-bottom: 12px;
+}
+.footer-links {
+  display: flex; align-items: center; justify-content: center;
+  gap: 20px; margin-bottom: 14px;
+}
+.footer-links a {
+  font-size: 13px; color: var(--muted); transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--plum); }
+.footer-social {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; margin-bottom: 20px;
+}
+.footer-social a {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--white); border: 1px solid var(--border-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--muted); transition: border-color 0.2s, color 0.2s;
+}
+.footer-social a:hover { border-color: var(--border); color: var(--plum); }
+.footer-copy { font-size: 12px; color: var(--muted); }
+.footer-copy .heart { color: var(--coral); }
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+  .test-grid { grid-template-columns: repeat(2, 1fr); }
+  .bonuses-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .nav-mobile { display: flex; }
+  .nav-links.mobile-open {
+    display: flex; flex-direction: column;
+    position: fixed; top: 68px; left: 0; right: 0; bottom: 0;
+    background: var(--bg); padding: 24px; gap: 0; z-index: 999;
+    border-top: 1px solid var(--border-light);
+  }
+  .nav-links.mobile-open a {
+    font-size: 17px; padding: 14px 0; border-bottom: 1px solid var(--border-light);
+  }
+  .nav-links.mobile-open a.nav-cta {
+    margin-top: 16px; text-align: center; display: block; padding: 14px;
+  }
+  .hero { padding: 120px 24px 0; }
+  .hero-inner { grid-template-columns: 1fr; gap: 36px; }
+  .hero-product { order: -1; }
+  .product-mockup { max-width: 240px; }
+  .author-inner { grid-template-columns: 1fr; gap: 32px; }
+  .author-photo { max-width: 240px; }
+  .test-grid { grid-template-columns: 1fr; }
+  .bonuses-grid { grid-template-columns: 1fr; }
+  .proof-inner { flex-direction: column; gap: 16px; }
+  .proof-divider { width: 40px; height: 1px; }
+  .hero-actions { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <div class="nav-brand-icon">✦</div> YourBrand
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#about">About</a>
+      <a href="#curriculum">What's Inside</a>
+      <a href="#testimonials">Reviews</a>
+      <a href="#pricing" class="nav-cta">Start Learning</a>
+    </div>
+    <button class="nav-mobile" id="mobileToggle" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-content">
+      <div class="pill-tag reveal">New Course</div>
+      <h1 class="reveal rd1">Your journey to <em>confident</em> creation starts here</h1>
+      <p class="hero-sub reveal rd2">A warm, step-by-step course that helps you turn your ideas into something real — at your own pace, without the overwhelm.</p>
+      <div class="hero-actions reveal rd3">
+        <a href="#pricing" class="btn-pill">Start Learning Today</a>
+        <div class="hero-price"><strong>$97</strong> — lifetime access</div>
+      </div>
+    </div>
+    <div class="hero-product reveal rd2">
+      <div class="product-mockup">Your Product Here</div>
+      <div class="hero-blob hero-blob-1"></div>
+      <div class="hero-blob hero-blob-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF -->
+<section class="proof">
+  <div class="proof-inner reveal">
+    <div class="proof-avatars">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="proof-text">Join <strong>8,000+</strong> happy learners</div>
+    <div class="proof-divider"></div>
+    <div class="proof-stars">★★★★★</div>
+    <div class="proof-text"><strong>4.9</strong> average rating</div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="problem">
+  <div class="problem-inner">
+    <div class="pill-tag reveal">Sound familiar?</div>
+    <h2 class="reveal rd1">You have so many ideas, but no idea where to start</h2>
+    <p class="problem-text reveal rd2">You know you have something valuable to share. A skill, a perspective, a framework that could genuinely help people. But every time you sit down to create, you feel stuck.</p>
+    <div class="callout-box reveal">
+      <p>What if there was a gentle, proven path that showed you exactly what to do — step by step — so you could stop overthinking and start creating with confidence?</p>
+    </div>
+    <p class="problem-text reveal">That's exactly what this course is. No hustle culture. No pressure. Just a thoughtful framework designed for real humans with real lives who want to build something meaningful.</p>
+  </div>
+</section>
+
+<!-- CURRICULUM -->
+<section class="curriculum" id="curriculum">
+  <div class="curriculum-inner">
+    <div class="curriculum-header reveal">
+      <div class="pill-tag">What's inside</div>
+      <h2>6 modules to take you from idea to launch</h2>
+      <p>Each module builds on the last, so nothing feels rushed or confusing.</p>
+    </div>
+    <div class="curriculum-list reveal">
+      <div class="cur-item">
+        <button class="cur-trigger">
+          <span class="cur-num">1</span>
+          <span class="cur-title">Finding Your Spark</span>
+          <span class="cur-icon">+</span>
+        </button>
+        <div class="cur-body"><p>Discover what you're uniquely positioned to create. A gentle process to uncover the intersection of your skills, passions, and what people actually need.</p></div>
+      </div>
+      <div class="cur-item">
+        <button class="cur-trigger">
+          <span class="cur-num">2</span>
+          <span class="cur-title">Testing the Waters</span>
+          <span class="cur-icon">+</span>
+        </button>
+        <div class="cur-body"><p>Learn how to validate your idea in just a few days — without spending money or building anything complicated. Simple, low-pressure experiments that give you real answers.</p></div>
+      </div>
+      <div class="cur-item">
+        <button class="cur-trigger">
+          <span class="cur-num">3</span>
+          <span class="cur-title">Crafting Your Message</span>
+          <span class="cur-icon">+</span>
+        </button>
+        <div class="cur-body"><p>How to talk about what you do in a way that resonates. Positioning, messaging, and storytelling frameworks that feel authentic — not salesy.</p></div>
+      </div>
+      <div class="cur-item">
+        <button class="cur-trigger">
+          <span class="cur-num">4</span>
+          <span class="cur-title">Building Your Little Corner</span>
+          <span class="cur-icon">+</span>
+        </button>
+        <div class="cur-body"><p>Create a simple, beautiful online presence that attracts the right people. No tech overwhelm — just clear guidance on exactly what you need (and what you don't).</p></div>
+      </div>
+      <div class="cur-item">
+        <button class="cur-trigger">
+          <span class="cur-num">5</span>
+          <span class="cur-title">Gathering Your People</span>
+          <span class="cur-icon">+</span>
+        </button>
+        <div class="cur-body"><p>Organic, authentic ways to build an audience of people who genuinely care about what you're creating. Community-first growth that feels good.</p></div>
+      </div>
+      <div class="cur-item">
+        <button class="cur-trigger">
+          <span class="cur-num">6</span>
+          <span class="cur-title">Your First Launch</span>
+          <span class="cur-icon">+</span>
+        </button>
+        <div class="cur-body"><p>A calm, structured launch plan that builds excitement without burnout. Day-by-day guidance so you always know what to do next.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUTHOR -->
+<section class="author" id="about">
+  <div class="author-inner">
+    <div class="author-photo reveal">Your Photo Here</div>
+    <div class="author-content reveal rd2">
+      <span class="author-wave">👋</span>
+      <h2>Hey, I'm <em>Your Name</em></h2>
+      <p>I'm a creator, teacher, and recovering perfectionist who spent years learning the hard way so you don't have to.</p>
+      <p>After helping thousands of people bring their ideas to life, I distilled everything into this course — the one I wish existed when I was starting out. Warm, practical, and designed for real life.</p>
+      <p>I believe everyone has something worth sharing. My job is to help you find it and share it with confidence.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials" id="testimonials">
+  <div class="testimonials-inner">
+    <div class="testimonials-header reveal">
+      <div class="pill-tag">Love letters</div>
+      <h2>What students are saying</h2>
+    </div>
+    <div class="test-grid">
+      <div class="test-card reveal">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-quote">This course gave me the permission and the framework to finally start. I launched my first product within a month and it felt amazing, not stressful.</p>
+        <div class="test-author">
+          <div class="test-avatar a">JR</div>
+          <div>
+            <div class="test-name">Jamie Rivera</div>
+            <div class="test-role">Wellness Coach</div>
+          </div>
+        </div>
+      </div>
+      <div class="test-card reveal rd1">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-quote">The tone of this course is everything. It felt like a supportive friend guiding me, not a guru yelling at me. I actually finished it — which never happens!</p>
+        <div class="test-author">
+          <div class="test-avatar b">AK</div>
+          <div>
+            <div class="test-name">Alex Kim</div>
+            <div class="test-role">Illustrator & Educator</div>
+          </div>
+        </div>
+      </div>
+      <div class="test-card reveal rd2">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-quote">I was so stuck in analysis paralysis. Module 2 alone was worth the whole price — I validated my idea in 4 days and haven't looked back since.</p>
+        <div class="test-author">
+          <div class="test-avatar c">SP</div>
+          <div>
+            <div class="test-name">Sam Patel</div>
+            <div class="test-role">Content Creator</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BONUSES -->
+<section class="bonuses">
+  <div class="bonuses-inner">
+    <div class="bonuses-header reveal">
+      <div class="pill-tag">Free bonuses</div>
+      <h2>Plus, you'll get these extras</h2>
+      <p>Included with every enrollment — no extra charge.</p>
+    </div>
+    <div class="bonuses-grid">
+      <div class="bonus-card reveal">
+        <div class="bonus-value">Value: $149</div>
+        <div class="bonus-icon">📋</div>
+        <h3>Ready-to-Use Templates</h3>
+        <p>15+ beautiful templates for landing pages, emails, social posts, and more. Just customize and launch.</p>
+      </div>
+      <div class="bonus-card reveal rd1">
+        <div class="bonus-value">Value: $197</div>
+        <div class="bonus-icon">💬</div>
+        <h3>Private Community</h3>
+        <p>A supportive space to connect with fellow creators, share wins, ask questions, and find accountability partners.</p>
+      </div>
+      <div class="bonus-card reveal rd2">
+        <div class="bonus-value">Value: $99</div>
+        <div class="bonus-icon">🎙️</div>
+        <h3>Monthly Live Sessions</h3>
+        <p>Join live Q&A sessions where you can get personalized feedback and learn from other students' journeys.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-header reveal">
+      <div class="pill-tag">Enroll today</div>
+      <h2>Ready to begin?</h2>
+    </div>
+    <div class="pricing-card reveal rd1">
+      <div class="pricing-popular">Most Popular</div>
+      <div class="pricing-amount">
+        <span class="pricing-dollar">$</span>
+        <span class="pricing-value">97</span>
+      </div>
+      <p class="pricing-note">One-time payment · Lifetime access</p>
+      <ul class="pricing-list">
+        <li>All 6 course modules + future updates</li>
+        <li>15+ ready-to-use templates ($149 value)</li>
+        <li>Private community access ($197 value)</li>
+        <li>Monthly live Q&A sessions ($99 value)</li>
+        <li>Lifetime access — learn at your pace</li>
+      </ul>
+      <a href="#" class="btn-pricing">Start Learning Today</a>
+      <div class="pricing-guarantee">
+        ✨ 30-day happiness guarantee — full refund, no questions asked
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="faq-inner">
+    <div class="faq-header reveal">
+      <div class="pill-tag">Questions?</div>
+      <h2>We've got answers</h2>
+    </div>
+    <div class="faq-list reveal">
+      <div class="faq-item">
+        <button class="faq-q">How long do I have access?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Forever! Your enrollment includes lifetime access to all course materials, bonuses, and any future updates. Go at whatever pace feels right for you.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">What if I'm a complete beginner?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>This course was designed especially for beginners. No prior experience needed — we start from the very beginning and build up gently. If you have an idea (even a fuzzy one), you're ready.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">What's the refund policy?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>We offer a 30-day happiness guarantee. If the course isn't the right fit, just let us know within 30 days and we'll give you a full refund — no hard feelings, no questions asked.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">How much time do I need per week?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Each module takes about 2-3 hours to go through. Most students complete the course in 4-6 weeks at a comfortable pace, but you can go faster or slower — it's totally up to you.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Is there a community or support?<span class="faq-icon">+</span></button>
+        <div class="faq-a"><p>Yes! Every student gets access to our private community where you can ask questions, share progress, and connect with other creators. Plus, there are monthly live Q&A sessions.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">YourBrand</div>
+    <div class="footer-links">
+      <a href="#">Terms</a>
+      <a href="#">Privacy</a>
+      <a href="#">Contact</a>
+      <a href="#">Support</a>
+    </div>
+    <div class="footer-social">
+      <a href="#" aria-label="Twitter">𝕏</a>
+      <a href="#" aria-label="Instagram">◻</a>
+      <a href="#" aria-label="YouTube">▶</a>
+    </div>
+    <p class="footer-copy">Made with <span class="heart">♥</span> for creators everywhere</p>
+  </div>
+</footer>
+
+<script>
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 16), { passive: true });
+
+const mt = document.getElementById('mobileToggle'), nl = document.getElementById('navLinks');
+mt.addEventListener('click', () => {
+  nl.classList.toggle('mobile-open');
+  const s = mt.querySelectorAll('span');
+  if (nl.classList.contains('mobile-open')) {
+    s[0].style.transform='rotate(45deg) translate(4px,4px)'; s[1].style.opacity='0';
+    s[2].style.transform='rotate(-45deg) translate(4px,-4px)';
+  } else { s[0].style.transform=''; s[1].style.opacity=''; s[2].style.transform=''; }
+});
+nl.querySelectorAll('a').forEach(l => l.addEventListener('click', () => {
+  nl.classList.remove('mobile-open');
+  const s = mt.querySelectorAll('span');
+  s[0].style.transform=''; s[1].style.opacity=''; s[2].style.transform='';
+}));
+
+// Curriculum accordion
+document.querySelectorAll('.cur-trigger').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.parentElement;
+    const was = item.classList.contains('open');
+    document.querySelectorAll('.cur-item').forEach(i => i.classList.remove('open'));
+    if (!was) item.classList.add('open');
+  });
+});
+
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.parentElement;
+    const was = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!was) item.classList.add('open');
+  });
+});
+
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+</script>
+
+</body>
+</html>

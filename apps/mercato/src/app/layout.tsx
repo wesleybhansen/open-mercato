@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter } from 'next/font/google'
+import { Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { bootstrap } from '@/bootstrap'
 import { AppProviders } from '@/components/AppProviders'
@@ -8,7 +9,7 @@ import { AppProviders } from '@/components/AppProviders'
 bootstrap()
 import { detectLocale, loadDictionary } from '@open-mercato/shared/lib/i18n/server'
 
-const geistSans = Geist({
+const inter = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
@@ -19,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Open Mercato',
-  description: 'AI-supportive, modular ERP foundation for product & service companies',
+  title: 'CRM',
+  description: 'Simple CRM for entrepreneurs',
   icons: {
     icon: '/open-mercato.svg',
   },
@@ -54,7 +55,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning data-gramm="false">
+      <body className={`${inter.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning data-gramm="false">
         <AppProviders locale={locale} dict={dict} demoModeEnabled={demoModeEnabled}>
           {children}
         </AppProviders>

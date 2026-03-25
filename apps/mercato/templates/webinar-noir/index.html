@@ -1,0 +1,2387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Live Webinar — YourBrand</title>
+    <meta name="description" content="Join our exclusive live webinar and discover proven strategies to elevate your business. Reserve your free spot today.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           CSS CUSTOM PROPERTIES
+           ============================================================ */
+        :root {
+            --font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            --font-body: 'Source Sans 3', 'Segoe UI', Roboto, sans-serif;
+
+            --color-bg: #0C0A09;
+            --color-surface: #1C1917;
+            --color-surface-alt: #292524;
+            --color-surface-hover: #352F2B;
+
+            --color-text: #FAF9F6;
+            --color-text-muted: #A8A29E;
+            --color-text-darker: #78716C;
+
+            --color-accent: #F43F5E;
+            --color-accent-light: #FB7185;
+            --color-accent-dark: #E11D48;
+
+            --gradient-accent: linear-gradient(135deg, #F43F5E, #FB7185);
+            --gradient-accent-hover: linear-gradient(135deg, #E11D48, #F43F5E);
+
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.15);
+            --border-accent: rgba(244, 63, 94, 0.3);
+
+            --glass-bg: rgba(28, 25, 23, 0.65);
+            --glass-bg-solid: rgba(28, 25, 23, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-blur: 20px;
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.5);
+            --shadow-accent: 0 8px 32px rgba(244, 63, 94, 0.2);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+
+            --transition-fast: 0.2s ease;
+            --transition-base: 0.3s ease;
+            --transition-slow: 0.5s ease;
+
+            --container-max: 1200px;
+            --container-padding: 24px;
+            --section-padding: 100px;
+
+            --nav-height: 72px;
+            --nav-bg: rgba(12, 10, 9, 0.0);
+            --nav-bg-scrolled: rgba(12, 10, 9, 0.92);
+        }
+
+        /* ============================================================
+           RESET & BASE
+           ============================================================ */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+            scroll-padding-top: var(--nav-height);
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.7;
+            color: var(--color-text);
+            background-color: var(--color-bg);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* ============================================================
+           DOT GRID BACKGROUND
+           ============================================================ */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(
+                circle,
+                rgba(255, 255, 255, 0.04) 1px,
+                transparent 1px
+            );
+            background-size: 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ============================================================
+           AMBIENT ROSE GLOW
+           ============================================================ */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -200px;
+            right: -200px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(
+                circle,
+                rgba(244, 63, 94, 0.08) 0%,
+                rgba(244, 63, 94, 0.03) 40%,
+                transparent 70%
+            );
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .ambient-glow {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .ambient-glow--top-left {
+            top: 10%;
+            left: -150px;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(
+                circle,
+                rgba(251, 113, 133, 0.06) 0%,
+                rgba(251, 113, 133, 0.02) 40%,
+                transparent 70%
+            );
+        }
+
+        .ambient-glow--bottom-right {
+            bottom: -100px;
+            right: -100px;
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(
+                circle,
+                rgba(244, 63, 94, 0.05) 0%,
+                rgba(244, 63, 94, 0.02) 40%,
+                transparent 70%
+            );
+        }
+
+        .ambient-glow--center {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(
+                circle,
+                rgba(244, 63, 94, 0.03) 0%,
+                transparent 60%
+            );
+        }
+
+        /* ============================================================
+           TYPOGRAPHY
+           ============================================================ */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-heading);
+            font-weight: 600;
+            line-height: 1.2;
+            color: var(--color-text);
+        }
+
+        h1 { font-size: 3.2rem; }
+        h2 { font-size: 2.4rem; }
+        h3 { font-size: 1.5rem; }
+        h4 { font-size: 1.2rem; }
+
+        p {
+            color: var(--color-text-muted);
+            line-height: 1.7;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        button {
+            font-family: var(--font-body);
+            cursor: pointer;
+            border: none;
+            outline: none;
+            background: none;
+        }
+
+        input {
+            font-family: var(--font-body);
+            outline: none;
+            border: none;
+        }
+
+        /* ============================================================
+           UTILITY CLASSES
+           ============================================================ */
+        .container {
+            max-width: var(--container-max);
+            margin: 0 auto;
+            padding: 0 var(--container-padding);
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-padding {
+            padding: var(--section-padding) 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-header .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: 16px;
+        }
+
+        .section-header .section-label svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--color-accent);
+        }
+
+        .section-header h2 {
+            margin-bottom: 16px;
+        }
+
+        .section-header h2 .italic-accent {
+            font-style: italic;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-header p {
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+
+        .gradient-text {
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .italic-accent {
+            font-family: var(--font-heading);
+            font-style: italic;
+        }
+
+        /* ============================================================
+           SCROLL REVEAL ANIMATIONS
+           ============================================================ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+        .reveal-delay-5 { transition-delay: 0.5s; }
+
+        /* ============================================================
+           NAVIGATION
+           ============================================================ */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-height);
+            display: flex;
+            align-items: center;
+            z-index: 1000;
+            background: var(--nav-bg);
+            transition: background var(--transition-base),
+                        backdrop-filter var(--transition-base),
+                        border-color var(--transition-base),
+                        box-shadow var(--transition-base);
+            border-bottom: 1px solid transparent;
+        }
+
+        .nav.scrolled {
+            background: var(--nav-bg-scrolled);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom-color: var(--border-subtle);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .nav-logo {
+            font-family: var(--font-heading);
+            font-style: italic;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-text);
+            letter-spacing: -0.5px;
+            user-select: none;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 36px;
+        }
+
+        .nav-links a {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-text-muted);
+            transition: color var(--transition-fast);
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 1.5px;
+            background: var(--gradient-accent);
+            transition: width var(--transition-base);
+        }
+
+        .nav-links a:hover {
+            color: var(--color-text);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fff;
+            background: var(--gradient-accent);
+            border-radius: var(--radius-sm);
+            transition: box-shadow var(--transition-fast),
+                        transform var(--transition-fast);
+            cursor: pointer;
+        }
+
+        .nav-cta:hover {
+            box-shadow: var(--shadow-accent);
+            transform: translateY(-1px);
+            color: #fff;
+        }
+
+        .nav-cta svg {
+            width: 14px;
+            height: 14px;
+            stroke: #fff;
+        }
+
+        /* ============================================================
+           HAMBURGER MENU BUTTON
+           ============================================================ */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 40px;
+            height: 40px;
+            gap: 6px;
+            cursor: pointer;
+            z-index: 1001;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .hamburger span {
+            display: block;
+            width: 24px;
+            height: 2px;
+            background: var(--color-text);
+            border-radius: 2px;
+            transition: transform var(--transition-base),
+                        opacity var(--transition-base);
+            transform-origin: center;
+        }
+
+        .hamburger.active span:nth-child(1) {
+            transform: translateY(8px) rotate(45deg);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: translateY(-8px) rotate(-45deg);
+        }
+
+        /* ============================================================
+           MOBILE MENU OVERLAY
+           ============================================================ */
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(12, 10, 9, 0.95);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            z-index: 999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity var(--transition-base),
+                        visibility var(--transition-base);
+        }
+
+        .mobile-menu.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .mobile-menu a {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--color-text-muted);
+            transition: color var(--transition-fast);
+            transform: translateY(20px);
+            opacity: 0;
+            transition: color var(--transition-fast),
+                        transform 0.4s ease,
+                        opacity 0.4s ease;
+        }
+
+        .mobile-menu.open a {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .mobile-menu.open a:nth-child(1) { transition-delay: 0.1s; }
+        .mobile-menu.open a:nth-child(2) { transition-delay: 0.15s; }
+        .mobile-menu.open a:nth-child(3) { transition-delay: 0.2s; }
+        .mobile-menu.open a:nth-child(4) { transition-delay: 0.25s; }
+        .mobile-menu.open a:nth-child(5) { transition-delay: 0.3s; }
+
+        .mobile-menu a:hover {
+            color: var(--color-accent);
+        }
+
+        .mobile-menu .mobile-cta {
+            font-family: var(--font-body);
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 14px 36px;
+            color: #fff;
+            background: var(--gradient-accent);
+            border-radius: var(--radius-sm);
+            margin-top: 16px;
+        }
+
+        /* ============================================================
+           HERO SECTION
+           ============================================================ */
+        .hero {
+            padding-top: calc(var(--nav-height) + 60px);
+            padding-bottom: var(--section-padding);
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 18px;
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--color-accent-light);
+            width: fit-content;
+        }
+
+        .hero-badge .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5);
+            }
+            50% {
+                opacity: 0.8;
+                box-shadow: 0 0 0 8px rgba(244, 63, 94, 0);
+            }
+        }
+
+        .hero h1 {
+            font-size: 3.4rem;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -1px;
+        }
+
+        .hero h1 .gradient-text {
+            display: inline;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--color-text-muted);
+            line-height: 1.7;
+            max-width: 520px;
+        }
+
+        /* ============================================================
+           DATE CARD
+           ============================================================ */
+        .date-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px 24px;
+            background: var(--color-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+        }
+
+        .date-card-icon {
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 63, 94, 0.1);
+            border-radius: var(--radius-sm);
+        }
+
+        .date-card-icon svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--color-accent);
+        }
+
+        .date-card-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .date-card-info .date-primary {
+            font-family: var(--font-heading);
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .date-card-info .date-secondary {
+            font-size: 0.9rem;
+            color: var(--color-text-darker);
+        }
+
+        /* ============================================================
+           COUNTDOWN TIMER
+           ============================================================ */
+        .countdown {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            max-width: 380px;
+        }
+
+        .countdown-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 16px 8px;
+            background: var(--color-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+        }
+
+        .countdown-unit .count-number {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--color-accent);
+            line-height: 1;
+        }
+
+        .countdown-unit .count-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--color-text-darker);
+        }
+
+        /* ============================================================
+           FORM CARD (GLASS-MORPHISM)
+           ============================================================ */
+        .form-card {
+            position: relative;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-accent);
+        }
+
+        .form-card-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .form-card-header h3 {
+            font-family: var(--font-heading);
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-card-header p {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+
+        .form-group label .optional {
+            font-weight: 400;
+            color: var(--color-text-darker);
+            font-size: 0.8rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 0.95rem;
+            color: var(--color-text);
+            background: var(--color-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            transition: border-color var(--transition-fast),
+                        box-shadow var(--transition-fast);
+        }
+
+        .form-group input::placeholder {
+            color: var(--color-text-darker);
+        }
+
+        .form-group input:focus {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.15);
+        }
+
+        .form-group input.error {
+            border-color: #EF4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+
+        .form-group .error-message {
+            display: none;
+            font-size: 0.8rem;
+            color: #EF4444;
+            margin-top: 6px;
+        }
+
+        .form-group .error-message.show {
+            display: block;
+        }
+
+        /* ============================================================
+           FORM SUBMIT BUTTON & LOADING SPINNER
+           ============================================================ */
+        .form-submit {
+            width: 100%;
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #fff;
+            background: var(--gradient-accent);
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: box-shadow var(--transition-fast),
+                        transform var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            margin-top: 24px;
+        }
+
+        .form-submit:hover {
+            box-shadow: var(--shadow-accent);
+            transform: translateY(-1px);
+        }
+
+        .form-submit:active {
+            transform: translateY(0);
+        }
+
+        .form-submit .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .form-submit.loading .spinner {
+            display: block;
+        }
+
+        .form-submit.loading .btn-text {
+            opacity: 0.7;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .form-submit svg {
+            width: 16px;
+            height: 16px;
+            stroke: #fff;
+        }
+
+        .form-privacy {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.78rem;
+            color: var(--color-text-darker);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .form-privacy svg {
+            width: 13px;
+            height: 13px;
+            stroke: var(--color-text-darker);
+        }
+
+        /* ============================================================
+           SPOTS REMAINING
+           ============================================================ */
+        .spots-remaining {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--color-text-muted);
+        }
+
+        .spots-remaining .pulse-dot-sm {
+            width: 6px;
+            height: 6px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .spots-remaining strong {
+            color: var(--color-accent-light);
+            font-weight: 700;
+        }
+
+        /* ============================================================
+           SUCCESS STATE
+           ============================================================ */
+        .success-state {
+            display: none;
+            text-align: center;
+            padding: 40px 36px;
+        }
+
+        .success-state.show {
+            display: block;
+        }
+
+        .success-icon {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 24px;
+            background: rgba(244, 63, 94, 0.1);
+            border: 2px solid var(--color-accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: successPulse 2s ease-in-out infinite;
+        }
+
+        .success-icon svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--color-accent);
+            stroke-dasharray: 60;
+            stroke-dashoffset: 60;
+            animation: successCheck 0.8s ease 0.3s forwards;
+        }
+
+        @keyframes successPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 0 16px rgba(244, 63, 94, 0);
+            }
+        }
+
+        @keyframes successCheck {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .success-state h3 {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .success-state p {
+            font-size: 1rem;
+            color: var(--color-text-muted);
+            margin-bottom: 28px;
+            line-height: 1.6;
+        }
+
+        .calendar-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .calendar-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .calendar-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .calendar-btn--google {
+            color: #fff;
+            background: var(--gradient-accent);
+        }
+
+        .calendar-btn--google:hover {
+            box-shadow: var(--shadow-accent);
+            transform: translateY(-1px);
+        }
+
+        .calendar-btn--google svg {
+            stroke: #fff;
+        }
+
+        .calendar-btn--ics {
+            color: var(--color-text);
+            background: var(--color-surface);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .calendar-btn--ics:hover {
+            border-color: var(--border-hover);
+            background: var(--color-surface-alt);
+        }
+
+        .calendar-btn--ics svg {
+            stroke: var(--color-text-muted);
+        }
+
+        /* ============================================================
+           EVENT DETAILS SECTION
+           ============================================================ */
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .detail-card {
+            position: relative;
+            padding: 32px 28px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            transition: transform var(--transition-base),
+                        border-color var(--transition-base),
+                        box-shadow var(--transition-base);
+        }
+
+        .detail-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-accent);
+            box-shadow: var(--shadow-md);
+        }
+
+        .detail-card-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 63, 94, 0.1);
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+        }
+
+        .detail-card-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--color-accent);
+        }
+
+        .detail-card h4 {
+            font-family: var(--font-heading);
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .detail-card p {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           SPEAKER SECTION
+           ============================================================ */
+        .speaker-card {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 48px;
+            align-items: center;
+            padding: 48px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .speaker-avatar {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: var(--color-surface-alt);
+            border: 3px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .speaker-avatar::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            background: var(--gradient-accent) border-box;
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            -webkit-mask-composite: xor;
+        }
+
+        .speaker-avatar svg {
+            width: 64px;
+            height: 64px;
+            stroke: var(--color-text-darker);
+        }
+
+        .speaker-info h3 {
+            font-family: var(--font-heading);
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .speaker-info .speaker-title {
+            font-size: 1rem;
+            color: var(--color-accent-light);
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+
+        .speaker-info .speaker-bio {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+            line-height: 1.7;
+            margin-bottom: 24px;
+        }
+
+        .speaker-info .speaker-bio .italic-accent {
+            color: var(--color-text);
+            -webkit-text-fill-color: unset;
+        }
+
+        .speaker-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .speaker-stat {
+            text-align: center;
+            padding: 16px;
+            background: var(--color-surface);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .speaker-stat .stat-number {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-accent);
+            display: block;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .speaker-stat .stat-label {
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--color-text-darker);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ============================================================
+           WHAT YOU'LL LEARN SECTION
+           ============================================================ */
+        .learn-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .learn-card {
+            padding: 32px 28px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            transition: transform var(--transition-base),
+                        border-color var(--transition-base),
+                        box-shadow var(--transition-base);
+        }
+
+        .learn-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-accent);
+            box-shadow: var(--shadow-md);
+        }
+
+        .learn-card-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 63, 94, 0.1);
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+        }
+
+        .learn-card-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--color-accent);
+        }
+
+        .learn-card h4 {
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .learn-card p {
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           REPLAY BANNER
+           ============================================================ */
+        .replay-banner {
+            padding: 48px;
+            background: var(--color-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .replay-icon {
+            flex-shrink: 0;
+            width: 64px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 63, 94, 0.1);
+            border-radius: 50%;
+        }
+
+        .replay-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--color-accent);
+            fill: none;
+        }
+
+        .replay-content {
+            flex: 1;
+        }
+
+        .replay-content h3 {
+            font-family: var(--font-heading);
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .replay-content p {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+        }
+
+        .replay-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #fff;
+            background: var(--gradient-accent);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: box-shadow var(--transition-fast),
+                        transform var(--transition-fast);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .replay-btn:hover {
+            box-shadow: var(--shadow-accent);
+            transform: translateY(-1px);
+        }
+
+        .replay-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: #fff;
+        }
+
+        /* ============================================================
+           FAQ SECTION
+           ============================================================ */
+        .faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .faq-item {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: border-color var(--transition-base);
+        }
+
+        .faq-item.open {
+            border-color: var(--border-accent);
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 28px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--color-text);
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            transition: color var(--transition-fast);
+            gap: 16px;
+        }
+
+        .faq-question:hover {
+            color: var(--color-accent-light);
+        }
+
+        .faq-question .chevron {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            stroke: var(--color-text-muted);
+            transition: transform var(--transition-base),
+                        stroke var(--transition-base);
+        }
+
+        .faq-item.open .faq-question .chevron {
+            transform: rotate(180deg);
+            stroke: var(--color-accent);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .faq-answer-inner {
+            padding: 0 28px 22px;
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+            line-height: 1.7;
+        }
+
+        /* ============================================================
+           CTA BANNER
+           ============================================================ */
+        .cta-banner {
+            position: relative;
+            padding: 64px 48px;
+            background: var(--gradient-accent);
+            border-radius: var(--radius-xl);
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .cta-banner::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(255, 255, 255, 0.12) 0%,
+                transparent 50%
+            );
+            pointer-events: none;
+        }
+
+        .cta-banner-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-banner h2 {
+            font-family: var(--font-heading);
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .cta-banner p {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 32px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-banner-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 36px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-accent);
+            background: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: transform var(--transition-fast),
+                        box-shadow var(--transition-fast);
+        }
+
+        .cta-banner-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .cta-banner-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--color-accent);
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        .footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border-subtle);
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-heading);
+            font-style: italic;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text);
+            user-select: none;
+        }
+
+        .footer-links {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            font-size: 0.85rem;
+            color: var(--color-text-darker);
+            transition: color var(--transition-fast);
+        }
+
+        .footer-links a:hover {
+            color: var(--color-text);
+        }
+
+        .footer-copy {
+            font-size: 0.8rem;
+            color: var(--color-text-darker);
+        }
+
+        /* ============================================================
+           RESPONSIVE — TABLET (768px)
+           ============================================================ */
+        @media (max-width: 768px) {
+            :root {
+                --section-padding: 72px;
+                --container-padding: 20px;
+            }
+
+            h1 { font-size: 2.4rem; }
+            h2 { font-size: 1.8rem; }
+            h3 { font-size: 1.3rem; }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hamburger {
+                display: flex;
+            }
+
+            .mobile-menu {
+                display: flex;
+            }
+
+            .hero .container {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .hero h1 {
+                font-size: 2.6rem;
+            }
+
+            .hero-content {
+                text-align: center;
+                align-items: center;
+            }
+
+            .hero-subtitle {
+                max-width: 100%;
+            }
+
+            .countdown {
+                max-width: 100%;
+            }
+
+            .date-card {
+                justify-content: center;
+            }
+
+            .details-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .speaker-card {
+                grid-template-columns: 1fr;
+                text-align: center;
+                gap: 32px;
+                padding: 36px 28px;
+            }
+
+            .speaker-avatar {
+                margin: 0 auto;
+                width: 140px;
+                height: 140px;
+            }
+
+            .speaker-stats {
+                gap: 12px;
+            }
+
+            .learn-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .replay-banner {
+                flex-direction: column;
+                text-align: center;
+                gap: 24px;
+                padding: 36px 28px;
+            }
+
+            .faq-question {
+                font-size: 0.95rem;
+                padding: 18px 22px;
+            }
+
+            .faq-answer-inner {
+                padding: 0 22px 18px;
+            }
+
+            .cta-banner {
+                padding: 48px 28px;
+            }
+
+            .cta-banner h2 {
+                font-size: 1.8rem;
+            }
+
+            .footer .container {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .footer-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        /* ============================================================
+           RESPONSIVE — MOBILE (480px)
+           ============================================================ */
+        @media (max-width: 480px) {
+            :root {
+                --section-padding: 56px;
+            }
+
+            h1 { font-size: 1.9rem; }
+            h2 { font-size: 1.5rem; }
+
+            .hero {
+                padding-top: calc(var(--nav-height) + 32px);
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .form-card {
+                padding: 28px 20px;
+            }
+
+            .countdown {
+                gap: 8px;
+            }
+
+            .countdown-unit {
+                padding: 12px 4px;
+            }
+
+            .countdown-unit .count-number {
+                font-size: 1.4rem;
+            }
+
+            .speaker-stats {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .calendar-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .calendar-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .cta-banner-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Glow Orbs -->
+    <div class="ambient-glow ambient-glow--top-left"></div>
+    <div class="ambient-glow ambient-glow--bottom-right"></div>
+    <div class="ambient-glow ambient-glow--center"></div>
+
+    <!-- ============================================================
+         NAVIGATION
+         ============================================================ -->
+    <nav class="nav" id="nav">
+        <div class="container">
+            <span class="nav-logo">YourBrand</span>
+
+            <div class="nav-links">
+                <a href="#details">Details</a>
+                <a href="#speaker">Speaker</a>
+                <a href="#learn">What You'll Learn</a>
+                <a href="#faq">FAQ</a>
+                <a href="#hero" class="nav-cta">
+                    Register Free
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
+            </div>
+
+            <button class="hamburger" id="hamburger" aria-label="Toggle navigation menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="#details" class="mobile-menu-link">Details</a>
+        <a href="#speaker" class="mobile-menu-link">Speaker</a>
+        <a href="#learn" class="mobile-menu-link">What You'll Learn</a>
+        <a href="#faq" class="mobile-menu-link">FAQ</a>
+        <a href="#hero" class="mobile-cta mobile-menu-link">Register Free</a>
+    </div>
+
+    <!-- ============================================================
+         HERO SECTION
+         ============================================================ -->
+    <section class="hero" id="hero">
+        <div class="container">
+            <!-- Hero Left Column -->
+            <div class="hero-content reveal">
+                <div class="hero-badge">
+                    <span class="pulse-dot"></span>
+                    Live Webinar
+                </div>
+
+                <h1>
+                    Master the Art of<br>
+                    <span class="gradient-text">Strategic Growth</span>
+                </h1>
+
+                <p class="hero-subtitle">
+                    Join industry leaders for an exclusive 90-minute deep dive into the frameworks
+                    and methodologies that are transforming how modern businesses scale and thrive.
+                </p>
+
+                <div class="date-card">
+                    <div class="date-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                    </div>
+                    <div class="date-card-info">
+                        <span class="date-primary">March 20, 2026</span>
+                        <span class="date-secondary">2:00 PM ET / 7:00 PM UTC &middot; 90 minutes</span>
+                    </div>
+                </div>
+
+                <div class="countdown" id="countdown">
+                    <div class="countdown-unit">
+                        <span class="count-number" id="countDays">00</span>
+                        <span class="count-label">Days</span>
+                    </div>
+                    <div class="countdown-unit">
+                        <span class="count-number" id="countHours">00</span>
+                        <span class="count-label">Hours</span>
+                    </div>
+                    <div class="countdown-unit">
+                        <span class="count-number" id="countMins">00</span>
+                        <span class="count-label">Mins</span>
+                    </div>
+                    <div class="countdown-unit">
+                        <span class="count-number" id="countSecs">00</span>
+                        <span class="count-label">Secs</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hero Right Column — Registration Form -->
+            <div class="reveal reveal-delay-2">
+                <div class="form-card" id="formCard">
+                    <!-- Registration Form -->
+                    <div id="registrationForm">
+                        <div class="form-card-header">
+                            <h3>Save Your Spot</h3>
+                            <p>Free registration &mdash; limited seats available</p>
+                        </div>
+
+                        <form id="webinarForm" novalidate>
+                            <div class="form-group">
+                                <label for="fullName">Full Name</label>
+                                <input type="text" id="fullName" name="fullName" placeholder="Enter your full name" required>
+                                <span class="error-message" id="nameError">Please enter your full name</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" name="email" placeholder="you@example.com" required>
+                                <span class="error-message" id="emailError">Please enter a valid email address</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="company">Company <span class="optional">(optional)</span></label>
+                                <input type="text" id="company" name="company" placeholder="Your company name">
+                            </div>
+
+                            <button type="submit" class="form-submit" id="submitBtn">
+                                <span class="spinner"></span>
+                                <span class="btn-text">Reserve My Seat</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </button>
+                        </form>
+
+                        <p class="form-privacy">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            Your information is secure and will never be shared.
+                        </p>
+
+                        <div class="spots-remaining">
+                            <span class="pulse-dot-sm"></span>
+                            <span><strong id="spotsCount">247</strong> spots remaining</span>
+                        </div>
+                    </div>
+
+                    <!-- Success State (hidden by default) -->
+                    <div class="success-state" id="successState">
+                        <div class="success-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <h3>You're Registered!</h3>
+                        <p>
+                            Check your inbox for a confirmation email with all the details.
+                            We'll send you a reminder before the webinar starts.
+                        </p>
+                        <div class="calendar-buttons">
+                            <button class="calendar-btn calendar-btn--google" id="googleCalBtn">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                                Google Calendar
+                            </button>
+                            <button class="calendar-btn calendar-btn--ics" id="icsCalBtn">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                Download .ics
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         EVENT DETAILS SECTION
+         ============================================================ -->
+    <section class="section-padding" id="details">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
+                    Event Details
+                </div>
+                <h2>Everything You Need to <span class="italic-accent">Know</span></h2>
+                <p>Here's what to expect from this exclusive session designed to accelerate your growth trajectory.</p>
+            </div>
+
+            <div class="details-grid">
+                <div class="detail-card reveal reveal-delay-1">
+                    <div class="detail-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <h4>90-Minute Deep Dive</h4>
+                    <p>A focused, intensive session that covers actionable strategies without the fluff. Every minute is designed to deliver maximum value.</p>
+                </div>
+
+                <div class="detail-card reveal reveal-delay-2">
+                    <div class="detail-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h4>Live Q&A Session</h4>
+                    <p>Get your specific questions answered directly by our expert. Interactive engagement ensures you leave with clarity on your unique challenges.</p>
+                </div>
+
+                <div class="detail-card reveal reveal-delay-3">
+                    <div class="detail-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+                    </div>
+                    <h4>Exclusive Workbook</h4>
+                    <p>Every registrant receives a comprehensive workbook with frameworks, templates, and exercises to implement immediately after the session.</p>
+                </div>
+
+                <div class="detail-card reveal reveal-delay-4">
+                    <div class="detail-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
+                    </div>
+                    <h4>Replay Access</h4>
+                    <p>Can't attend live? No worries. All registrants receive 30-day access to the full recording, so you can watch on your own schedule.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         SPEAKER SECTION
+         ============================================================ -->
+    <section class="section-padding" id="speaker">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Your Host
+                </div>
+                <h2>Meet Your <span class="italic-accent">Speaker</span></h2>
+                <p>Learn directly from someone who has built and scaled multiple ventures from the ground up.</p>
+            </div>
+
+            <div class="speaker-card reveal">
+                <div class="speaker-avatar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="speaker-info">
+                    <h3>Alexandra Whitmore</h3>
+                    <p class="speaker-title">CEO & Founder, Whitmore Advisory Group</p>
+                    <p class="speaker-bio">
+                        Alexandra has spent over 15 years helping organizations navigate complex growth challenges.
+                        A recognized thought leader in strategic operations, she has advised Fortune 500 companies
+                        and high-growth startups alike. Her approach blends
+                        <span class="italic-accent">data-driven precision with creative problem solving</span>,
+                        making complex strategies accessible and actionable for teams of any size.
+                    </p>
+                    <div class="speaker-stats">
+                        <div class="speaker-stat">
+                            <span class="stat-number">15+</span>
+                            <span class="stat-label">Years Exp.</span>
+                        </div>
+                        <div class="speaker-stat">
+                            <span class="stat-number">200+</span>
+                            <span class="stat-label">Companies</span>
+                        </div>
+                        <div class="speaker-stat">
+                            <span class="stat-number">50K+</span>
+                            <span class="stat-label">Students</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         WHAT YOU'LL LEARN SECTION
+         ============================================================ -->
+    <section class="section-padding" id="learn">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    Key Takeaways
+                </div>
+                <h2>What You'll <span class="italic-accent">Learn</span></h2>
+                <p>Walk away with practical frameworks and actionable insights you can implement immediately.</p>
+            </div>
+
+            <div class="learn-grid">
+                <div class="learn-card reveal reveal-delay-1">
+                    <div class="learn-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
+                    </div>
+                    <h4>Growth Frameworks</h4>
+                    <p>Discover the proven methodologies that leading companies use to identify and capture their biggest growth opportunities.</p>
+                </div>
+
+                <div class="learn-card reveal reveal-delay-2">
+                    <div class="learn-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <h4>Risk Mitigation</h4>
+                    <p>Learn how to identify potential pitfalls before they become problems and build resilient strategies that withstand market volatility.</p>
+                </div>
+
+                <div class="learn-card reveal reveal-delay-3">
+                    <div class="learn-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>
+                    </div>
+                    <h4>Team Alignment</h4>
+                    <p>Master the communication techniques that ensure every team member is working toward the same strategic objectives with clarity.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         REPLAY BANNER
+         ============================================================ -->
+    <section class="section-padding" style="padding-top: 0;">
+        <div class="container">
+            <div class="replay-banner reveal">
+                <div class="replay-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <div class="replay-content">
+                    <h3>Can't Make It Live?</h3>
+                    <p>Register anyway and we'll send you the full replay within 24 hours. You'll also get the exclusive workbook and bonus resources.</p>
+                </div>
+                <a href="#hero" class="replay-btn">
+                    Register for Replay
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         FAQ SECTION
+         ============================================================ -->
+    <section class="section-padding" id="faq">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                    Common Questions
+                </div>
+                <h2>Frequently Asked <span class="italic-accent">Questions</span></h2>
+                <p>Everything you need to know before registering for the webinar.</p>
+            </div>
+
+            <div class="faq-list">
+                <div class="faq-item reveal reveal-delay-1">
+                    <button class="faq-question">
+                        <span>Is this webinar really free?</span>
+                        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Yes, this webinar is completely free to attend. We believe in providing exceptional value upfront. Simply register with your name and email to secure your spot and you'll receive all the details you need to join us live.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal reveal-delay-2">
+                    <button class="faq-question">
+                        <span>Will I receive a recording if I can't attend live?</span>
+                        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Absolutely. All registered attendees will receive a link to the full replay within 24 hours of the live event. You'll have 30 days of access to rewatch at your convenience, along with any bonus materials shared during the session.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal reveal-delay-3">
+                    <button class="faq-question">
+                        <span>What do I need to prepare before the webinar?</span>
+                        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            No special preparation is needed. Just bring an open mind and have a notebook ready if you prefer taking notes. We'll provide a comprehensive workbook that covers all the frameworks and strategies discussed, so you can focus on the presentation and revisit the details later.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal reveal-delay-4">
+                    <button class="faq-question">
+                        <span>Who is this webinar designed for?</span>
+                        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            This webinar is designed for business owners, team leaders, and ambitious professionals who want to accelerate their growth. Whether you're running a startup or managing a division within a larger organization, the frameworks and strategies covered are applicable at any scale. We've had participants from solo entrepreneurs to C-suite executives benefit from these insights.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         CTA BANNER SECTION
+         ============================================================ -->
+    <section class="section-padding">
+        <div class="container">
+            <div class="cta-banner reveal">
+                <div class="cta-banner-content">
+                    <h2>Ready to Accelerate Your Growth?</h2>
+                    <p>Join hundreds of professionals who are transforming their approach to strategic growth. Don't miss this opportunity.</p>
+                    <a href="#hero" class="cta-banner-btn">
+                        Claim Your Free Spot
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         FOOTER
+         ============================================================ -->
+    <footer class="footer">
+        <div class="container">
+            <span class="footer-brand">YourBrand</span>
+            <div class="footer-links">
+                <a href="#details">Details</a>
+                <a href="#speaker">Speaker</a>
+                <a href="#learn">What You'll Learn</a>
+                <a href="#faq">FAQ</a>
+            </div>
+            <span class="footer-copy">&copy; 2026 YourBrand. All rights reserved.</span>
+        </div>
+    </footer>
+
+    <!-- ============================================================
+         JAVASCRIPT
+         ============================================================ -->
+    <script>
+        (function() {
+            'use strict';
+
+            /* ==================================================
+               COUNTDOWN TIMER
+               ================================================== */
+            var targetDate = new Date('2026-03-20T19:00:00Z');
+
+            function zeroPad(num) {
+                return num < 10 ? '0' + num : String(num);
+            }
+
+            function updateCountdown() {
+                var now = new Date();
+                var diff = targetDate - now;
+
+                if (diff <= 0) {
+                    document.getElementById('countDays').textContent = '00';
+                    document.getElementById('countHours').textContent = '00';
+                    document.getElementById('countMins').textContent = '00';
+                    document.getElementById('countSecs').textContent = '00';
+                    return;
+                }
+
+                var days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                var hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                var mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                var secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+                document.getElementById('countDays').textContent = zeroPad(days);
+                document.getElementById('countHours').textContent = zeroPad(hours);
+                document.getElementById('countMins').textContent = zeroPad(mins);
+                document.getElementById('countSecs').textContent = zeroPad(secs);
+            }
+
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
+
+            /* ==================================================
+               SPOTS SIMULATION
+               ================================================== */
+            var spotsEl = document.getElementById('spotsCount');
+            var currentSpots = 247;
+            var minSpots = 50;
+
+            function decrementSpots() {
+                if (currentSpots <= minSpots) return;
+
+                var decrement = Math.floor(Math.random() * 3) + 1;
+                currentSpots = Math.max(minSpots, currentSpots - decrement);
+                spotsEl.textContent = currentSpots;
+
+                var nextInterval = (Math.random() * 30 + 15) * 1000;
+                setTimeout(decrementSpots, nextInterval);
+            }
+
+            var initialDelay = (Math.random() * 30 + 15) * 1000;
+            setTimeout(decrementSpots, initialDelay);
+
+            /* ==================================================
+               FORM VALIDATION & SUBMISSION
+               ================================================== */
+            var form = document.getElementById('webinarForm');
+            var nameInput = document.getElementById('fullName');
+            var emailInput = document.getElementById('email');
+            var nameError = document.getElementById('nameError');
+            var emailError = document.getElementById('emailError');
+            var submitBtn = document.getElementById('submitBtn');
+            var registrationForm = document.getElementById('registrationForm');
+            var successState = document.getElementById('successState');
+
+            var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            function showError(input, errorEl) {
+                input.classList.add('error');
+                errorEl.classList.add('show');
+            }
+
+            function clearError(input, errorEl) {
+                input.classList.remove('error');
+                errorEl.classList.remove('show');
+            }
+
+            nameInput.addEventListener('input', function() {
+                if (nameInput.value.trim().length > 0) {
+                    clearError(nameInput, nameError);
+                }
+            });
+
+            emailInput.addEventListener('input', function() {
+                if (emailRegex.test(emailInput.value.trim())) {
+                    clearError(emailInput, emailError);
+                }
+            });
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                var isValid = true;
+                var trimmedName = nameInput.value.trim();
+                var trimmedEmail = emailInput.value.trim();
+
+                if (trimmedName.length === 0) {
+                    showError(nameInput, nameError);
+                    isValid = false;
+                } else {
+                    clearError(nameInput, nameError);
+                }
+
+                if (!emailRegex.test(trimmedEmail)) {
+                    showError(emailInput, emailError);
+                    isValid = false;
+                } else {
+                    clearError(emailInput, emailError);
+                }
+
+                if (!isValid) return;
+
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+
+                setTimeout(function() {
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                    registrationForm.style.display = 'none';
+                    successState.classList.add('show');
+                }, 1800);
+            });
+
+            /* ==================================================
+               CALENDAR LINKS
+               ================================================== */
+            var googleCalBtn = document.getElementById('googleCalBtn');
+            var icsCalBtn = document.getElementById('icsCalBtn');
+
+            var eventTitle = 'Live Webinar: Master the Art of Strategic Growth';
+            var eventDescription = 'Join us for an exclusive 90-minute deep dive into the frameworks and methodologies transforming modern business growth.';
+            var eventLocation = 'Online (link will be emailed)';
+            var eventStart = '20260320T190000Z';
+            var eventEnd = '20260320T203000Z';
+
+            googleCalBtn.addEventListener('click', function() {
+                var url = 'https://www.google.com/calendar/render?action=TEMPLATE'
+                    + '&text=' + encodeURIComponent(eventTitle)
+                    + '&dates=' + eventStart + '/' + eventEnd
+                    + '&details=' + encodeURIComponent(eventDescription)
+                    + '&location=' + encodeURIComponent(eventLocation)
+                    + '&sf=true&output=xml';
+                window.open(url, '_blank', 'noopener,noreferrer');
+            });
+
+            icsCalBtn.addEventListener('click', function() {
+                var icsContent = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PRODID:-//YourBrand//Webinar//EN',
+                    'BEGIN:VEVENT',
+                    'DTSTART:' + eventStart,
+                    'DTEND:' + eventEnd,
+                    'SUMMARY:' + eventTitle,
+                    'DESCRIPTION:' + eventDescription,
+                    'LOCATION:' + eventLocation,
+                    'STATUS:CONFIRMED',
+                    'END:VEVENT',
+                    'END:VCALENDAR'
+                ].join('\r\n');
+
+                var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = 'webinar-strategic-growth.ics';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            });
+
+            /* ==================================================
+               FAQ ACCORDION
+               ================================================== */
+            var faqItems = document.querySelectorAll('.faq-item');
+
+            faqItems.forEach(function(item) {
+                var question = item.querySelector('.faq-question');
+                var answer = item.querySelector('.faq-answer');
+
+                question.addEventListener('click', function() {
+                    var isOpen = item.classList.contains('open');
+
+                    faqItems.forEach(function(otherItem) {
+                        otherItem.classList.remove('open');
+                        otherItem.querySelector('.faq-answer').style.maxHeight = null;
+                    });
+
+                    if (!isOpen) {
+                        item.classList.add('open');
+                        answer.style.maxHeight = answer.scrollHeight + 'px';
+                    }
+                });
+            });
+
+            /* ==================================================
+               SCROLL REVEAL (IntersectionObserver)
+               ================================================== */
+            var revealElements = document.querySelectorAll('.reveal');
+
+            if ('IntersectionObserver' in window) {
+                var observer = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('visible');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, {
+                    threshold: 0.1,
+                    rootMargin: '-40px 0px'
+                });
+
+                revealElements.forEach(function(el) {
+                    observer.observe(el);
+                });
+            } else {
+                revealElements.forEach(function(el) {
+                    el.classList.add('visible');
+                });
+            }
+
+            /* ==================================================
+               MOBILE MENU
+               ================================================== */
+            var hamburger = document.getElementById('hamburger');
+            var mobileMenu = document.getElementById('mobileMenu');
+            var mobileLinks = mobileMenu.querySelectorAll('a');
+
+            hamburger.addEventListener('click', function() {
+                var isActive = hamburger.classList.contains('active');
+
+                if (isActive) {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('open');
+                    document.body.style.overflow = '';
+                } else {
+                    hamburger.classList.add('active');
+                    mobileMenu.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+
+            mobileLinks.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('open');
+                    document.body.style.overflow = '';
+                });
+            });
+
+            /* ==================================================
+               NAV SCROLL EFFECT
+               ================================================== */
+            var nav = document.getElementById('nav');
+
+            function handleNavScroll() {
+                if (window.scrollY > 20) {
+                    nav.classList.add('scrolled');
+                } else {
+                    nav.classList.remove('scrolled');
+                }
+            }
+
+            handleNavScroll();
+            window.addEventListener('scroll', handleNavScroll, { passive: true });
+
+        })();
+    </script>
+</body>
+</html>

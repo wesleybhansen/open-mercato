@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurelius &amp; Co. — Strategic Advisory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+        :root {
+            --navy: #0c1222;
+            --navy-light: #111a2e;
+            --navy-mid: #162038;
+            --emerald: #0d6b4e;
+            --emerald-dark: #094a36;
+            --gold: #d4a944;
+            --gold-light: #e4c06a;
+            --gold-dim: #a08030;
+            --gold-faint: rgba(212,169,68,0.12);
+            --white: #f0ece4;
+            --text: #c8c2b6;
+            --text-dim: #8a8478;
+            --text-muted: #5a5650;
+            --border-gold: rgba(212,169,68,0.2);
+            --font-serif: 'Playfair Display', Georgia, serif;
+            --font-sans: 'Raleway', sans-serif;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--navy);
+            color: var(--text);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+        /* Scroll reveal */
+        .reveal { opacity:0; transform:translateY(20px); transition: opacity 0.7s cubic-bezier(0.23,1,0.32,1), transform 0.7s cubic-bezier(0.23,1,0.32,1); }
+        .reveal.visible { opacity:1; transform:translateY(0); }
+
+        /* ===== DECO ORNAMENTS ===== */
+        .deco-diamond {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: var(--gold);
+            transform: rotate(45deg);
+        }
+
+        .deco-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .deco-line {
+            width: 60px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+        }
+
+        .deco-ornament {
+            text-align: center;
+            margin: 32px 0;
+        }
+
+        .deco-fan {
+            display: inline-block;
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+
+        .deco-fan::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 30px;
+            border-top-left-radius: 60px;
+            border-top-right-radius: 60px;
+            border: 1px solid var(--gold-dim);
+            border-bottom: none;
+        }
+
+        .deco-fan::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 20px;
+            border-top-left-radius: 40px;
+            border-top-right-radius: 40px;
+            border: 1px solid var(--gold-dim);
+            border-bottom: none;
+        }
+
+        /* Section styling */
+        .section-label {
+            font-family: var(--font-sans);
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--gold);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-family: var(--font-serif);
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            font-weight: 600;
+            color: var(--white);
+            text-align: center;
+            line-height: 1.25;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* ===== NAVIGATION ===== */
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            background: rgba(12,18,34,0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-gold);
+        }
+
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 70px;
+            position: relative;
+        }
+
+        .nav-logo {
+            position: absolute;
+            left: 24px;
+            font-family: var(--font-serif);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--gold);
+            text-decoration: none;
+            letter-spacing: 0.05em;
+        }
+
+        .nav-logo span {
+            font-weight: 400;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            text-decoration: none;
+            position: relative;
+            padding: 4px 0;
+            transition: color 0.3s;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0; right: 0;
+            height: 1px;
+            background: var(--gold);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .nav-links a:hover { color: var(--gold); }
+        .nav-links a:hover::after { transform: scaleX(1); }
+
+        .nav-cta-wrapper {
+            position: absolute;
+            right: 24px;
+        }
+
+        .nav-cta {
+            font-family: var(--font-sans);
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--gold);
+            text-decoration: none;
+            border: 1px solid var(--gold-dim);
+            padding: 10px 22px;
+            transition: all 0.3s;
+        }
+
+        .nav-cta:hover {
+            background: var(--gold);
+            color: var(--navy);
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: 1px solid var(--border-gold);
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+        .mobile-toggle svg { width:20px; height:20px; stroke:var(--gold); stroke-width:1.5; fill:none; }
+
+        /* ===== HERO ===== */
+        .hero {
+            padding: 160px 0 100px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Sunburst pattern */
+        .hero-sunburst {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            opacity: 0.04;
+            pointer-events: none;
+        }
+
+        .hero-sunburst svg { width: 100%; height: 100%; }
+
+        .hero-gold-line {
+            width: 80px;
+            height: 1px;
+            background: var(--gold);
+            margin: 0 auto 28px;
+        }
+
+        .hero h1 {
+            font-family: var(--font-serif);
+            font-size: clamp(2.2rem, 5vw, 3.6rem);
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1.15;
+            margin-bottom: 8px;
+            letter-spacing: 0.01em;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--gold);
+        }
+
+        .hero-sub {
+            font-family: var(--font-sans);
+            font-size: 1rem;
+            font-weight: 300;
+            line-height: 1.7;
+            color: var(--text);
+            max-width: 480px;
+            margin: 0 auto 40px;
+            letter-spacing: 0.02em;
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-gold {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--navy);
+            background: var(--gold);
+            border: none;
+            padding: 15px 36px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-gold:hover {
+            background: var(--gold-light);
+            box-shadow: 0 4px 20px rgba(212,169,68,0.2);
+        }
+
+        .btn-outline-gold {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--gold);
+            background: transparent;
+            border: 1px solid var(--gold-dim);
+            padding: 14px 32px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-outline-gold:hover {
+            background: var(--gold-faint);
+            border-color: var(--gold);
+        }
+
+        /* ===== CLIENT LOGOS ===== */
+        .clients {
+            padding: 40px 0;
+            border-top: 1px solid var(--border-gold);
+            border-bottom: 1px solid var(--border-gold);
+        }
+
+        .clients-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .client-name {
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .client-name:hover { color: var(--gold-dim); }
+
+        .client-dot {
+            width: 4px; height: 4px;
+            background: var(--gold-dim);
+            transform: rotate(45deg);
+        }
+
+        /* ===== SERVICES ===== */
+        .services {
+            padding: 100px 0;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-top: 56px;
+        }
+
+        .service-card {
+            background: var(--navy-light);
+            border: 1px solid var(--border-gold);
+            padding: 40px 32px;
+            position: relative;
+            transition: all 0.4s;
+        }
+
+        /* Geometric top border */
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        .service-card:hover {
+            border-color: var(--gold-dim);
+            box-shadow: 0 0 40px rgba(212,169,68,0.05);
+            transform: translateY(-4px);
+        }
+
+        .service-icon {
+            width: 40px; height: 40px;
+            margin-bottom: 20px;
+        }
+
+        .service-icon svg { width:40px; height:40px; stroke:var(--gold); stroke-width:1; fill:none; }
+
+        .service-name {
+            font-family: var(--font-serif);
+            font-size: 1.35rem;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 12px;
+        }
+
+        .service-desc {
+            font-size: 0.88rem;
+            font-weight: 300;
+            line-height: 1.7;
+            color: var(--text);
+            margin-bottom: 20px;
+            letter-spacing: 0.01em;
+        }
+
+        .service-link {
+            font-family: var(--font-sans);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--gold);
+            text-decoration: none;
+            transition: letter-spacing 0.3s;
+        }
+
+        .service-link:hover { letter-spacing: 0.18em; }
+
+        /* ===== PHILOSOPHY ===== */
+        .philosophy {
+            padding: 100px 0;
+            text-align: center;
+            border-top: 1px solid var(--border-gold);
+            border-bottom: 1px solid var(--border-gold);
+            background: var(--navy-light);
+        }
+
+        .philosophy-frame {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 48px;
+            border: 1px solid var(--border-gold);
+            position: relative;
+        }
+
+        /* Corner decorations */
+        .philosophy-frame::before,
+        .philosophy-frame::after {
+            content: '';
+            position: absolute;
+            width: 20px; height: 20px;
+            border-color: var(--gold-dim);
+            border-style: solid;
+        }
+
+        .philosophy-frame::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+        .philosophy-frame::after { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
+
+        .corner-bl, .corner-br {
+            position: absolute;
+            width: 20px; height: 20px;
+            border-color: var(--gold-dim);
+            border-style: solid;
+        }
+
+        .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 1px 1px; }
+        .corner-br { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+        .philosophy-quote-mark {
+            font-family: var(--font-serif);
+            font-size: 4rem;
+            line-height: 0.5;
+            color: var(--gold);
+            opacity: 0.4;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .philosophy-quote {
+            font-family: var(--font-serif);
+            font-size: 1.4rem;
+            font-weight: 400;
+            font-style: italic;
+            line-height: 1.6;
+            color: var(--white);
+            margin-bottom: 20px;
+        }
+
+        .philosophy-author {
+            font-family: var(--font-sans);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--gold-dim);
+        }
+
+        .philosophy-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 56px;
+        }
+
+        .stat-item { text-align: center; }
+
+        .stat-val {
+            font-family: var(--font-serif);
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: var(--gold);
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .stat-label {
+            font-family: var(--font-sans);
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+
+        /* ===== PROCESS ===== */
+        .process {
+            padding: 100px 0;
+        }
+
+        .process-steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            margin-top: 56px;
+            position: relative;
+        }
+
+        /* Connecting gold line */
+        .process-steps::before {
+            content: '';
+            position: absolute;
+            top: 28px;
+            left: 12.5%;
+            right: 12.5%;
+            height: 1px;
+            background: var(--gold-dim);
+        }
+
+        .process-step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-marker {
+            width: 56px; height: 56px;
+            margin: 0 auto 24px;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(45deg);
+            border: 1px solid var(--gold);
+            background: var(--navy);
+            transition: all 0.3s;
+        }
+
+        .process-step:hover .step-marker {
+            background: var(--gold-faint);
+            box-shadow: 0 0 20px rgba(212,169,68,0.1);
+        }
+
+        .step-num {
+            transform: rotate(-45deg);
+            font-family: var(--font-serif);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gold);
+        }
+
+        .step-title {
+            font-family: var(--font-serif);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 10px;
+        }
+
+        .step-desc {
+            font-size: 0.82rem;
+            font-weight: 300;
+            line-height: 1.65;
+            color: var(--text);
+            max-width: 200px;
+            margin: 0 auto;
+            letter-spacing: 0.01em;
+        }
+
+        /* ===== CASE STUDIES ===== */
+        .case-studies {
+            padding: 100px 0;
+            background: var(--navy-light);
+            border-top: 1px solid var(--border-gold);
+            border-bottom: 1px solid var(--border-gold);
+        }
+
+        .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 56px;
+        }
+
+        .case-card {
+            border: 1px solid var(--border-gold);
+            padding: 40px 28px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+            background: var(--navy);
+        }
+
+        .case-card:hover {
+            border-color: var(--gold-dim);
+            transform: translateY(-4px);
+        }
+
+        /* Corner deco */
+        .case-card::before, .case-card::after {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            border-color: var(--gold-dim);
+            border-style: solid;
+        }
+        .case-card::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
+        .case-card::after { top: 8px; right: 8px; border-width: 1px 1px 0 0; }
+
+        .case-metric {
+            font-family: var(--font-serif);
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--gold);
+            line-height: 1;
+            margin-bottom: 16px;
+        }
+
+        .case-desc {
+            font-size: 0.9rem;
+            font-weight: 300;
+            line-height: 1.65;
+            color: var(--text);
+            margin-bottom: 16px;
+            letter-spacing: 0.01em;
+        }
+
+        .case-client {
+            font-family: var(--font-sans);
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* ===== TESTIMONIALS ===== */
+        .testimonials {
+            padding: 100px 0;
+        }
+
+        .testimonials-list {
+            max-width: 680px;
+            margin: 56px auto 0;
+        }
+
+        .testimonial-item {
+            text-align: center;
+            margin-bottom: 56px;
+        }
+
+        .testimonial-item:last-child { margin-bottom: 0; }
+
+        .testimonial-quote-mark {
+            font-family: var(--font-serif);
+            font-size: 4rem;
+            line-height: 0.5;
+            color: var(--gold);
+            opacity: 0.3;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .testimonial-text {
+            font-family: var(--font-serif);
+            font-size: 1.15rem;
+            font-style: italic;
+            line-height: 1.7;
+            color: var(--white);
+            margin-bottom: 24px;
+        }
+
+        .testimonial-name {
+            font-family: var(--font-sans);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--gold-dim);
+            margin-bottom: 4px;
+        }
+
+        .testimonial-role {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+        }
+
+        .testimonial-sep {
+            width: 40px;
+            height: 1px;
+            background: var(--gold-dim);
+            margin: 0 auto;
+        }
+
+        /* ===== FAQ ===== */
+        .faq {
+            padding: 100px 0;
+            background: var(--navy-light);
+            border-top: 1px solid var(--border-gold);
+        }
+
+        .faq-list {
+            max-width: 680px;
+            margin: 56px auto 0;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--border-gold);
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            gap: 20px;
+        }
+
+        .faq-question-text {
+            font-family: var(--font-serif);
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--white);
+            transition: color 0.3s;
+        }
+
+        .faq-question:hover .faq-question-text { color: var(--gold); }
+
+        .faq-toggle {
+            width: 20px; height: 20px;
+            flex-shrink: 0;
+            position: relative;
+            transform: rotate(45deg);
+            border: 1px solid var(--gold-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .faq-question.active .faq-toggle {
+            background: var(--gold);
+        }
+
+        .faq-toggle-inner {
+            width: 6px; height: 6px;
+            background: var(--gold-dim);
+            transform: rotate(-45deg);
+            transition: background 0.3s;
+        }
+
+        .faq-question.active .faq-toggle-inner { background: var(--navy); }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.23,1,0.32,1);
+        }
+
+        .faq-answer-inner {
+            padding: 0 0 22px;
+            font-size: 0.88rem;
+            font-weight: 300;
+            line-height: 1.75;
+            color: var(--text);
+            letter-spacing: 0.01em;
+        }
+
+        /* ===== FINAL CTA ===== */
+        .final-cta {
+            padding: 100px 0;
+            background: var(--emerald);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-frame {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 56px 48px;
+            border: 1px solid rgba(212,169,68,0.3);
+            position: relative;
+        }
+
+        .cta-frame::before, .cta-frame::after {
+            content: '';
+            position: absolute;
+            width: 24px; height: 24px;
+            border-color: var(--gold);
+            border-style: solid;
+        }
+        .cta-frame::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+        .cta-frame::after { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+
+        .cta-corner-bl, .cta-corner-br {
+            position: absolute;
+            width: 24px; height: 24px;
+            border-color: var(--gold);
+            border-style: solid;
+        }
+        .cta-corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+        .cta-corner-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+        .final-cta h2 {
+            font-family: var(--font-serif);
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 16px;
+        }
+
+        .final-cta-text {
+            font-size: 0.95rem;
+            font-weight: 300;
+            color: rgba(240,236,228,0.8);
+            max-width: 400px;
+            margin: 0 auto 32px;
+            line-height: 1.7;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-gold-cta {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--navy);
+            background: var(--gold);
+            border: none;
+            padding: 16px 40px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-gold-cta:hover {
+            background: var(--gold-light);
+            box-shadow: 0 4px 24px rgba(212,169,68,0.25);
+        }
+
+        .cta-email {
+            margin-top: 20px;
+            font-size: 0.82rem;
+            color: rgba(240,236,228,0.5);
+        }
+
+        .cta-email a {
+            color: var(--gold);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .cta-email a:hover { color: var(--gold-light); }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            padding: 56px 0 32px;
+            border-top: 1px solid var(--border-gold);
+        }
+
+        .footer-ornament {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(3, 1fr);
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-serif);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin-bottom: 12px;
+        }
+
+        .footer-desc {
+            font-size: 0.82rem;
+            font-weight: 300;
+            line-height: 1.7;
+            color: var(--text-dim);
+            max-width: 260px;
+        }
+
+        .footer-col-title {
+            font-family: var(--font-sans);
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--gold-dim);
+            margin-bottom: 16px;
+        }
+
+        .footer-links { list-style: none; }
+        .footer-links li { margin-bottom: 8px; }
+
+        .footer-links a {
+            font-size: 0.82rem;
+            font-weight: 300;
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.3s;
+            letter-spacing: 0.01em;
+        }
+
+        .footer-links a:hover { color: var(--gold); }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border-gold);
+            padding-top: 24px;
+            text-align: center;
+        }
+
+        .footer-copy {
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .nav-inner { justify-content: space-between; }
+            .nav-logo { position: static; }
+            .nav-cta-wrapper { position: static; }
+
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%; left: 0; right: 0;
+                flex-direction: column;
+                background: rgba(12,18,34,0.98);
+                padding: 20px 24px;
+                gap: 16px;
+                border-bottom: 1px solid var(--border-gold);
+            }
+            .nav-links.open { display: flex; }
+            .mobile-toggle { display: block; }
+            .nav-cta-wrapper { display: none; }
+
+            .hero { padding: 120px 0 64px; }
+
+            .services-grid { grid-template-columns: 1fr; }
+
+            .process-steps {
+                grid-template-columns: 1fr 1fr;
+                gap: 40px;
+            }
+            .process-steps::before { display: none; }
+
+            .cases-grid { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
+
+            .philosophy-stats { gap: 32px; }
+            .philosophy-frame { padding: 32px 24px; }
+
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+
+            .hero-actions { flex-direction: column; width: 100%; }
+            .btn-gold, .btn-outline-gold { width: 100%; text-align: center; }
+
+            .process-steps { grid-template-columns: 1fr; }
+
+            .philosophy-stats { flex-direction: column; gap: 24px; }
+
+            .clients-inner { gap: 20px; }
+            .client-dot { display: none; }
+
+            .cta-frame { padding: 36px 24px; }
+
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer-bottom { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAV -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">AURELIUS <span>&amp; CO.</span></a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#services">Services</a></li>
+                <li><a href="#process">Process</a></li>
+                <li><a href="#results">Results</a></li>
+                <li><a href="#faq">FAQ</a></li>
+            </ul>
+            <div class="nav-cta-wrapper">
+                <a href="#contact" class="nav-cta">Schedule Consultation</a>
+            </div>
+            <button class="mobile-toggle" id="mobileToggle">
+                <svg viewBox="0 0 20 20" stroke-linecap="round"><line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/></svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-sunburst">
+            <svg viewBox="0 0 600 600" fill="none" stroke="currentColor" stroke-width="0.5" color="#d4a944">
+                <line x1="300" y1="0" x2="300" y2="600"/>
+                <line x1="0" y1="300" x2="600" y2="300"/>
+                <line x1="45" y1="45" x2="555" y2="555"/>
+                <line x1="555" y1="45" x2="45" y2="555"/>
+                <line x1="150" y1="0" x2="450" y2="600"/>
+                <line x1="450" y1="0" x2="150" y2="600"/>
+                <line x1="0" y1="150" x2="600" y2="450"/>
+                <line x1="0" y1="450" x2="600" y2="150"/>
+                <circle cx="300" cy="300" r="200"/>
+                <circle cx="300" cy="300" r="140"/>
+                <circle cx="300" cy="300" r="80"/>
+            </svg>
+        </div>
+        <div class="container">
+            <div class="hero-gold-line reveal"></div>
+            <div class="section-label reveal">Strategic Advisory &amp; Consulting</div>
+            <h1 class="reveal">Excellence Is Not <em>Negotiable</em></h1>
+            <div class="deco-divider reveal">
+                <span class="deco-line"></span>
+                <span class="deco-diamond"></span>
+                <span class="deco-line"></span>
+            </div>
+            <p class="hero-sub reveal">We partner with discerning leaders to architect strategies of enduring consequence. Precision counsel for those who accept nothing less than exceptional.</p>
+            <div class="hero-actions reveal">
+                <a href="#contact" class="btn-gold">Schedule Consultation</a>
+                <a href="#services" class="btn-outline-gold">Our Practice</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section class="clients">
+        <div class="container">
+            <div class="clients-inner">
+                <span class="client-name">MERIDIAN</span>
+                <span class="client-dot"></span>
+                <span class="client-name">VANGUARD</span>
+                <span class="client-dot"></span>
+                <span class="client-name">STERLING</span>
+                <span class="client-dot"></span>
+                <span class="client-name">HALCYON</span>
+                <span class="client-dot"></span>
+                <span class="client-name">ARBOR</span>
+                <span class="client-dot"></span>
+                <span class="client-name">PINNACLE</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SERVICES -->
+    <section class="services" id="services">
+        <div class="container">
+            <div class="section-label reveal">Our Practice</div>
+            <div class="section-title reveal">Disciplines refined through decades of deliberate excellence</div>
+            <div class="deco-divider reveal"><span class="deco-line"></span><span class="deco-diamond"></span><span class="deco-line"></span></div>
+            <div class="services-grid">
+                <div class="service-card reveal">
+                    <div class="service-icon">
+                        <svg viewBox="0 0 40 40"><path d="M8 32V16L20 6l12 10v16"/><path d="M16 32V24h8v8"/><path d="M4 16l16-12 16 12"/></svg>
+                    </div>
+                    <div class="service-name">Strategic Advisory</div>
+                    <p class="service-desc">Board-level counsel for organizations navigating complexity. Market entry, M&amp;A strategy, organizational transformation, and executive positioning.</p>
+                    <a href="#" class="service-link">EXPLORE &rarr;</a>
+                </div>
+                <div class="service-card reveal">
+                    <div class="service-icon">
+                        <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="12"/><path d="M20 12v8l5 3"/><circle cx="20" cy="20" r="2"/></svg>
+                    </div>
+                    <div class="service-name">Brand Architecture</div>
+                    <p class="service-desc">Identity systems that command respect and endure beyond trends. Positioning, visual language, messaging frameworks, and brand governance.</p>
+                    <a href="#" class="service-link">EXPLORE &rarr;</a>
+                </div>
+                <div class="service-card reveal">
+                    <div class="service-icon">
+                        <svg viewBox="0 0 40 40"><path d="M6 30l8-10 6 6 8-14 6 6"/><path d="M6 34h28"/><path d="M6 6v28"/></svg>
+                    </div>
+                    <div class="service-name">Growth &amp; Capital</div>
+                    <p class="service-desc">Revenue architecture, capital strategy, and investor relations for businesses scaling with intention. From seed through IPO readiness.</p>
+                    <a href="#" class="service-link">EXPLORE &rarr;</a>
+                </div>
+                <div class="service-card reveal">
+                    <div class="service-icon">
+                        <svg viewBox="0 0 40 40"><circle cx="14" cy="14" r="6"/><circle cx="26" cy="14" r="6"/><path d="M6 32c0-5 4-8 8-8h12c4 0 8 3 8 8"/></svg>
+                    </div>
+                    <div class="service-name">Executive Counsel</div>
+                    <p class="service-desc">Confidential advisory for founders and C-suite leaders. Stakeholder management, succession planning, and leadership development.</p>
+                    <a href="#" class="service-link">EXPLORE &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PHILOSOPHY -->
+    <section class="philosophy">
+        <div class="container">
+            <div class="section-label reveal">Our Philosophy</div>
+            <div class="deco-ornament reveal"><div class="deco-fan"></div></div>
+            <div class="philosophy-frame reveal">
+                <div class="corner-bl"></div>
+                <div class="corner-br"></div>
+                <span class="philosophy-quote-mark">&ldquo;</span>
+                <p class="philosophy-quote">We do not compete on volume. We compete on judgment, discretion, and an unwavering commitment to outcomes that reshape trajectories.</p>
+                <div class="philosophy-author">Marcus Aurelius Chen, Managing Partner</div>
+            </div>
+            <div class="philosophy-stats reveal">
+                <div class="stat-item">
+                    <div class="stat-val">18</div>
+                    <div class="stat-label">Years of Practice</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val">$4.2B</div>
+                    <div class="stat-label">Value Created</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val">94%</div>
+                    <div class="stat-label">Client Retention</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROCESS -->
+    <section class="process" id="process">
+        <div class="container">
+            <div class="section-label reveal">Our Process</div>
+            <div class="section-title reveal">Four phases of deliberate execution</div>
+            <div class="deco-divider reveal"><span class="deco-line"></span><span class="deco-diamond"></span><span class="deco-line"></span></div>
+            <div class="process-steps">
+                <div class="process-step reveal">
+                    <div class="step-marker"><span class="step-num">I</span></div>
+                    <div class="step-title">Discovery</div>
+                    <p class="step-desc">A confidential deep-dive into your organization, market position, and ambitions.</p>
+                </div>
+                <div class="process-step reveal">
+                    <div class="step-marker"><span class="step-num">II</span></div>
+                    <div class="step-title">Strategy</div>
+                    <p class="step-desc">A bespoke roadmap built on evidence, not assumptions. Every recommendation is defensible.</p>
+                </div>
+                <div class="process-step reveal">
+                    <div class="step-marker"><span class="step-num">III</span></div>
+                    <div class="step-title">Execution</div>
+                    <p class="step-desc">Hands-on implementation with weekly governance and transparent milestone tracking.</p>
+                </div>
+                <div class="process-step reveal">
+                    <div class="step-marker"><span class="step-num">IV</span></div>
+                    <div class="step-title">Stewardship</div>
+                    <p class="step-desc">Ongoing advisory to protect gains, navigate pivots, and compound long-term value.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CASE STUDIES -->
+    <section class="case-studies" id="results">
+        <div class="container">
+            <div class="section-label reveal">Selected Outcomes</div>
+            <div class="section-title reveal">Results measured in lasting impact</div>
+            <div class="deco-divider reveal"><span class="deco-line"></span><span class="deco-diamond"></span><span class="deco-line"></span></div>
+            <div class="cases-grid">
+                <div class="case-card reveal">
+                    <div class="case-metric">340%</div>
+                    <p class="case-desc">Revenue growth over 18 months following a complete market repositioning and channel strategy overhaul.</p>
+                    <div class="case-client">Vanguard Capital Partners</div>
+                </div>
+                <div class="case-card reveal">
+                    <div class="case-metric">$86M</div>
+                    <p class="case-desc">Total funding secured across three rounds with our investor relations strategy and narrative positioning.</p>
+                    <div class="case-client">Sterling Technologies</div>
+                </div>
+                <div class="case-card reveal">
+                    <div class="case-metric">14 mo.</div>
+                    <p class="case-desc">From concept to category leadership. Full go-to-market execution with brand, operations, and growth systems.</p>
+                    <div class="case-client">Halcyon Wellness Group</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-label reveal">Testimonials</div>
+            <div class="section-title reveal">In the words of those we serve</div>
+            <div class="deco-divider reveal"><span class="deco-line"></span><span class="deco-diamond"></span><span class="deco-line"></span></div>
+            <div class="testimonials-list">
+                <div class="testimonial-item reveal">
+                    <span class="testimonial-quote-mark">&ldquo;</span>
+                    <p class="testimonial-text">Aurelius brought a clarity to our strategy that no one else could. They saw what we couldn't, said what others wouldn't, and delivered what we didn't think was possible.</p>
+                    <div class="testimonial-name">Catherine Blackwell</div>
+                    <div class="testimonial-role">CEO, Meridian Collective</div>
+                </div>
+                <div class="testimonial-sep"></div>
+                <div style="height: 40px;"></div>
+                <div class="testimonial-item reveal">
+                    <span class="testimonial-quote-mark">&ldquo;</span>
+                    <p class="testimonial-text">Working with their team felt like gaining a board-level partner, not hiring a vendor. The discretion, the rigor, the results — all exceptional. We've retained them for three consecutive years.</p>
+                    <div class="testimonial-name">James Whitfield III</div>
+                    <div class="testimonial-role">Chairman, Arbor Holdings</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-label reveal">Inquiries</div>
+            <div class="section-title reveal">Questions thoughtfully answered</div>
+            <div class="deco-divider reveal"><span class="deco-line"></span><span class="deco-diamond"></span><span class="deco-line"></span></div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">What types of organizations do you advise?</span><span class="faq-toggle"><span class="faq-toggle-inner"></span></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">We work with growth-stage companies, family offices, and established enterprises across financial services, technology, healthcare, and luxury sectors. Our engagements typically begin at $500K annual revenue, though we evaluate each opportunity on its strategic merit.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">How do engagements typically begin?</span><span class="faq-toggle"><span class="faq-toggle-inner"></span></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Every engagement begins with a confidential discovery conversation. If there's mutual alignment, we conduct a diagnostic assessment before proposing a tailored scope of work. We believe in earning trust before asking for commitment.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">What is your fee structure?</span><span class="faq-toggle"><span class="faq-toggle-inner"></span></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">We offer both project-based and retainer engagements. Retainers begin at $15,000 per month. Strategic projects are scoped individually. We do not compete on price — we compete on the quality and impact of our counsel.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">How many clients do you work with at once?</span><span class="faq-toggle"><span class="faq-toggle-inner"></span></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">We intentionally limit our practice to 8-12 active engagements at any time. This ensures each client receives the depth of attention and caliber of counsel they deserve. We maintain a selective intake process.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">Do you offer industry exclusivity?</span><span class="faq-toggle"><span class="faq-toggle-inner"></span></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Yes. For retainer clients, we offer sector exclusivity within defined competitive boundaries. We will never advise a direct competitor simultaneously. Discretion is foundational to how we operate.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">Where are you based?</span><span class="faq-toggle"><span class="faq-toggle-inner"></span></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Our offices are in New York and London, though we advise clients globally. We're accustomed to working across time zones and cultures. For high-priority engagements, our partners travel to you.</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta" id="contact">
+        <div class="container">
+            <div class="cta-frame reveal">
+                <div class="cta-corner-bl"></div>
+                <div class="cta-corner-br"></div>
+                <div class="deco-divider"><span class="deco-line"></span><span class="deco-diamond"></span><span class="deco-line"></span></div>
+                <h2>Begin Your Journey</h2>
+                <p class="final-cta-text">The first step is a confidential conversation. No obligation, no pressure — simply an honest discussion about where you are and where you intend to go.</p>
+                <a href="#" class="btn-gold-cta">Schedule Consultation</a>
+                <div class="cta-email">Or write to us at <a href="mailto:counsel@aurelius.co">counsel@aurelius.co</a></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-ornament"><div class="deco-fan"></div></div>
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">AURELIUS &amp; CO.</div>
+                    <p class="footer-desc">Strategic advisory and consulting for organizations that refuse to settle for ordinary outcomes.</p>
+                </div>
+                <div>
+                    <div class="footer-col-title">Practice</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Strategic Advisory</a></li>
+                        <li><a href="#">Brand Architecture</a></li>
+                        <li><a href="#">Growth &amp; Capital</a></li>
+                        <li><a href="#">Executive Counsel</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Firm</div>
+                    <ul class="footer-links">
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Leadership</a></li>
+                        <li><a href="#">Perspectives</a></li>
+                        <li><a href="#">Careers</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Connect</div>
+                    <ul class="footer-links">
+                        <li><a href="#">New York</a></li>
+                        <li><a href="#">London</a></li>
+                        <li><a href="#">LinkedIn</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copy">&copy; 2025 Aurelius &amp; Co. All Rights Reserved.</div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile nav
+        document.getElementById('mobileToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+        document.querySelectorAll('#navLinks a').forEach(l => l.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open')));
+
+        // FAQ
+        document.querySelectorAll('.faq-question').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = btn.closest('.faq-item');
+                const answer = item.querySelector('.faq-answer');
+                const isOpen = btn.classList.contains('active');
+                document.querySelectorAll('.faq-question').forEach(b => { b.classList.remove('active'); b.closest('.faq-item').querySelector('.faq-answer').style.maxHeight = '0'; });
+                if (!isOpen) { btn.classList.add('active'); answer.style.maxHeight = answer.scrollHeight + 'px'; }
+            });
+        });
+
+        // Scroll reveal
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target); } });
+        }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => { e.preventDefault(); const t = document.querySelector(a.getAttribute('href')); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        });
+    </script>
+</body>
+</html>

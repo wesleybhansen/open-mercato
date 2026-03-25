@@ -141,18 +141,18 @@ export default function OnboardingPage() {
   const disabled = submitting || state === 'success'
 
   return (
-    <div className="relative min-h-svh flex items-center justify-center bg-muted/40 px-4 pb-24">
+    <div className="relative min-h-svh flex items-center justify-center bg-muted/40 px-4 py-12">
       <Card className="w-full max-w-lg shadow-lg">
-        <CardHeader className="flex flex-col gap-4 p-10 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <Image alt="Open Mercato" src="/open-mercato.svg" width={120} height={120} priority />
-            <CardTitle className="text-2xl font-semibold">
-              {translate('onboarding.title', 'Create your Open Mercato workspace')}
-            </CardTitle>
-            <CardDescription>
-              {translate('onboarding.subtitle', 'Tell us a bit about you and we will set everything up.')}
-            </CardDescription>
+        <CardHeader className="flex flex-col gap-3 px-10 pt-10 pb-4 text-center items-center">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-foreground text-background font-bold text-sm">
+            C
           </div>
+          <CardTitle className="text-2xl font-semibold">
+            {translate('onboarding.title', 'Get started')}
+          </CardTitle>
+          <CardDescription>
+            {translate('onboarding.subtitle', 'Set up your free CRM in 30 seconds.')}
+          </CardDescription>
         </CardHeader>
         <CardContent className="pb-10">
           {state === 'success' && emailSubmitted && (
@@ -312,10 +312,16 @@ export default function OnboardingPage() {
               className="mt-2 h-11 rounded-md bg-foreground text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
-                ? translate('onboarding.form.loading', 'Sending...')
-                : translate('onboarding.form.submit', 'Send verification email')}
+                ? translate('onboarding.form.loading', 'Setting up...')
+                : translate('onboarding.form.submit', 'Create your CRM')}
             </button>
           </form>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <a href="/login" className="font-medium text-foreground underline-offset-4 hover:underline">
+              Sign in
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>

@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUTOMATE — Stop Doing Things Manually</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Work+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --white: #ffffff;
+            --off-white: #fffdf5;
+            --black: #000000;
+            --yellow: #ffe600;
+            --red: #ff3b30;
+            --blue: #0066ff;
+            --gray: #666666;
+            --light-gray: #e5e5e5;
+            --font-mono: 'Space Mono', monospace;
+            --font-body: 'Work Sans', sans-serif;
+            --border: 3px solid var(--black);
+            --shadow: 6px 6px 0px var(--black);
+            --shadow-sm: 4px 4px 0px var(--black);
+            --shadow-lg: 8px 8px 0px var(--black);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--off-white);
+            color: var(--black);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===== UTILITY ===== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .mono {
+            font-family: var(--font-mono);
+        }
+
+        .uppercase {
+            text-transform: uppercase;
+        }
+
+        /* ===== SCROLL REVEAL ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===== NAVIGATION ===== */
+        .nav {
+            border-bottom: var(--border);
+            background: var(--off-white);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .nav-logo {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-decoration: none;
+            color: var(--black);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            text-decoration: none;
+            color: var(--black);
+            letter-spacing: 0.03em;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--blue);
+        }
+
+        .nav-cta {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            text-decoration: none;
+            color: var(--black);
+            background: var(--yellow);
+            border: var(--border);
+            padding: 10px 20px;
+            letter-spacing: 0.03em;
+            transition: box-shadow 0.2s, transform 0.2s;
+            display: inline-block;
+        }
+
+        .nav-cta:hover {
+            box-shadow: var(--shadow-sm);
+            transform: translate(-2px, -2px);
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .mobile-toggle svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            padding: 80px 0 60px;
+            position: relative;
+            border-bottom: var(--border);
+        }
+
+        .hero-content {
+            position: relative;
+        }
+
+        .hero-badge {
+            position: absolute;
+            top: -30px;
+            right: 40px;
+            background: var(--yellow);
+            border: var(--border);
+            padding: 14px 20px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            transform: rotate(8deg);
+            box-shadow: var(--shadow-sm);
+            z-index: 2;
+            white-space: nowrap;
+        }
+
+        .hero h1 {
+            font-family: var(--font-mono);
+            font-size: clamp(2.8rem, 7vw, 5.5rem);
+            font-weight: 700;
+            line-height: 1.05;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            max-width: 900px;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 .highlight {
+            background: var(--yellow);
+            padding: 0 8px;
+            display: inline;
+        }
+
+        .hero-sub {
+            font-family: var(--font-body);
+            font-size: 1.2rem;
+            line-height: 1.6;
+            max-width: 560px;
+            color: var(--gray);
+            margin-bottom: 40px;
+        }
+
+        .hero-form {
+            display: flex;
+            gap: 0;
+            max-width: 500px;
+            margin-bottom: 48px;
+        }
+
+        .hero-form input {
+            flex: 1;
+            padding: 14px 18px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            border: var(--border);
+            border-right: none;
+            background: var(--white);
+            outline: none;
+        }
+
+        .hero-form input::placeholder {
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .hero-form button {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: var(--black);
+            color: var(--yellow);
+            border: var(--border);
+            padding: 14px 28px;
+            cursor: pointer;
+            letter-spacing: 0.03em;
+            transition: background 0.2s, color 0.2s;
+            white-space: nowrap;
+        }
+
+        .hero-form button:hover {
+            background: var(--yellow);
+            color: var(--black);
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 0;
+            flex-wrap: wrap;
+        }
+
+        .hero-stat {
+            border: var(--border);
+            padding: 16px 24px;
+            margin-right: -3px;
+            margin-bottom: -3px;
+        }
+
+        .hero-stat-number {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .hero-stat-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: var(--gray);
+            letter-spacing: 0.05em;
+        }
+
+        /* ===== MARQUEE ===== */
+        .marquee {
+            background: var(--black);
+            border-bottom: var(--border);
+            overflow: hidden;
+            padding: 16px 0;
+        }
+
+        .marquee-track {
+            display: flex;
+            width: max-content;
+            animation: marquee 25s linear infinite;
+        }
+
+        .marquee-content {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding-right: 0;
+            flex-shrink: 0;
+        }
+
+        .marquee-item {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--white);
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+            padding: 0 20px;
+        }
+
+        .marquee-dot {
+            color: var(--yellow);
+            font-size: 1.2rem;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ===== FEATURES ===== */
+        .features {
+            padding: 80px 0;
+            border-bottom: var(--border);
+        }
+
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--gray);
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-family: var(--font-mono);
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 1.1;
+            margin-bottom: 48px;
+            max-width: 700px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+        }
+
+        .feature-card {
+            border: var(--border);
+            padding: 32px 28px;
+            margin-right: -3px;
+            margin-bottom: -3px;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: var(--shadow);
+            z-index: 2;
+        }
+
+        .feature-card:nth-child(1) { background: var(--yellow); }
+        .feature-card:nth-child(2) { background: var(--white); }
+        .feature-card:nth-child(3) { background: #e8f0fe; }
+        .feature-card:nth-child(4) { background: var(--white); }
+        .feature-card:nth-child(5) { background: #e8f0fe; }
+        .feature-card:nth-child(6) { background: var(--yellow); }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon svg {
+            width: 48px;
+            height: 48px;
+            stroke: var(--black);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .feature-name {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        .feature-desc {
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        /* ===== HOW IT WORKS ===== */
+        .how-it-works {
+            padding: 80px 0;
+            border-bottom: var(--border);
+            background: var(--white);
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            margin-top: 16px;
+        }
+
+        .step {
+            display: flex;
+            align-items: stretch;
+            border: var(--border);
+            box-shadow: var(--shadow);
+            background: var(--off-white);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .step:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 10px 10px 0px var(--black);
+        }
+
+        .step-number {
+            font-family: var(--font-mono);
+            font-size: clamp(3rem, 6vw, 5rem);
+            font-weight: 700;
+            line-height: 1;
+            padding: 32px;
+            border-right: var(--border);
+            display: flex;
+            align-items: center;
+            min-width: 140px;
+            justify-content: center;
+        }
+
+        .step:nth-child(1) .step-number { background: var(--yellow); }
+        .step:nth-child(2) .step-number { background: var(--blue); color: var(--white); }
+        .step:nth-child(3) .step-number { background: var(--red); color: var(--white); }
+
+        .step-content {
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .step-title {
+            font-family: var(--font-mono);
+            font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .step-desc {
+            font-family: var(--font-body);
+            font-size: 1rem;
+            line-height: 1.6;
+            color: var(--gray);
+            max-width: 480px;
+        }
+
+        .step-arrow {
+            font-family: var(--font-mono);
+            font-size: 2rem;
+            text-align: center;
+            color: var(--gray);
+            margin: -8px 0;
+        }
+
+        /* ===== SYSTEM VIEW ===== */
+        .system-view {
+            padding: 80px 0;
+            border-bottom: var(--border);
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .system-view .section-label {
+            color: #888;
+        }
+
+        .system-view .section-title {
+            color: var(--white);
+        }
+
+        .system-mockup {
+            border: 3px solid #333;
+            background: #0a0a0a;
+            padding: 0;
+            position: relative;
+        }
+
+        .mockup-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 3px solid #333;
+            background: #111;
+        }
+
+        .mockup-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mockup-dot {
+            width: 12px;
+            height: 12px;
+            border: 2px solid #444;
+        }
+
+        .mockup-dot.red { background: var(--red); border-color: var(--red); }
+        .mockup-dot.yellow { background: var(--yellow); border-color: var(--yellow); }
+        .mockup-dot.green { background: #22c55e; border-color: #22c55e; }
+
+        .mockup-title {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #666;
+            letter-spacing: 0.1em;
+        }
+
+        .mockup-body {
+            display: grid;
+            grid-template-columns: 200px 1fr 220px;
+            min-height: 380px;
+        }
+
+        .mockup-sidebar {
+            border-right: 3px solid #333;
+            padding: 20px;
+        }
+
+        .sidebar-item {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #666;
+            padding: 10px 12px;
+            border: 2px solid transparent;
+            margin-bottom: 4px;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+        }
+
+        .sidebar-item.active {
+            color: var(--yellow);
+            border-color: #333;
+            background: #1a1a1a;
+        }
+
+        .sidebar-item:hover:not(.active) {
+            color: #aaa;
+        }
+
+        .mockup-canvas {
+            padding: 32px;
+            position: relative;
+        }
+
+        .workflow-nodes {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .workflow-node {
+            border: 2px solid #444;
+            padding: 16px 20px;
+            background: #111;
+            min-width: 120px;
+            text-align: center;
+            position: relative;
+        }
+
+        .workflow-node.trigger {
+            border-color: var(--yellow);
+        }
+
+        .workflow-node.action {
+            border-color: var(--blue);
+        }
+
+        .workflow-node.output {
+            border-color: #22c55e;
+        }
+
+        .node-label {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 6px;
+            letter-spacing: 0.1em;
+        }
+
+        .node-name {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .node-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 0;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+        }
+
+        .node-status.active { background: #22c55e; }
+        .node-status.pending { background: var(--yellow); }
+
+        .workflow-connector {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            color: #444;
+            padding: 0 8px;
+        }
+
+        .mockup-panel {
+            border-left: 3px solid #333;
+            padding: 20px;
+        }
+
+        .panel-section {
+            margin-bottom: 24px;
+        }
+
+        .panel-label {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            color: #666;
+            letter-spacing: 0.1em;
+            margin-bottom: 12px;
+        }
+
+        .panel-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #222;
+        }
+
+        .panel-stat-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: #888;
+        }
+
+        .panel-stat-value {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .panel-stat-value.green { color: #22c55e; }
+        .panel-stat-value.yellow { color: var(--yellow); }
+        .panel-stat-value.red { color: var(--red); }
+
+        .panel-bar {
+            height: 6px;
+            background: #222;
+            margin-top: 8px;
+        }
+
+        .panel-bar-fill {
+            height: 100%;
+            background: var(--yellow);
+        }
+
+        .canvas-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #555;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+
+        .canvas-title {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--white);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .canvas-status {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: #22c55e;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .canvas-status-dot {
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            display: inline-block;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ===== PRICING ===== */
+        .pricing {
+            padding: 80px 0;
+            border-bottom: var(--border);
+        }
+
+        .pricing-toggle {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .toggle-label {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--gray);
+            letter-spacing: 0.05em;
+            cursor: pointer;
+        }
+
+        .toggle-label.active {
+            color: var(--black);
+        }
+
+        .toggle-switch {
+            width: 56px;
+            height: 30px;
+            border: var(--border);
+            background: var(--off-white);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: var(--black);
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.annual::after {
+            transform: translateX(26px);
+        }
+
+        .toggle-switch.annual {
+            background: var(--yellow);
+        }
+
+        .save-badge {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: var(--red);
+            color: var(--white);
+            padding: 4px 10px;
+            border: 2px solid var(--black);
+            transform: rotate(-2deg);
+            display: inline-block;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .pricing-card {
+            border: var(--border);
+            box-shadow: var(--shadow);
+            background: var(--white);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .pricing-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 9px 9px 0px var(--black);
+        }
+
+        .pricing-card.featured {
+            border-width: 4px;
+        }
+
+        .popular-sticker {
+            position: absolute;
+            top: -14px;
+            right: -10px;
+            background: var(--red);
+            color: var(--white);
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border: 2px solid var(--black);
+            transform: rotate(4deg);
+            z-index: 2;
+            letter-spacing: 0.05em;
+        }
+
+        .pricing-header {
+            padding: 28px 28px 20px;
+            border-bottom: var(--border);
+        }
+
+        .pricing-card:nth-child(1) .pricing-header { background: var(--off-white); }
+        .pricing-card:nth-child(2) .pricing-header { background: var(--yellow); }
+        .pricing-card:nth-child(3) .pricing-header { background: var(--black); color: var(--white); }
+
+        .pricing-tier {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+        }
+
+        .pricing-amount {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .pricing-dollar {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .pricing-period {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--gray);
+        }
+
+        .pricing-card:nth-child(3) .pricing-period { color: #999; }
+
+        .pricing-body {
+            padding: 28px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 28px;
+        }
+
+        .pricing-features li {
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pricing-features li::before {
+            content: '→';
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: var(--black);
+        }
+
+        .pricing-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            text-align: center;
+            text-decoration: none;
+            border: var(--border);
+            cursor: pointer;
+            letter-spacing: 0.05em;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .pricing-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .pricing-btn.primary {
+            background: var(--black);
+            color: var(--yellow);
+        }
+
+        .pricing-btn.secondary {
+            background: var(--yellow);
+            color: var(--black);
+        }
+
+        .pricing-btn.outline {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        /* ===== TESTIMONIALS ===== */
+        .testimonials {
+            padding: 80px 0;
+            border-bottom: var(--border);
+            background: var(--white);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .testimonial-card {
+            border: var(--border);
+            padding: 28px;
+            background: var(--off-white);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .testimonial-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: var(--shadow);
+        }
+
+        .testimonial-card:nth-child(1) { transform: rotate(-0.5deg); }
+        .testimonial-card:nth-child(2) { transform: rotate(0.8deg); }
+        .testimonial-card:nth-child(3) { transform: rotate(-0.3deg); }
+        .testimonial-card:nth-child(4) { transform: rotate(0.5deg); }
+        .testimonial-card:nth-child(5) { transform: rotate(-0.7deg); }
+        .testimonial-card:nth-child(6) { transform: rotate(0.4deg); }
+
+        .testimonial-card:nth-child(1):hover,
+        .testimonial-card:nth-child(2):hover,
+        .testimonial-card:nth-child(3):hover,
+        .testimonial-card:nth-child(4):hover,
+        .testimonial-card:nth-child(5):hover,
+        .testimonial-card:nth-child(6):hover {
+            transform: translate(-3px, -3px) rotate(0deg);
+        }
+
+        .testimonial-quote {
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .testimonial-quote::before {
+            content: '"';
+            font-family: var(--font-mono);
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 0;
+            position: relative;
+            top: 10px;
+            margin-right: 4px;
+            color: var(--blue);
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .testimonial-avatar {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--black);
+            background: var(--yellow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .testimonial-card:nth-child(2) .testimonial-avatar { background: var(--blue); color: var(--white); }
+        .testimonial-card:nth-child(3) .testimonial-avatar { background: var(--red); color: var(--white); }
+        .testimonial-card:nth-child(4) .testimonial-avatar { background: #22c55e; color: var(--white); }
+        .testimonial-card:nth-child(5) .testimonial-avatar { background: var(--black); color: var(--yellow); }
+        .testimonial-card:nth-child(6) .testimonial-avatar { background: #9333ea; color: var(--white); }
+
+        .testimonial-name {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .testimonial-role {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--gray);
+            text-transform: uppercase;
+        }
+
+        /* ===== FAQ ===== */
+        .faq {
+            padding: 80px 0;
+            border-bottom: var(--border);
+        }
+
+        .faq-list {
+            max-width: 800px;
+        }
+
+        .faq-item {
+            border: var(--border);
+            margin-bottom: -3px;
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            background: var(--off-white);
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            text-align: left;
+            letter-spacing: 0.03em;
+            transition: background 0.2s;
+        }
+
+        .faq-question:hover {
+            background: var(--yellow);
+        }
+
+        .faq-question.active {
+            background: var(--yellow);
+        }
+
+        .faq-toggle {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+
+        .faq-question.active .faq-toggle {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .faq-answer-inner {
+            padding: 20px 24px;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #444;
+            border-top: 2px solid var(--light-gray);
+        }
+
+        /* ===== FINAL CTA ===== */
+        .final-cta {
+            padding: 80px 0;
+            background: var(--black);
+            color: var(--white);
+            border-bottom: var(--border);
+        }
+
+        .final-cta h2 {
+            font-family: var(--font-mono);
+            font-size: clamp(1.8rem, 4vw, 3rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            max-width: 700px;
+        }
+
+        .final-cta h2 .yellow {
+            color: var(--yellow);
+        }
+
+        .final-cta p {
+            font-family: var(--font-body);
+            font-size: 1.1rem;
+            color: #888;
+            max-width: 500px;
+            margin-bottom: 36px;
+            line-height: 1.6;
+        }
+
+        .final-cta-form {
+            display: flex;
+            gap: 0;
+            max-width: 500px;
+            border: 3px solid var(--yellow);
+        }
+
+        .final-cta-form input {
+            flex: 1;
+            padding: 16px 20px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            background: #111;
+            border: none;
+            color: var(--white);
+            outline: none;
+        }
+
+        .final-cta-form input::placeholder {
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .final-cta-form button {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: var(--yellow);
+            color: var(--black);
+            border: none;
+            border-left: 3px solid var(--yellow);
+            padding: 16px 32px;
+            cursor: pointer;
+            letter-spacing: 0.03em;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .final-cta-form button:hover {
+            background: #ffd000;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            border-top: var(--border);
+            padding: 48px 0 32px;
+            background: var(--off-white);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(3, 1fr);
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .footer-tagline {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            line-height: 1.6;
+        }
+
+        .footer-col-title {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+            color: var(--black);
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 8px;
+        }
+
+        .footer-links a {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-decoration: none;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--black);
+        }
+
+        .footer-bottom {
+            border-top: var(--border);
+            padding-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-copy {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--gray);
+            text-transform: uppercase;
+        }
+
+        .footer-built {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            padding: 6px 14px;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .mockup-body {
+                grid-template-columns: 1fr 180px;
+            }
+            .mockup-sidebar {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: var(--off-white);
+                border-bottom: var(--border);
+                padding: 20px 24px;
+                gap: 16px;
+            }
+
+            .nav-links.open {
+                display: flex;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .hero { padding: 48px 0 40px; }
+
+            .hero-badge {
+                position: relative;
+                top: 0;
+                right: 0;
+                display: inline-block;
+                margin-bottom: 24px;
+            }
+
+            .hero-form {
+                flex-direction: column;
+            }
+
+            .hero-form input {
+                border-right: var(--border);
+                border-bottom: none;
+            }
+
+            .hero-stats {
+                flex-direction: column;
+            }
+
+            .hero-stat {
+                margin-right: 0;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .feature-card {
+                margin-right: 0;
+            }
+
+            .step {
+                flex-direction: column;
+            }
+
+            .step-number {
+                border-right: none;
+                border-bottom: var(--border);
+                min-width: auto;
+                padding: 24px;
+            }
+
+            .mockup-body {
+                grid-template-columns: 1fr;
+            }
+
+            .mockup-panel {
+                border-left: none;
+                border-top: 3px solid #333;
+            }
+
+            .workflow-nodes {
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .workflow-connector {
+                transform: rotate(90deg);
+                padding: 8px 0;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 420px;
+            }
+
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+                max-width: 500px;
+            }
+
+            .testimonial-card,
+            .testimonial-card:nth-child(1),
+            .testimonial-card:nth-child(2),
+            .testimonial-card:nth-child(3),
+            .testimonial-card:nth-child(4),
+            .testimonial-card:nth-child(5),
+            .testimonial-card:nth-child(6) {
+                transform: none;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 2.2rem; }
+            .section-title { font-size: 1.5rem; }
+            .final-cta h2 { font-size: 1.5rem; }
+
+            .final-cta-form {
+                flex-direction: column;
+                border: none;
+            }
+
+            .final-cta-form input {
+                border: 3px solid var(--yellow);
+                border-bottom: none;
+            }
+
+            .final-cta-form button {
+                border-left: none;
+                border: 3px solid var(--yellow);
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVIGATION -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">
+                <span class="nav-logo-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="2">
+                        <path d="M2 8h12M8 2v12M4 4l8 8M12 4l-8 8"/>
+                    </svg>
+                </span>
+                Automate
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#start" class="nav-cta">Start Automating &rarr;</a></li>
+            </ul>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+                <svg viewBox="0 0 28 28" fill="none" stroke="#000" stroke-width="3" stroke-linecap="square">
+                    <line x1="4" y1="7" x2="24" y2="7"/>
+                    <line x1="4" y1="14" x2="24" y2="14"/>
+                    <line x1="4" y1="21" x2="24" y2="21"/>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge">IT'S 2025 &mdash; AUTOMATE ALREADY</div>
+                <h1>STOP DOING THINGS <span class="highlight">MANUALLY.</span></h1>
+                <p class="hero-sub">Connect your tools, set your rules, and let your systems run on autopilot. Built for founders who'd rather ship than babysit spreadsheets.</p>
+                <form class="hero-form" onsubmit="event.preventDefault()">
+                    <input type="email" placeholder="YOUR@EMAIL.COM" required>
+                    <button type="submit">GET ACCESS &rarr;</button>
+                </form>
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <div class="hero-stat-number">10K+</div>
+                        <div class="hero-stat-label">Workflows Built</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="hero-stat-number">99.9%</div>
+                        <div class="hero-stat-label">Uptime</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="hero-stat-number">200+</div>
+                        <div class="hero-stat-label">Integrations</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="hero-stat-number">2M+</div>
+                        <div class="hero-stat-label">Tasks Automated</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MARQUEE -->
+    <div class="marquee">
+        <div class="marquee-track">
+            <div class="marquee-content">
+                <span class="marquee-item">SLACK</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">NOTION</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">AIRTABLE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">GMAIL</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SHEETS</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">HUBSPOT</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">STRIPE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">ZAPIER</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">JIRA</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SALESFORCE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">GITHUB</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">FIGMA</span><span class="marquee-dot">&bull;</span>
+            </div>
+            <div class="marquee-content">
+                <span class="marquee-item">SLACK</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">NOTION</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">AIRTABLE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">GMAIL</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SHEETS</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">HUBSPOT</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">STRIPE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">ZAPIER</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">JIRA</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">SALESFORCE</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">GITHUB</span><span class="marquee-dot">&bull;</span>
+                <span class="marquee-item">FIGMA</span><span class="marquee-dot">&bull;</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEATURES -->
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-label reveal">// WHAT IT DOES</div>
+            <h2 class="section-title reveal">EVERYTHING YOU NEED TO KILL MANUAL WORK</h2>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48"><path d="M8 12h32M8 24h20M8 36h28M36 20l4 4-4 4"/></svg>
+                    </div>
+                    <div class="feature-name">Workflow Engine</div>
+                    <p class="feature-desc">Visual drag-and-drop builder. Chain actions, add conditions, branch logic. No code required but code-friendly when you need it.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="6"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6M12 12l4 4M32 32l4 4M12 36l4-4M32 16l4-4"/></svg>
+                    </div>
+                    <div class="feature-name">Trigger System</div>
+                    <p class="feature-desc">Webhooks, schedules, events, database changes. Your automations fire the instant something happens. Zero lag.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48"><path d="M10 16h8v16h-8zM20 24h8M30 16h8v16h-8z"/><path d="M14 8v8M34 8v8M14 32v8M34 32v8"/></svg>
+                    </div>
+                    <div class="feature-name">Data Pipes</div>
+                    <p class="feature-desc">Move data between any two systems. Transform, filter, map, and validate on the fly. Your data, your rules.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48"><path d="M12 8l12 8-12 8V8z"/><path d="M28 16h8v16h-8M28 24h8"/><path d="M8 36h32"/></svg>
+                    </div>
+                    <div class="feature-name">Logic Builder</div>
+                    <p class="feature-desc">If/then, loops, delays, error handling. Build complex conditional flows that handle edge cases like a senior engineer would.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48"><rect x="8" y="8" width="32" height="24" rx="0"/><path d="M8 16h32M16 32v8M32 32v8M12 40h24"/><circle cx="14" cy="12" r="1" fill="currentColor"/><circle cx="20" cy="12" r="1" fill="currentColor"/></svg>
+                    </div>
+                    <div class="feature-name">Live Dashboard</div>
+                    <p class="feature-desc">Real-time monitoring of every workflow. See what ran, what failed, what's queued. Debug in seconds, not hours.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48"><circle cx="16" cy="16" r="6"/><circle cx="32" cy="16" r="6"/><circle cx="16" cy="32" r="6"/><circle cx="32" cy="32" r="6"/><path d="M22 16h4M16 22v4M22 32h4M32 22v4"/></svg>
+                    </div>
+                    <div class="feature-name">API Mesh</div>
+                    <p class="feature-desc">Connect to any REST or GraphQL API. Custom headers, auth, pagination. If it has an endpoint, you can plug it in.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="section-label reveal">// HOW IT WORKS</div>
+            <h2 class="section-title reveal">THREE STEPS. ZERO EXCUSES.</h2>
+            <div class="steps">
+                <div class="step reveal">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <div class="step-title">Plug In Your Tools</div>
+                        <p class="step-desc">Connect your apps with one click. Slack, Notion, HubSpot, Stripe, your database — whatever you use, we integrate with it.</p>
+                    </div>
+                </div>
+                <div class="step-arrow reveal">&darr;</div>
+                <div class="step reveal">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <div class="step-title">Set Your Rules</div>
+                        <p class="step-desc">Build your workflow with our visual editor. When X happens, do Y. Add conditions, delays, loops — get as complex as you want.</p>
+                    </div>
+                </div>
+                <div class="step-arrow reveal">&darr;</div>
+                <div class="step reveal">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <div class="step-title">Let It Run</div>
+                        <p class="step-desc">Hit deploy. Your automation runs 24/7 while you focus on what matters. Monitor everything from your dashboard.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SYSTEM VIEW -->
+    <section class="system-view">
+        <div class="container">
+            <div class="section-label reveal">// SYSTEM VIEW</div>
+            <h2 class="section-title reveal">YOUR AUTOMATION COMMAND CENTER</h2>
+            <div class="system-mockup reveal">
+                <div class="mockup-toolbar">
+                    <div class="mockup-dots">
+                        <div class="mockup-dot red"></div>
+                        <div class="mockup-dot yellow"></div>
+                        <div class="mockup-dot green"></div>
+                    </div>
+                    <div class="mockup-title">Automate Dashboard &mdash; Production</div>
+                    <div class="mockup-title">v2.4.1</div>
+                </div>
+                <div class="mockup-body">
+                    <div class="mockup-sidebar">
+                        <div class="sidebar-item active">Workflows</div>
+                        <div class="sidebar-item">Connections</div>
+                        <div class="sidebar-item">Run History</div>
+                        <div class="sidebar-item">API Keys</div>
+                        <div class="sidebar-item">Team</div>
+                        <div class="sidebar-item">Settings</div>
+                    </div>
+                    <div class="mockup-canvas">
+                        <div class="canvas-label">Active Workflow</div>
+                        <div class="canvas-title">New Lead → CRM Pipeline</div>
+                        <div class="canvas-status">
+                            <span class="canvas-status-dot"></span>
+                            RUNNING &mdash; 1,247 EXECUTIONS TODAY
+                        </div>
+                        <div class="workflow-nodes">
+                            <div class="workflow-node trigger">
+                                <div class="node-status active"></div>
+                                <div class="node-label">Trigger</div>
+                                <div class="node-name">Form Submit</div>
+                            </div>
+                            <div class="workflow-connector">&rarr;</div>
+                            <div class="workflow-node action">
+                                <div class="node-status active"></div>
+                                <div class="node-label">Action</div>
+                                <div class="node-name">Enrich Data</div>
+                            </div>
+                            <div class="workflow-connector">&rarr;</div>
+                            <div class="workflow-node action">
+                                <div class="node-status active"></div>
+                                <div class="node-label">Action</div>
+                                <div class="node-name">Add to CRM</div>
+                            </div>
+                            <div class="workflow-connector">&rarr;</div>
+                            <div class="workflow-node output">
+                                <div class="node-status pending"></div>
+                                <div class="node-label">Output</div>
+                                <div class="node-name">Slack Notify</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mockup-panel">
+                        <div class="panel-section">
+                            <div class="panel-label">Today's Stats</div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Runs</span>
+                                <span class="panel-stat-value">1,247</span>
+                            </div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Success</span>
+                                <span class="panel-stat-value green">99.2%</span>
+                            </div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Avg Time</span>
+                                <span class="panel-stat-value">340ms</span>
+                            </div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Errors</span>
+                                <span class="panel-stat-value red">3</span>
+                            </div>
+                        </div>
+                        <div class="panel-section">
+                            <div class="panel-label">API Usage</div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Used</span>
+                                <span class="panel-stat-value yellow">67%</span>
+                            </div>
+                            <div class="panel-bar">
+                                <div class="panel-bar-fill" style="width: 67%"></div>
+                            </div>
+                        </div>
+                        <div class="panel-section">
+                            <div class="panel-label">Active Workflows</div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Running</span>
+                                <span class="panel-stat-value green">12</span>
+                            </div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Paused</span>
+                                <span class="panel-stat-value yellow">2</span>
+                            </div>
+                            <div class="panel-stat">
+                                <span class="panel-stat-label">Draft</span>
+                                <span class="panel-stat-value">5</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <div class="section-label reveal">// PRICING</div>
+            <h2 class="section-title reveal">PICK YOUR PLAN. START SHIPPING.</h2>
+            <div class="pricing-toggle reveal">
+                <span class="toggle-label active" id="monthlyLabel">Monthly</span>
+                <div class="toggle-switch" id="pricingToggle"></div>
+                <span class="toggle-label" id="annualLabel">Annual</span>
+                <span class="save-badge">SAVE 33%</span>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card reveal">
+                    <div class="pricing-header">
+                        <div class="pricing-tier">Starter</div>
+                        <div class="pricing-amount">
+                            <span class="pricing-dollar" data-monthly="$0" data-annual="$0">$0</span>
+                            <span class="pricing-period">/FOREVER</span>
+                        </div>
+                    </div>
+                    <div class="pricing-body">
+                        <ul class="pricing-features">
+                            <li>100 automation runs/month</li>
+                            <li>5 active workflows</li>
+                            <li>10 integrations</li>
+                            <li>Community support</li>
+                            <li>Basic dashboard</li>
+                        </ul>
+                        <a href="#" class="pricing-btn outline">START FREE &rarr;</a>
+                    </div>
+                </div>
+                <div class="pricing-card featured reveal">
+                    <div class="popular-sticker">MOST POPULAR</div>
+                    <div class="pricing-header">
+                        <div class="pricing-tier">Builder</div>
+                        <div class="pricing-amount">
+                            <span class="pricing-dollar" data-monthly="$29" data-annual="$19">$29</span>
+                            <span class="pricing-period" data-monthly="/MO" data-annual="/MO">/MO</span>
+                        </div>
+                    </div>
+                    <div class="pricing-body">
+                        <ul class="pricing-features">
+                            <li>Unlimited automation runs</li>
+                            <li>Unlimited workflows</li>
+                            <li>200+ integrations</li>
+                            <li>Priority support</li>
+                            <li>Advanced logic & branching</li>
+                            <li>Team collaboration (3 seats)</li>
+                            <li>Webhook triggers</li>
+                        </ul>
+                        <a href="#" class="pricing-btn primary">GET BUILDER &rarr;</a>
+                    </div>
+                </div>
+                <div class="pricing-card reveal">
+                    <div class="pricing-header">
+                        <div class="pricing-tier">Scale</div>
+                        <div class="pricing-amount">
+                            <span class="pricing-dollar" data-monthly="$99" data-annual="$66">$99</span>
+                            <span class="pricing-period" data-monthly="/MO" data-annual="/MO">/MO</span>
+                        </div>
+                    </div>
+                    <div class="pricing-body">
+                        <ul class="pricing-features">
+                            <li>Everything in Builder</li>
+                            <li>Unlimited team seats</li>
+                            <li>Custom API integrations</li>
+                            <li>SSO & advanced security</li>
+                            <li>Dedicated account manager</li>
+                            <li>SLA guarantee</li>
+                            <li>Priority queue execution</li>
+                        </ul>
+                        <a href="#" class="pricing-btn secondary">GO SCALE &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-label reveal">// WALL OF PROOF</div>
+            <h2 class="section-title reveal">REAL PEOPLE. REAL AUTOMATIONS. REAL TIME SAVED.</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">We automated our entire onboarding flow. What used to take 3 hours of manual work now runs in 12 seconds. Not kidding.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">MK</div>
+                        <div>
+                            <div class="testimonial-name">Marcus K.</div>
+                            <div class="testimonial-role">Ops Lead, FinTech Startup</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">I replaced 4 Zapier zaps, 2 custom scripts, and a VA with one workflow. My monthly tool cost dropped by $800.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">SP</div>
+                        <div>
+                            <div class="testimonial-name">Sarah P.</div>
+                            <div class="testimonial-role">Solo Founder, E-commerce</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">The API mesh feature is insane. Connected our CRM, billing, and support tools in an afternoon. Data actually stays in sync now.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">JR</div>
+                        <div>
+                            <div class="testimonial-name">James R.</div>
+                            <div class="testimonial-role">CTO, Agency</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">Built a lead scoring system that auto-routes prospects to the right sales rep. Our close rate went up 23% in the first month.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">LT</div>
+                        <div>
+                            <div class="testimonial-name">Lisa T.</div>
+                            <div class="testimonial-role">Head of Sales, B2B SaaS</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">I'm not technical at all and I built 8 automations in my first week. The visual builder is genuinely intuitive — no cap.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">DN</div>
+                        <div>
+                            <div class="testimonial-name">Derek N.</div>
+                            <div class="testimonial-role">Founder, Consulting</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <p class="testimonial-quote">Migrated from a custom Node.js cron setup. This is more reliable, easier to debug, and I don't get paged at 3am anymore.</p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">AV</div>
+                        <div>
+                            <div class="testimonial-name">Anika V.</div>
+                            <div class="testimonial-role">Eng Manager, Startup</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-label reveal">// FAQ</div>
+            <h2 class="section-title reveal">YOU HAVE QUESTIONS. WE HAVE ANSWERS.</h2>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span>How long does setup take?</span>
+                        <span class="faq-toggle">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Most users have their first automation running within 15 minutes. Connect your tools, pick a template or build from scratch, and hit deploy. No engineering team required.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span>What integrations do you support?</span>
+                        <span class="faq-toggle">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">200+ out-of-the-box integrations including Slack, Notion, HubSpot, Stripe, Airtable, Google Sheets, Salesforce, and more. Plus a universal API connector for anything custom.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span>Is my data secure?</span>
+                        <span class="faq-toggle">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">SOC 2 Type II certified. All data encrypted at rest and in transit. We never store your credentials — we use OAuth tokens with minimal permissions. Enterprise plans include SSO and audit logs.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span>Can I build custom workflows with code?</span>
+                        <span class="faq-toggle">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Absolutely. Use the visual builder for most flows and drop into JavaScript or Python code blocks when you need custom logic. Full SDK available for power users who want total control.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span>Do you have an API?</span>
+                        <span class="faq-toggle">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Yes. Full REST API to create, trigger, pause, and monitor workflows programmatically. Webhooks for real-time events. Everything you can do in the UI, you can do via API.</div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question">
+                        <span>What happens if a workflow fails?</span>
+                        <span class="faq-toggle">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Automatic retries with exponential backoff. Detailed error logs with exact failure points. Instant alerts via email, Slack, or SMS. Dead letter queues for failed items so nothing gets lost.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta" id="start">
+        <div class="container">
+            <h2 class="reveal">YOUR COMPETITORS ARE ALREADY <span class="yellow">AUTOMATING.</span></h2>
+            <p class="reveal">Every hour you spend on manual work is an hour you're not building, selling, or shipping. Start automating today — it's free.</p>
+            <form class="final-cta-form reveal" onsubmit="event.preventDefault()">
+                <input type="email" placeholder="YOUR@EMAIL.COM" required>
+                <button type="submit">GET STARTED &rarr;</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">Automate</div>
+                    <p class="footer-tagline">The automation platform for people who ship. Connect, configure, deploy. Stop doing things the hard way.</p>
+                </div>
+                <div>
+                    <div class="footer-col-title">Product</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Features</a></li>
+                        <li><a href="#">Integrations</a></li>
+                        <li><a href="#">Pricing</a></li>
+                        <li><a href="#">Changelog</a></li>
+                        <li><a href="#">API Docs</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Resources</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">Templates</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Status Page</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Company</div>
+                    <ul class="footer-links">
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Privacy</a></li>
+                        <li><a href="#">Terms</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copy">&copy; 2025 Automate. All rights reserved.</div>
+                <div class="footer-built">BUILT FOR PEOPLE WHO SHIP</div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile nav toggle
+        const mobileToggle = document.getElementById('mobileToggle');
+        const navLinks = document.getElementById('navLinks');
+        mobileToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('open');
+        });
+
+        // Close mobile nav on link click
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+            });
+        });
+
+        // Pricing toggle
+        const pricingToggle = document.getElementById('pricingToggle');
+        const monthlyLabel = document.getElementById('monthlyLabel');
+        const annualLabel = document.getElementById('annualLabel');
+        let isAnnual = false;
+
+        pricingToggle.addEventListener('click', () => {
+            isAnnual = !isAnnual;
+            pricingToggle.classList.toggle('annual', isAnnual);
+            monthlyLabel.classList.toggle('active', !isAnnual);
+            annualLabel.classList.toggle('active', isAnnual);
+
+            document.querySelectorAll('.pricing-dollar').forEach(el => {
+                const val = isAnnual ? el.dataset.annual : el.dataset.monthly;
+                if (val) el.textContent = val;
+            });
+
+            document.querySelectorAll('.pricing-period').forEach(el => {
+                const val = isAnnual ? el.dataset.annual : el.dataset.monthly;
+                if (val) el.textContent = val;
+            });
+        });
+
+        // FAQ accordion
+        document.querySelectorAll('.faq-question').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = btn.closest('.faq-item');
+                const answer = item.querySelector('.faq-answer');
+                const isOpen = btn.classList.contains('active');
+
+                // Close all
+                document.querySelectorAll('.faq-question').forEach(b => {
+                    b.classList.remove('active');
+                    b.closest('.faq-item').querySelector('.faq-answer').style.maxHeight = '0';
+                });
+
+                // Open clicked if it was closed
+                if (!isOpen) {
+                    btn.classList.add('active');
+                    answer.style.maxHeight = answer.scrollHeight + 'px';
+                }
+            });
+        });
+
+        // Scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(anchor.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

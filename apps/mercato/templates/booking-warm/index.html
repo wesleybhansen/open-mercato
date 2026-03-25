@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brand Name — Book a Free Consultation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================
+       CSS CUSTOM PROPERTIES
+    ============================================ */
+    :root {
+      --cream: #FBF8F3;
+      --warm-white: #FFFDF9;
+      --sand: #F5F0E8;
+      --border: #E8DCC8;
+      --border-light: #F0E8D8;
+      --espresso: #2C2418;
+      --warm-gray: #6B5E50;
+      --warm-gray-light: #9A8E80;
+      --terracotta: #C4704B;
+      --terracotta-hover: #B5633F;
+      --terracotta-light: rgba(196, 112, 75, 0.08);
+      --sage: #7B8F6B;
+      --sage-light: rgba(123, 143, 107, 0.1);
+      --gold: #F59E0B;
+
+      --font-display: 'Fraunces', Georgia, serif;
+      --font-body: 'DM Sans', 'Helvetica Neue', sans-serif;
+
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+      --container: 1140px;
+      --gutter: 24px;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    /* ============================================
+       RESET & BASE
+    ============================================ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--warm-gray);
+      background-color: var(--cream);
+      background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0L10 10M10 0L0 10' stroke='%23E8DCC8' stroke-width='0.5' fill='none' opacity='0.3'/%3E%3C/svg%3E");
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    input, select, textarea {
+      font-family: inherit;
+      font-size: inherit;
+    }
+
+    /* ============================================
+       UTILITIES
+    ============================================ */
+    .container {
+      max-width: var(--container);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+    }
+
+    /* Scroll reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* ============================================
+       NAVIGATION
+    ============================================ */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(251, 248, 243, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .nav-inner {
+      max-width: var(--container);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 68px;
+    }
+
+    .nav-brand {
+      font-family: var(--font-display);
+      font-size: clamp(18px, 2.5vw, 22px);
+      font-weight: 500;
+      color: var(--espresso);
+      letter-spacing: 0.02em;
+      user-select: none;
+    }
+
+    /* ============================================
+       HERO
+    ============================================ */
+    .hero {
+      padding: 128px 0 100px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .hero-content {
+      padding-right: 16px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--terracotta);
+      background: var(--terracotta-light);
+      padding: 8px 18px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+    }
+
+    .hero-badge svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: var(--terracotta);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(36px, 4.5vw, 56px);
+      font-weight: 400;
+      line-height: 1.15;
+      color: var(--espresso);
+      letter-spacing: -0.01em;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      font-weight: 300;
+      color: var(--terracotta);
+    }
+
+    .hero-subtitle {
+      font-size: clamp(16px, 1.8vw, 18px);
+      line-height: 1.7;
+      color: var(--warm-gray);
+      margin-bottom: 32px;
+      max-width: 480px;
+    }
+
+    .hero-bullets {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .hero-bullets li {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--espresso);
+    }
+
+    .hero-bullets li svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: var(--sage);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* ============================================
+       BOOKING FORM CARD
+    ============================================ */
+    .form-card {
+      background: var(--warm-white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 36px;
+      box-shadow:
+        0 1px 3px rgba(44, 36, 24, 0.04),
+        0 8px 32px rgba(44, 36, 24, 0.06);
+    }
+
+    .form-card-title {
+      font-family: var(--font-display);
+      font-size: clamp(22px, 2.5vw, 26px);
+      font-weight: 500;
+      color: var(--espresso);
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .form-card-desc {
+      font-size: 14px;
+      color: var(--warm-gray-light);
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--espresso);
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      color: var(--espresso);
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: var(--warm-gray-light);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--terracotta);
+      box-shadow: 0 0 0 3px rgba(196, 112, 75, 0.12);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-group select {
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%239A8E80' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+      cursor: pointer;
+    }
+
+    .form-group .optional-label {
+      font-weight: 400;
+      color: var(--warm-gray-light);
+      font-size: 12px;
+      margin-left: 4px;
+    }
+
+    .btn-submit {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--terracotta);
+      padding: 15px 32px;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.3s var(--ease-out), box-shadow 0.3s ease;
+      margin-top: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-submit:hover {
+      background: var(--terracotta-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(196, 112, 75, 0.25);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .form-trust {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--warm-gray-light);
+    }
+
+    .form-trust svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: var(--sage);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    /* Success state */
+    .form-success {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .form-success.active {
+      display: block;
+    }
+
+    .form-success-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--sage-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+
+    .form-success-icon svg {
+      width: 36px;
+      height: 36px;
+      fill: none;
+      stroke: var(--sage);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .form-success h3 {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--espresso);
+      margin-bottom: 10px;
+    }
+
+    .form-success p {
+      font-size: 15px;
+      color: var(--warm-gray);
+      line-height: 1.65;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+
+    /* ============================================
+       HOW IT WORKS
+    ============================================ */
+    .how-it-works {
+      padding: 100px 0;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .section-tag {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--terracotta);
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(30px, 3.5vw, 42px);
+      font-weight: 400;
+      line-height: 1.2;
+      color: var(--espresso);
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+
+    .step-card {
+      background: var(--warm-white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      text-align: center;
+      transition: transform 0.5s var(--ease-out), box-shadow 0.5s var(--ease-out);
+    }
+
+    .step-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 40px rgba(44, 36, 24, 0.08);
+    }
+
+    .step-number {
+      font-family: var(--font-display);
+      font-size: clamp(40px, 4vw, 52px);
+      font-weight: 300;
+      color: var(--border);
+      line-height: 1;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .step-card h3 {
+      font-family: var(--font-display);
+      font-size: clamp(20px, 2vw, 24px);
+      font-weight: 500;
+      color: var(--espresso);
+      margin-bottom: 12px;
+    }
+
+    .step-card p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--warm-gray);
+    }
+
+    /* ============================================
+       TESTIMONIAL
+    ============================================ */
+    .testimonial-section {
+      padding: 80px 0;
+    }
+
+    .testimonial-card {
+      max-width: 720px;
+      margin: 0 auto;
+      text-align: center;
+      background: var(--warm-white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 56px 48px;
+      box-shadow: 0 1px 3px rgba(44, 36, 24, 0.03);
+    }
+
+    .testimonial-stars {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin-bottom: 28px;
+    }
+
+    .testimonial-stars svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--gold);
+      stroke: none;
+    }
+
+    .testimonial-quote {
+      font-family: var(--font-display);
+      font-size: clamp(20px, 2.5vw, 26px);
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1.55;
+      color: var(--espresso);
+      margin-bottom: 32px;
+      letter-spacing: 0.005em;
+    }
+
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .testimonial-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--terracotta-light), var(--sage-light));
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .testimonial-avatar svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: var(--warm-gray-light);
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .testimonial-meta {
+      text-align: left;
+    }
+
+    .testimonial-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--espresso);
+      margin-bottom: 2px;
+    }
+
+    .testimonial-role {
+      font-size: 13px;
+      color: var(--warm-gray-light);
+    }
+
+    /* ============================================
+       BOTTOM CTA
+    ============================================ */
+    .bottom-cta {
+      padding: 0 0 100px;
+    }
+
+    .bottom-cta-card {
+      background: var(--terracotta);
+      border-radius: var(--radius);
+      padding: 72px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bottom-cta-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0L10 10M10 0L0 10' stroke='%23ffffff' stroke-width='0.5' fill='none' opacity='0.08'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .bottom-cta-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .bottom-cta-card h2 {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 3.5vw, 40px);
+      font-weight: 400;
+      line-height: 1.25;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+
+    .bottom-cta-card p {
+      font-size: clamp(15px, 1.6vw, 17px);
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.85);
+      max-width: 520px;
+      margin: 0 auto 36px;
+    }
+
+    .btn-cta-white {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--terracotta);
+      background: #fff;
+      padding: 15px 36px;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: transform 0.3s var(--ease-out), box-shadow 0.3s ease;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-cta-white:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(44, 36, 24, 0.2);
+    }
+
+    .btn-cta-white:active {
+      transform: translateY(0);
+    }
+
+    .btn-cta-white svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ============================================
+       FOOTER
+    ============================================ */
+    .footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-brand {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--espresso);
+    }
+
+    .footer-copy {
+      font-size: 13px;
+      color: var(--warm-gray-light);
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 13px;
+      color: var(--warm-gray-light);
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--espresso);
+    }
+
+    /* ============================================
+       RESPONSIVE - TABLET
+    ============================================ */
+    @media (max-width: 768px) {
+      .hero {
+        padding: 108px 0 72px;
+      }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      .hero-content {
+        padding-right: 0;
+        text-align: center;
+      }
+
+      .hero-badge {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero h1 {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero-subtitle {
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero-bullets {
+        display: inline-flex;
+        text-align: left;
+      }
+
+      .form-card {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 32px 28px;
+      }
+
+      .steps-grid {
+        grid-template-columns: 1fr;
+        max-width: 440px;
+        margin: 0 auto;
+        gap: 24px;
+      }
+
+      .testimonial-card {
+        padding: 40px 32px;
+      }
+
+      .bottom-cta-card {
+        padding: 56px 32px;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+      }
+
+      .footer-links {
+        gap: 20px;
+      }
+    }
+
+    /* ============================================
+       RESPONSIVE - MOBILE
+    ============================================ */
+    @media (max-width: 480px) {
+      :root {
+        --gutter: 20px;
+      }
+
+      .hero {
+        padding: 96px 0 56px;
+      }
+
+      .hero-grid {
+        gap: 32px;
+      }
+
+      .form-card {
+        padding: 28px 22px;
+      }
+
+      .form-card-title {
+        font-size: 20px;
+      }
+
+      .step-card {
+        padding: 32px 24px;
+      }
+
+      .testimonial-card {
+        padding: 32px 24px;
+      }
+
+      .testimonial-quote {
+        font-size: 18px;
+      }
+
+      .testimonial-author {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .testimonial-meta {
+        text-align: center;
+      }
+
+      .bottom-cta-card {
+        padding: 48px 24px;
+      }
+
+      .footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================
+       NAVIGATION
+  ============================================ -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="nav-brand">Your Brand</span>
+    </div>
+  </nav>
+
+  <!-- ============================================
+       HERO
+  ============================================ -->
+  <section class="hero" id="top">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div class="hero-badge reveal">
+            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+            Free Consultation
+          </div>
+          <h1 class="reveal reveal-delay-1">Let's build something <em>meaningful</em> together</h1>
+          <p class="hero-subtitle reveal reveal-delay-2">Book a free 30-minute strategy call and walk away with a clear plan to grow your business, no strings attached.</p>
+          <ul class="hero-bullets reveal reveal-delay-3">
+            <li>
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              Personalized strategy tailored to your goals
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              Actionable next steps you can implement today
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              Zero obligation, zero pressure, just real value
+            </li>
+          </ul>
+        </div>
+
+        <!-- Booking Form Card -->
+        <div class="reveal reveal-delay-2">
+          <div class="form-card" id="booking-form-card">
+            <form id="booking-form">
+              <h3 class="form-card-title">Book Your Free Call</h3>
+              <p class="form-card-desc">Pick a time that works for you and we'll handle the rest.</p>
+
+              <div class="form-group">
+                <label for="name">Your Name</label>
+                <input type="text" id="name" name="name" placeholder="Jane Smith" required>
+              </div>
+
+              <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" placeholder="jane@example.com" required>
+              </div>
+
+              <div class="form-group">
+                <label for="topic">What can we help with?</label>
+                <select id="topic" name="topic" required>
+                  <option value="" disabled selected>Choose a topic</option>
+                  <option value="strategy">Business Strategy</option>
+                  <option value="growth">Growth & Marketing</option>
+                  <option value="product">Product Development</option>
+                  <option value="operations">Operations & Systems</option>
+                  <option value="other">Something Else</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="message">Anything else? <span class="optional-label">(optional)</span></label>
+                <textarea id="message" name="message" placeholder="Tell us a bit about your business and what you're working on..."></textarea>
+              </div>
+
+              <button type="submit" class="btn-submit">
+                Book Your Free Call
+                <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+              </button>
+
+              <div class="form-trust">
+                <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Your info is safe. We never share or spam.
+              </div>
+            </form>
+
+            <div class="form-success" id="form-success">
+              <div class="form-success-icon">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              </div>
+              <h3>You're all set!</h3>
+              <p>We've received your request and will reach out shortly to confirm your call time. Check your inbox for next steps.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       HOW IT WORKS
+  ============================================ -->
+  <section class="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag reveal">How It Works</span>
+        <h2 class="section-title reveal reveal-delay-1">Three simple steps to clarity</h2>
+      </div>
+      <div class="steps-grid">
+        <div class="step-card reveal">
+          <div class="step-number">01</div>
+          <h3>Book a Time</h3>
+          <p>Fill out the quick form above and choose a topic that fits. We'll confirm your slot within a few hours.</p>
+        </div>
+        <div class="step-card reveal reveal-delay-1">
+          <div class="step-number">02</div>
+          <h3>We Meet & Dig In</h3>
+          <p>On the call, we'll explore your goals, identify the biggest opportunities, and map out a strategy together.</p>
+        </div>
+        <div class="step-card reveal reveal-delay-2">
+          <div class="step-number">03</div>
+          <h3>Walk Away with a Plan</h3>
+          <p>You'll leave with clear, actionable next steps, whether you work with us or not. Real value, guaranteed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       TESTIMONIAL
+  ============================================ -->
+  <section class="testimonial-section">
+    <div class="container">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testimonial-quote">"The strategy call was the turning point for my business. In just thirty minutes, I walked away with more clarity than I'd gotten from months of trying to figure it out on my own."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="testimonial-meta">
+            <div class="testimonial-name">Alex Morgan</div>
+            <div class="testimonial-role">Founder, Placeholder Co.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       BOTTOM CTA
+  ============================================ -->
+  <section class="bottom-cta">
+    <div class="container">
+      <div class="bottom-cta-card reveal">
+        <div class="bottom-cta-content">
+          <h2>Ready to get unstuck?</h2>
+          <p>Your free consultation is waiting. No pitches, no pressure, just a real conversation about where you want to go and how to get there.</p>
+          <button class="btn-cta-white" id="scroll-to-top">
+            Book Your Free Call
+            <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       FOOTER
+  ============================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <span class="footer-brand">Your Brand</span>
+        <span class="footer-copy">&copy; 2025 Your Brand. All rights reserved.</span>
+        <ul class="footer-links">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================
+       JAVASCRIPT
+  ============================================ -->
+  <script>
+    // Intersection Observer for scroll reveal
+    const observerOptions = {
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.reveal').forEach(el => {
+      observer.observe(el);
+    });
+
+    // Form submission
+    const bookingForm = document.getElementById('booking-form');
+    const formSuccess = document.getElementById('form-success');
+
+    bookingForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      // Hide the form
+      bookingForm.style.display = 'none';
+      // Show the success message
+      formSuccess.classList.add('active');
+    });
+
+    // Scroll to top button
+    document.getElementById('scroll-to-top').addEventListener('click', function() {
+      const topSection = document.getElementById('top');
+      const navHeight = document.querySelector('.nav').offsetHeight;
+      const targetPos = topSection.getBoundingClientRect().top + window.pageYOffset - navHeight;
+      window.scrollTo({
+        top: targetPos,
+        behavior: 'smooth'
+      });
+    });
+  </script>
+
+</body>
+</html>

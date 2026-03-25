@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LaunchOS — Master Growth Systems in 30 Days</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        :root {
+            --violet: #4c1d95;
+            --indigo: #3730a3;
+            --teal: #0d9488;
+            --pink: #ec4899;
+            --mint: #34d399;
+            --mint-dark: #059669;
+            --amber: #fbbf24;
+            --white: #ffffff;
+            --text: rgba(255,255,255,0.88);
+            --text-dim: rgba(255,255,255,0.55);
+            --text-faint: rgba(255,255,255,0.35);
+            --glass: rgba(255,255,255,0.07);
+            --glass-border: rgba(255,255,255,0.12);
+            --glass-hover: rgba(255,255,255,0.12);
+            --glass-strong: rgba(255,255,255,0.14);
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Figtree', sans-serif;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --radius-pill: 100px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--text);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            background: #1a0a3e;
+            min-height: 100vh;
+        }
+
+        /* Animated gradient background */
+        .gradient-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(135deg, var(--violet), var(--indigo), var(--teal), var(--pink), var(--violet));
+            background-size: 400% 400%;
+            animation: gradientShift 20s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            25% { background-position: 50% 100%; }
+            50% { background-position: 100% 50%; }
+            75% { background-position: 50% 0%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Floating orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.3;
+        }
+
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: var(--pink);
+            top: -10%; left: -10%;
+            animation: float1 18s ease-in-out infinite;
+        }
+
+        .orb-2 {
+            width: 400px; height: 400px;
+            background: var(--teal);
+            bottom: -10%; right: -10%;
+            animation: float2 22s ease-in-out infinite;
+        }
+
+        .orb-3 {
+            width: 350px; height: 350px;
+            background: var(--indigo);
+            top: 40%; left: 50%;
+            animation: float3 16s ease-in-out infinite;
+        }
+
+        @keyframes float1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(80px,60px)} }
+        @keyframes float2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-60px,-80px)} }
+        @keyframes float3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-40px,50px)} }
+
+        /* Content wrapper */
+        .page-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Glass utility */
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+        }
+
+        .glass-strong {
+            background: var(--glass-strong);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+
+        /* Scroll reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s cubic-bezier(0.23,1,0.32,1), transform 0.6s cubic-bezier(0.23,1,0.32,1);
+        }
+        .reveal.visible { opacity:1; transform:translateY(0); }
+
+        /* ===== NAVIGATION ===== */
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            padding: 12px 0;
+        }
+
+        .nav-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-pill);
+            padding: 10px 10px 10px 24px;
+            height: 56px;
+        }
+
+        .nav-logo {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--white);
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+
+        .nav-logo span { color: var(--mint); }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: var(--font-body);
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover { color: var(--white); background: rgba(255,255,255,0.06); }
+
+        .nav-cta {
+            font-family: var(--font-display);
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #0a0a0a !important;
+            background: var(--mint) !important;
+            padding: 10px 22px !important;
+            border-radius: var(--radius-pill);
+            transition: all 0.3s !important;
+        }
+
+        .nav-cta:hover {
+            background: #6ee7b7 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(52,211,153,0.3);
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: var(--radius-sm);
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        .mobile-toggle svg { width:22px; height:22px; stroke:var(--white); stroke-width:2; fill:none; }
+
+        /* ===== HERO ===== */
+        .hero {
+            padding: 120px 0 80px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            border-radius: var(--radius-pill);
+            font-family: var(--font-body);
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--amber);
+            margin-bottom: 28px;
+        }
+
+        .hero-badge .dot {
+            width: 6px; height: 6px;
+            background: var(--amber);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.4rem, 5.5vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--white);
+            max-width: 700px;
+            margin: 0 auto 24px;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--mint), var(--teal), #67e8f9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-sub {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--text);
+            max-width: 520px;
+            margin: 0 auto 36px;
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 48px;
+        }
+
+        .btn-mint {
+            font-family: var(--font-display);
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #0a0a0a;
+            background: var(--mint);
+            border: none;
+            padding: 15px 36px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-mint:hover {
+            background: #6ee7b7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(52,211,153,0.3);
+        }
+
+        .btn-glass {
+            font-family: var(--font-display);
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--white);
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 14px 32px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-glass:hover {
+            background: rgba(255,255,255,0.14);
+            transform: translateY(-2px);
+        }
+
+        .hero-preview {
+            max-width: 700px;
+            margin: 0 auto;
+            border-radius: var(--radius);
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .hero-preview-inner {
+            text-align: center;
+        }
+
+        .hero-preview-play {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+        }
+
+        .hero-preview-play svg { width:24px; height:24px; fill:var(--white); }
+
+        .hero-preview-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        /* ===== SOCIAL PROOF ===== */
+        .social-proof {
+            padding: 24px 0;
+            margin-bottom: 40px;
+        }
+
+        .proof-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            padding: 20px 32px;
+            border-radius: var(--radius-pill);
+        }
+
+        .proof-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+
+        .proof-stars {
+            display: flex;
+            gap: 2px;
+        }
+
+        .proof-stars svg { width:14px; height:14px; fill:var(--amber); }
+
+        .proof-val {
+            font-family: var(--font-display);
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .proof-sep {
+            width: 1px;
+            height: 20px;
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* ===== MODULES ===== */
+        .modules {
+            padding: 80px 0;
+        }
+
+        .section-label {
+            font-family: var(--font-display);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--mint);
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 16px;
+            letter-spacing: -0.01em;
+        }
+
+        .section-desc {
+            font-size: 0.95rem;
+            color: var(--text);
+            max-width: 520px;
+            margin-bottom: 48px;
+            line-height: 1.7;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .module-card {
+            border-radius: var(--radius);
+            padding: 32px 24px;
+            transition: all 0.3s;
+        }
+
+        .module-card:hover {
+            background: var(--glass-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        }
+
+        .module-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .module-icon svg { width:24px; height:24px; stroke:var(--mint); stroke-width:1.5; fill:none; }
+
+        .module-num {
+            font-family: var(--font-display);
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-faint);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .module-name {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 10px;
+        }
+
+        .module-desc {
+            font-size: 0.85rem;
+            line-height: 1.65;
+            color: var(--text-dim);
+        }
+
+        /* ===== CURRICULUM ===== */
+        .curriculum {
+            padding: 80px 0;
+        }
+
+        .curriculum-layout {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 24px;
+        }
+
+        .curriculum-main {
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .curriculum-module {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .curriculum-module:last-child { border-bottom: none; }
+
+        .curriculum-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            font-family: var(--font-body);
+        }
+
+        .curriculum-header:hover { background: rgba(255,255,255,0.03); }
+
+        .curriculum-header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .curriculum-number {
+            font-family: var(--font-display);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--mint);
+            background: rgba(52,211,153,0.1);
+            border: 1px solid rgba(52,211,153,0.2);
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+        }
+
+        .curriculum-module-name {
+            font-family: var(--font-display);
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .curriculum-lesson-count {
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        .curriculum-chevron {
+            color: var(--text-faint);
+            transition: transform 0.3s;
+            font-size: 0.8rem;
+        }
+
+        .curriculum-header.active .curriculum-chevron { transform: rotate(180deg); }
+
+        .curriculum-lessons {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.23,1,0.32,1);
+        }
+
+        .curriculum-lesson {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 24px 10px 64px;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+        }
+
+        .curriculum-lesson:last-child { padding-bottom: 16px; }
+
+        .lesson-icon { width:14px; height:14px; stroke:var(--text-faint); stroke-width:1.5; fill:none; }
+
+        .curriculum-sidebar {
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            height: fit-content;
+            position: sticky;
+            top: 100px;
+        }
+
+        .sidebar-stat {
+            text-align: center;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .sidebar-stat:last-child { border-bottom: none; }
+
+        .sidebar-stat-val {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .sidebar-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* ===== INSTRUCTOR ===== */
+        .instructor {
+            padding: 80px 0;
+        }
+
+        .instructor-card {
+            border-radius: var(--radius);
+            padding: 48px;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .instructor-avatar {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--teal), var(--mint));
+            border: 3px solid rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .instructor-name {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 6px;
+        }
+
+        .instructor-title {
+            font-size: 0.9rem;
+            color: var(--mint);
+            margin-bottom: 16px;
+        }
+
+        .instructor-bio {
+            font-size: 0.92rem;
+            line-height: 1.7;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .instructor-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .instructor-badge {
+            font-family: var(--font-display);
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text);
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+        }
+
+        /* ===== PRICING ===== */
+        .pricing {
+            padding: 80px 0;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            border-radius: var(--radius);
+            padding: 36px 32px;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .pricing-card:hover { transform: translateY(-4px); }
+
+        .pricing-card.featured {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(52,211,153,0.3);
+            box-shadow: 0 0 40px rgba(52,211,153,0.08), 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .pricing-popular {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--mint);
+            color: #0a0a0a;
+            font-family: var(--font-display);
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 5px 16px;
+            border-radius: var(--radius-pill);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .pricing-tier {
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 16px;
+        }
+
+        .pricing-amount {
+            font-family: var(--font-display);
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--white);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .pricing-detail {
+            font-size: 0.78rem;
+            color: var(--text-faint);
+            margin-bottom: 24px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 28px;
+        }
+
+        .pricing-features li {
+            font-size: 0.85rem;
+            color: var(--text);
+            padding: 7px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pricing-features li svg { width:16px; height:16px; stroke:var(--mint); stroke-width:2; fill:none; flex-shrink:0; }
+
+        .pricing-features li.disabled { color: var(--text-faint); }
+        .pricing-features li.disabled svg { stroke: var(--text-faint); }
+
+        .pricing-btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 14px;
+            border-radius: var(--radius-pill);
+            font-family: var(--font-display);
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+        }
+
+        .pricing-btn.mint { background: var(--mint); color: #0a0a0a; }
+        .pricing-btn.mint:hover { background: #6ee7b7; box-shadow: 0 4px 20px rgba(52,211,153,0.3); }
+        .pricing-btn.glass-btn { background: rgba(255,255,255,0.08); color: var(--white); border: 1px solid rgba(255,255,255,0.15); }
+        .pricing-btn.glass-btn:hover { background: rgba(255,255,255,0.14); }
+
+        .guarantee-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 32px;
+            padding: 16px;
+            border-radius: var(--radius-pill);
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+
+        .guarantee-badge svg { width:20px; height:20px; stroke:var(--amber); stroke-width:1.5; fill:none; }
+
+        /* ===== TESTIMONIALS ===== */
+        .testimonials {
+            padding: 80px 0;
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .testimonial-card {
+            border-radius: var(--radius);
+            padding: 28px;
+            transition: all 0.3s;
+        }
+
+        .testimonial-card:hover {
+            background: var(--glass-hover);
+            transform: translateY(-2px);
+        }
+
+        .testimonial-card:nth-child(2) { margin-top: 32px; }
+        .testimonial-card:nth-child(3) { margin-top: -16px; }
+
+        .testimonial-stars {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 16px;
+        }
+
+        .testimonial-stars svg { width:14px; height:14px; fill:var(--amber); }
+
+        .testimonial-text {
+            font-size: 0.92rem;
+            line-height: 1.7;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .testimonial-result {
+            font-family: var(--font-display);
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--mint);
+            background: rgba(52,211,153,0.1);
+            border: 1px solid rgba(52,211,153,0.15);
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            display: inline-block;
+            margin-bottom: 18px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .testimonial-avatar {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 2px solid rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-dim);
+        }
+
+        .testimonial-name {
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .testimonial-role {
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        /* ===== FAQ ===== */
+        .faq {
+            padding: 80px 0;
+        }
+
+        .faq-list {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            gap: 16px;
+        }
+
+        .faq-question-text {
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--white);
+            transition: color 0.3s;
+        }
+
+        .faq-question:hover .faq-question-text { color: var(--mint); }
+
+        .faq-toggle {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .faq-question.active .faq-toggle {
+            background: var(--mint);
+        }
+
+        .faq-toggle svg {
+            width: 12px; height: 12px;
+            stroke: var(--text-dim);
+            stroke-width: 2;
+            fill: none;
+            transition: all 0.3s;
+        }
+
+        .faq-question.active .faq-toggle svg {
+            stroke: #0a0a0a;
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.23,1,0.32,1);
+        }
+
+        .faq-answer-inner {
+            padding: 0 0 22px;
+            font-size: 0.88rem;
+            line-height: 1.75;
+            color: var(--text-dim);
+            max-width: 580px;
+        }
+
+        /* ===== FINAL CTA ===== */
+        .final-cta {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .final-cta-card {
+            border-radius: var(--radius-sm);
+            padding: 60px 40px;
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .final-cta-card::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--mint), var(--teal), var(--pink), var(--mint));
+            background-size: 300% 300%;
+            animation: gradientShift 6s ease infinite;
+            z-index: -2;
+        }
+
+        .final-cta-card::after {
+            content: '';
+            position: absolute;
+            inset: 1px;
+            border-radius: var(--radius-sm);
+            background: rgba(20, 10, 50, 0.92);
+            backdrop-filter: blur(20px);
+            z-index: -1;
+        }
+
+        .final-cta h2 {
+            font-family: var(--font-display);
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .final-cta-sub {
+            font-size: 0.95rem;
+            color: var(--text);
+            max-width: 440px;
+            margin: 0 auto 32px;
+            line-height: 1.7;
+        }
+
+        .cta-form {
+            display: flex;
+            max-width: 420px;
+            margin: 0 auto 20px;
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+        }
+
+        .cta-form input {
+            flex: 1;
+            border: none;
+            padding: 14px 22px;
+            font-family: var(--font-body);
+            font-size: 0.88rem;
+            color: var(--white);
+            background: transparent;
+            outline: none;
+        }
+
+        .cta-form input::placeholder { color: var(--text-faint); }
+
+        .cta-form button {
+            font-family: var(--font-display);
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #0a0a0a;
+            background: var(--mint);
+            border: none;
+            padding: 14px 28px;
+            cursor: pointer;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+
+        .cta-form button:hover { background: #6ee7b7; }
+
+        .final-guarantee {
+            font-size: 0.78rem;
+            color: var(--text-faint);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .final-guarantee svg { width:14px; height:14px; stroke:var(--amber); stroke-width:1.5; fill:none; }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            padding: 48px 0 28px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(3, 1fr);
+            gap: 40px;
+            margin-bottom: 36px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 10px;
+        }
+
+        .footer-brand span { color: var(--mint); }
+
+        .footer-desc {
+            font-size: 0.8rem;
+            line-height: 1.7;
+            color: var(--text-faint);
+            max-width: 260px;
+        }
+
+        .footer-col-title {
+            font-family: var(--font-display);
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 14px;
+        }
+
+        .footer-links { list-style: none; }
+
+        .footer-links li { margin-bottom: 8px; }
+
+        .footer-links a {
+            font-size: 0.82rem;
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover { color: var(--mint); }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-copy { font-size: 0.72rem; color: var(--text-faint); }
+
+        .footer-social { display: flex; gap: 12px; }
+        .footer-social a {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        .footer-social a:hover { background: rgba(255,255,255,0.12); }
+        .footer-social svg { width:14px; height:14px; stroke:var(--text-dim); stroke-width:2; fill:none; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: calc(100% + 8px);
+                left: 12px; right: 12px;
+                flex-direction: column;
+                background: rgba(30,15,60,0.95);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: var(--radius);
+                padding: 16px;
+                gap: 4px;
+            }
+            .nav-links.open { display: flex; }
+            .mobile-toggle { display: block; }
+
+            .hero { padding: 100px 0 48px; }
+
+            .modules-grid { grid-template-columns: 1fr; }
+
+            .curriculum-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .curriculum-sidebar {
+                position: static;
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .sidebar-stat { border-bottom: none; border-right: 1px solid rgba(255,255,255,0.06); }
+            .sidebar-stat:last-child { border-right: none; }
+
+            .instructor-card {
+                grid-template-columns: 1fr;
+                text-align: center;
+                padding: 32px 24px;
+            }
+
+            .instructor-avatar { margin: 0 auto; }
+            .instructor-badges { justify-content: center; }
+
+            .pricing-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+
+            .testimonials-grid { grid-template-columns: 1fr; }
+            .testimonial-card:nth-child(2) { margin-top: 0; }
+            .testimonial-card:nth-child(3) { margin-top: 0; }
+
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 2rem; }
+            .section-title { font-size: 1.4rem; }
+
+            .proof-bar { gap: 16px; padding: 16px 20px; }
+            .proof-sep { display: none; }
+
+            .hero-actions { flex-direction: column; width: 100%; }
+            .btn-mint, .btn-glass { width: 100%; text-align: center; }
+
+            .curriculum-sidebar { grid-template-columns: 1fr 1fr; }
+
+            .cta-form {
+                flex-direction: column;
+                border-radius: var(--radius-sm);
+            }
+
+            .cta-form button { border-radius: 0; }
+
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="gradient-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="page-content">
+
+    <!-- NAVIGATION -->
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">Launch<span>OS</span></a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#modules">Curriculum</a></li>
+                <li><a href="#instructor">Instructor</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#enroll" class="nav-cta">Enroll Now</a></li>
+            </ul>
+            <button class="mobile-toggle" id="mobileToggle">
+                <svg viewBox="0 0 22 22" stroke-linecap="round"><line x1="3" y1="6" x2="19" y2="6"/><line x1="3" y1="11" x2="19" y2="11"/><line x1="3" y1="16" x2="19" y2="16"/></svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge glass reveal"><span class="dot"></span> 500+ students enrolled</div>
+            <h1 class="reveal">Master <span class="gradient-text">Growth Systems</span> in 30 Days</h1>
+            <p class="hero-sub reveal">The step-by-step program for founders who want to build repeatable, scalable growth engines — without hiring an agency or guessing what works.</p>
+            <div class="hero-actions reveal">
+                <a href="#enroll" class="btn-mint">Enroll Now — $197</a>
+                <a href="#modules" class="btn-glass">View Curriculum</a>
+            </div>
+            <div class="hero-preview glass reveal">
+                <div class="hero-preview-inner">
+                    <div class="hero-preview-play">
+                        <svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19"/></svg>
+                    </div>
+                    <div class="hero-preview-label">Watch the free intro lesson</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOCIAL PROOF -->
+    <section class="social-proof">
+        <div class="container">
+            <div class="proof-bar glass reveal">
+                <div class="proof-item">
+                    <div class="proof-stars">
+                        <svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg>
+                        <svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg>
+                        <svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg>
+                        <svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg>
+                        <svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg>
+                    </div>
+                    <span class="proof-val">4.9</span> average rating
+                </div>
+                <div class="proof-sep"></div>
+                <div class="proof-item"><span class="proof-val">523</span> students</div>
+                <div class="proof-sep"></div>
+                <div class="proof-item"><span class="proof-val">42</span> lessons</div>
+                <div class="proof-sep"></div>
+                <div class="proof-item"><span class="proof-val">12+</span> hours of content</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MODULES -->
+    <section class="modules" id="modules">
+        <div class="container">
+            <div class="section-label reveal">What You'll Learn</div>
+            <div class="section-title reveal">Six modules. Zero fluff.</div>
+            <div class="section-desc reveal">Each module builds on the last. By the end, you'll have a complete growth system tailored to your business.</div>
+            <div class="modules-grid">
+                <div class="module-card glass reveal">
+                    <div class="module-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg></div>
+                    <div class="module-num">Module 01</div>
+                    <div class="module-name">Foundation Framework</div>
+                    <p class="module-desc">Map your market, define your ICP, and build the strategic foundation everything else sits on.</p>
+                </div>
+                <div class="module-card glass reveal">
+                    <div class="module-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+                    <div class="module-num">Module 02</div>
+                    <div class="module-name">Advanced Strategies</div>
+                    <p class="module-desc">Channel selection, messaging frameworks, and campaign architecture that actually converts.</p>
+                </div>
+                <div class="module-card glass reveal">
+                    <div class="module-icon"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/><path d="M9 14l2 2 4-4"/></svg></div>
+                    <div class="module-num">Module 03</div>
+                    <div class="module-name">Implementation Playbook</div>
+                    <p class="module-desc">Week-by-week execution plans, templates, and SOPs you can hand to your team or VA today.</p>
+                </div>
+                <div class="module-card glass reveal">
+                    <div class="module-icon"><svg viewBox="0 0 24 24"><path d="M4 19l4-4 4 4 4-8 4 4"/><rect x="2" y="2" width="20" height="20" rx="2"/></svg></div>
+                    <div class="module-num">Module 04</div>
+                    <div class="module-name">Growth Systems</div>
+                    <p class="module-desc">Build repeatable loops: referral engines, content flywheels, and automation sequences that compound.</p>
+                </div>
+                <div class="module-card glass reveal">
+                    <div class="module-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
+                    <div class="module-num">Module 05</div>
+                    <div class="module-name">Optimization Toolkit</div>
+                    <p class="module-desc">A/B testing, funnel analysis, cohort metrics, and the dashboards that tell you what's working.</p>
+                </div>
+                <div class="module-card glass reveal">
+                    <div class="module-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+                    <div class="module-num">Module 06</div>
+                    <div class="module-name">Scaling Blueprint</div>
+                    <p class="module-desc">When to hire, what to automate, and how to 10x without burning out. The endgame playbook.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CURRICULUM -->
+    <section class="curriculum">
+        <div class="container">
+            <div class="section-label reveal">Full Curriculum</div>
+            <div class="section-title reveal">42 lessons across 6 modules</div>
+            <div style="height:24px"></div>
+            <div class="curriculum-layout">
+                <div class="curriculum-main glass reveal">
+                    <div class="curriculum-module">
+                        <button class="curriculum-header">
+                            <div class="curriculum-header-left">
+                                <span class="curriculum-number">01</span>
+                                <span class="curriculum-module-name">Foundation Framework</span>
+                            </div>
+                            <span class="curriculum-lesson-count">7 lessons</span>
+                            <span class="curriculum-chevron">▾</span>
+                        </button>
+                        <div class="curriculum-lessons">
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Welcome &amp; Course Overview</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Mapping Your Market Landscape</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Defining Your ICP</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Competitive Positioning</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Value Proposition Canvas</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Setting Growth Goals</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Module 1 Workshop</div>
+                        </div>
+                    </div>
+                    <div class="curriculum-module">
+                        <button class="curriculum-header">
+                            <div class="curriculum-header-left">
+                                <span class="curriculum-number">02</span>
+                                <span class="curriculum-module-name">Advanced Strategies</span>
+                            </div>
+                            <span class="curriculum-lesson-count">8 lessons</span>
+                            <span class="curriculum-chevron">▾</span>
+                        </button>
+                        <div class="curriculum-lessons">
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Channel Selection Matrix</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Messaging That Converts</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Campaign Architecture</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Content Strategy Deep Dive</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Paid Acquisition Playbook</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Organic Growth Engines</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Partnership &amp; Collab Tactics</div>
+                            <div class="curriculum-lesson"><svg class="lesson-icon" viewBox="0 0 14 14"><polygon points="5,3 11,7 5,11"/></svg> Module 2 Workshop</div>
+                        </div>
+                    </div>
+                    <div class="curriculum-module">
+                        <button class="curriculum-header">
+                            <div class="curriculum-header-left"><span class="curriculum-number">03</span><span class="curriculum-module-name">Implementation Playbook</span></div>
+                            <span class="curriculum-lesson-count">7 lessons</span><span class="curriculum-chevron">▾</span>
+                        </button>
+                        <div class="curriculum-lessons"></div>
+                    </div>
+                    <div class="curriculum-module">
+                        <button class="curriculum-header">
+                            <div class="curriculum-header-left"><span class="curriculum-number">04</span><span class="curriculum-module-name">Growth Systems</span></div>
+                            <span class="curriculum-lesson-count">7 lessons</span><span class="curriculum-chevron">▾</span>
+                        </button>
+                        <div class="curriculum-lessons"></div>
+                    </div>
+                    <div class="curriculum-module">
+                        <button class="curriculum-header">
+                            <div class="curriculum-header-left"><span class="curriculum-number">05</span><span class="curriculum-module-name">Optimization Toolkit</span></div>
+                            <span class="curriculum-lesson-count">7 lessons</span><span class="curriculum-chevron">▾</span>
+                        </button>
+                        <div class="curriculum-lessons"></div>
+                    </div>
+                    <div class="curriculum-module">
+                        <button class="curriculum-header">
+                            <div class="curriculum-header-left"><span class="curriculum-number">06</span><span class="curriculum-module-name">Scaling Blueprint</span></div>
+                            <span class="curriculum-lesson-count">6 lessons</span><span class="curriculum-chevron">▾</span>
+                        </button>
+                        <div class="curriculum-lessons"></div>
+                    </div>
+                </div>
+                <div class="curriculum-sidebar glass-strong reveal">
+                    <div class="sidebar-stat">
+                        <div class="sidebar-stat-val">42</div>
+                        <div class="sidebar-stat-label">Video lessons</div>
+                    </div>
+                    <div class="sidebar-stat">
+                        <div class="sidebar-stat-val">12+</div>
+                        <div class="sidebar-stat-label">Hours of content</div>
+                    </div>
+                    <div class="sidebar-stat">
+                        <div class="sidebar-stat-val">18</div>
+                        <div class="sidebar-stat-label">Templates &amp; tools</div>
+                    </div>
+                    <div class="sidebar-stat">
+                        <div class="sidebar-stat-val">6</div>
+                        <div class="sidebar-stat-label">Hands-on workshops</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- INSTRUCTOR -->
+    <section class="instructor" id="instructor">
+        <div class="container">
+            <div class="instructor-card glass-strong reveal">
+                <div class="instructor-avatar">AR</div>
+                <div>
+                    <div class="instructor-name">Alex Rivera</div>
+                    <div class="instructor-title">Growth advisor &amp; 2x startup founder</div>
+                    <p class="instructor-bio">Alex has helped 50+ startups build growth systems that scale. Previously Head of Growth at two YC-backed companies, now advising founders full-time. This course is everything he wishes he'd known at the start.</p>
+                    <div class="instructor-badges">
+                        <span class="instructor-badge">Y Combinator Alumni</span>
+                        <span class="instructor-badge">50+ Startups Advised</span>
+                        <span class="instructor-badge">$40M+ Revenue Generated</span>
+                        <span class="instructor-badge">Speaker &amp; Author</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">Pricing</div>
+            <div class="section-title reveal" style="text-align:center; margin:0 auto 48px;">Choose your path</div>
+            <div class="pricing-grid">
+                <div class="pricing-card glass reveal">
+                    <div class="pricing-tier">Self-Paced</div>
+                    <div class="pricing-amount">$197</div>
+                    <div class="pricing-detail">One-time payment, lifetime access</div>
+                    <ul class="pricing-features">
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> All 42 video lessons</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> 18 templates &amp; tools</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Private community access</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Lifetime updates</li>
+                        <li class="disabled"><svg viewBox="0 0 16 16"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg> 1-on-1 coaching calls</li>
+                        <li class="disabled"><svg viewBox="0 0 16 16"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg> Direct Slack access</li>
+                    </ul>
+                    <a href="#" class="pricing-btn glass-btn">Get Self-Paced</a>
+                </div>
+                <div class="pricing-card glass featured reveal">
+                    <div class="pricing-popular">Most Popular</div>
+                    <div class="pricing-tier">Premium + Coaching</div>
+                    <div class="pricing-amount">$497</div>
+                    <div class="pricing-detail">One-time payment, lifetime access + coaching</div>
+                    <ul class="pricing-features">
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Everything in Self-Paced</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> 4x 1-on-1 coaching calls</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Direct Slack access to Alex</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Custom growth audit</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Priority feedback on work</li>
+                        <li><svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg> Bonus: Founder toolkit</li>
+                    </ul>
+                    <a href="#" class="pricing-btn mint">Get Premium</a>
+                </div>
+            </div>
+            <div class="guarantee-badge glass reveal">
+                <svg viewBox="0 0 20 20"><path d="M10 1l2.4 5 5.6.8-4 3.9 1 5.5L10 13.5l-5 2.7 1-5.5-4-3.9 5.6-.8z"/></svg>
+                30-Day Money-Back Guarantee — No questions asked
+            </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">Student Results</div>
+            <div class="section-title reveal" style="text-align:center; margin:0 auto 48px;">Real founders. Real outcomes.</div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card glass reveal">
+                    <div class="testimonial-stars"><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg></div>
+                    <p class="testimonial-text">Module 4 on growth systems was a game-changer. I built a referral loop that now drives 40% of my signups on autopilot.</p>
+                    <div class="testimonial-result">+40% signups from referrals</div>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">MK</div>
+                        <div><div class="testimonial-name">Maria K.</div><div class="testimonial-role">Founder, SaaS Startup</div></div>
+                    </div>
+                </div>
+                <div class="testimonial-card glass reveal">
+                    <div class="testimonial-stars"><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg></div>
+                    <p class="testimonial-text">Went from $8K to $34K MRR in 3 months after applying the channel selection and campaign architecture modules. Worth 100x the price.</p>
+                    <div class="testimonial-result">$8K → $34K MRR in 90 days</div>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">DR</div>
+                        <div><div class="testimonial-name">David R.</div><div class="testimonial-role">Founder, Marketing Agency</div></div>
+                    </div>
+                </div>
+                <div class="testimonial-card glass reveal">
+                    <div class="testimonial-stars"><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg></div>
+                    <p class="testimonial-text">The templates alone saved me weeks of work. I handed the SOPs to my VA and we had a full content engine running in 5 days.</p>
+                    <div class="testimonial-result">Content engine live in 5 days</div>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">SL</div>
+                        <div><div class="testimonial-name">Samantha L.</div><div class="testimonial-role">Founder, E-commerce Brand</div></div>
+                    </div>
+                </div>
+                <div class="testimonial-card glass reveal">
+                    <div class="testimonial-stars"><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg><svg viewBox="0 0 14 14"><polygon points="7,1 8.8,5 13,5.5 9.8,8.2 10.8,13 7,10.6 3.2,13 4.2,8.2 1,5.5 5.2,5"/></svg></div>
+                    <p class="testimonial-text">The coaching calls were the biggest unlock. Alex spotted 3 blind spots in my funnel in the first session. Those fixes alone doubled my conversion rate.</p>
+                    <div class="testimonial-result">2x conversion rate from coaching</div>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">JP</div>
+                        <div><div class="testimonial-name">Jason P.</div><div class="testimonial-role">Founder, B2B Platform</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-label reveal" style="text-align:center;">FAQ</div>
+            <div class="section-title reveal" style="text-align:center; margin:0 auto 48px;">Got questions?</div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">Is this course for beginners?</span><span class="faq-toggle"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Yes! LaunchOS is designed for founders at any stage. Whether you're pre-revenue or doing $50K/mo, the frameworks adapt to where you are. Module 1 starts from scratch, and advanced modules build complexity as you go.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">How long do I have access?</span><span class="faq-toggle"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Lifetime. Once you enroll, you get access forever — including all future updates, new modules, and bonus content we add over time. No recurring fees.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">What if it doesn't work for me?</span><span class="faq-toggle"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">We offer a full 30-day money-back guarantee. If you go through the material and don't find it valuable, email us and we'll refund you — no questions asked, no awkward conversations.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">How much time per week does this take?</span><span class="faq-toggle"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Plan for 3-5 hours per week if you're doing the 30-day track. Each module is 2-3 hours of video plus implementation time. You can also go at your own pace — the content isn't going anywhere.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">Can I upgrade from Self-Paced to Premium later?</span><span class="faq-toggle"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Absolutely. You can upgrade at any time and just pay the difference. Many students start self-paced and upgrade once they see the value of direct coaching access.</div></div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question"><span class="faq-question-text">Is there a payment plan available?</span><span class="faq-toggle"><svg viewBox="0 0 12 12"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></span></button>
+                    <div class="faq-answer"><div class="faq-answer-inner">Yes — we offer 3-month payment plans for both tiers. Select "Pay in installments" at checkout. No credit check, no interest, just split into 3 equal payments.</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final-cta" id="enroll">
+        <div class="container">
+            <div class="final-cta-card reveal">
+                <h2>Your Transformation Starts Today</h2>
+                <p class="final-cta-sub">Join 523 founders who've already built growth systems that scale. Get instant access to all 42 lessons, 18 templates, and the private community.</p>
+                <form class="cta-form" onsubmit="event.preventDefault()">
+                    <input type="email" placeholder="Enter your email" required>
+                    <button type="submit">Get Access</button>
+                </form>
+                <div class="final-guarantee">
+                    <svg viewBox="0 0 14 14"><path d="M7 1l1.7 3.5 3.9.6-2.8 2.7.7 3.9L7 9.7 3.5 11.7l.7-3.9L1.4 5.1l3.9-.6z"/></svg>
+                    30-day money-back guarantee
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">Launch<span>OS</span></div>
+                    <p class="footer-desc">The growth systems course for founders who want to build repeatable, scalable acquisition engines.</p>
+                </div>
+                <div>
+                    <div class="footer-col-title">Course</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Curriculum</a></li>
+                        <li><a href="#">Pricing</a></li>
+                        <li><a href="#">Reviews</a></li>
+                        <li><a href="#">Free Preview</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Resources</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Newsletter</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Templates</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="footer-col-title">Legal</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Refund Policy</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copy">&copy; 2025 LaunchOS. All rights reserved.</div>
+                <div class="footer-social">
+                    <a href="#"><svg viewBox="0 0 14 14"><path d="M14 2.5a5.5 5.5 0 01-1.6.4 2.8 2.8 0 001.2-1.5 5.5 5.5 0 01-1.7.7A2.8 2.8 0 007.1 5a7.9 7.9 0 01-5.7-2.9 2.8 2.8 0 00.9 3.7A2.8 2.8 0 011 6.3a2.8 2.8 0 002.2 2.7 2.8 2.8 0 01-1.3 0 2.8 2.8 0 002.6 1.9A5.6 5.6 0 011 12.1a7.9 7.9 0 004.3 1.3c5.1 0 7.9-4.2 7.9-7.9v-.4A5.6 5.6 0 0014 2.5z"/></svg></a>
+                    <a href="#"><svg viewBox="0 0 14 14"><path d="M9 1H5a4 4 0 00-4 4v4a4 4 0 004 4h4a4 4 0 004-4V5a4 4 0 00-4-4zM7 10a3 3 0 110-6 3 3 0 010 6z"/><circle cx="10.5" cy="3.5" r=".8" fill="currentColor"/></svg></a>
+                    <a href="#"><svg viewBox="0 0 14 14"><path d="M1 4.5h2.5V13H1zM2.3 1A1.3 1.3 0 11 2.3 1.3 1.3 0 012.3 1zM5.5 4.5h2.4V5.7A2.7 2.7 0 0110.3 4.3c2.5 0 3 1.7 3 3.8V13h-2.5V8.7c0-1-.2-2.2-1.4-2.2S8 7.7 8 8.8V13H5.5z"/></svg></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    </div><!-- /page-content -->
+
+    <script>
+        // Mobile nav
+        document.getElementById('mobileToggle').addEventListener('click', () => document.getElementById('navLinks').classList.toggle('open'));
+        document.querySelectorAll('#navLinks a').forEach(l => l.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open')));
+
+        // Curriculum accordion
+        document.querySelectorAll('.curriculum-header').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mod = btn.closest('.curriculum-module');
+                const lessons = mod.querySelector('.curriculum-lessons');
+                const isOpen = btn.classList.contains('active');
+
+                document.querySelectorAll('.curriculum-header').forEach(b => {
+                    b.classList.remove('active');
+                    b.closest('.curriculum-module').querySelector('.curriculum-lessons').style.maxHeight = '0';
+                });
+
+                if (!isOpen && lessons.children.length > 0) {
+                    btn.classList.add('active');
+                    lessons.style.maxHeight = lessons.scrollHeight + 'px';
+                }
+            });
+        });
+
+        // FAQ accordion
+        document.querySelectorAll('.faq-question').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = btn.closest('.faq-item');
+                const answer = item.querySelector('.faq-answer');
+                const isOpen = btn.classList.contains('active');
+
+                document.querySelectorAll('.faq-question').forEach(b => {
+                    b.classList.remove('active');
+                    b.closest('.faq-item').querySelector('.faq-answer').style.maxHeight = '0';
+                });
+
+                if (!isOpen) {
+                    btn.classList.add('active');
+                    answer.style.maxHeight = answer.scrollHeight + 'px';
+                }
+            });
+        });
+
+        // Scroll reveal
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const t = document.querySelector(a.getAttribute('href'));
+                if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coming Soon — Join the Waitlist</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #09090B;
+            --surface: #131316;
+            --surface-2: #1A1A1F;
+            --accent: #6366F1;
+            --accent-light: #818CF8;
+            --accent-bg: rgba(99,102,241,0.08);
+            --accent-glow: rgba(99,102,241,0.15);
+            --white: #F4F4F5;
+            --gray-1: #A1A1AA;
+            --gray-2: #71717A;
+            --gray-3: #3F3F46;
+            --gray-4: #27272A;
+            --border: rgba(255,255,255,0.06);
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--gray-1);
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 600px;
+            background: radial-gradient(ellipse, var(--accent-glow), transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ============ NAV ============ */
+        .nav {
+            padding: 24px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .nav-logo {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--white);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-logo-icon svg {
+            width: 18px;
+            height: 18px;
+            color: white;
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 0 80px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .hero-inner {
+            max-width: 520px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--accent-bg);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 999px;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-light);
+            margin-bottom: 28px;
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-light);
+            border-radius: 50%;
+            animation: pulse 2s ease infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(36px, 6vw, 52px);
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1.15;
+            letter-spacing: -1px;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent-light), #C084FC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-desc {
+            font-size: 17px;
+            color: var(--gray-1);
+            line-height: 1.7;
+            margin-bottom: 36px;
+        }
+
+        /* Email form */
+        .waitlist-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .waitlist-input {
+            flex: 1;
+            padding: 16px 20px;
+            background: var(--surface);
+            border: 1px solid var(--gray-4);
+            border-radius: var(--radius);
+            font-family: var(--font-body);
+            font-size: 15px;
+            color: var(--white);
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .waitlist-input::placeholder {
+            color: var(--gray-2);
+        }
+
+        .waitlist-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        .waitlist-btn {
+            padding: 16px 28px;
+            background: var(--accent);
+            color: white;
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .waitlist-btn:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+        }
+
+        .waitlist-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .form-note {
+            font-size: 13px;
+            color: var(--gray-2);
+            margin-bottom: 40px;
+        }
+
+        .form-note svg {
+            width: 14px;
+            height: 14px;
+            vertical-align: -2px;
+            margin-right: 4px;
+        }
+
+        /* Success state */
+        .form-success {
+            display: none;
+            padding: 20px;
+            background: rgba(16,185,129,0.08);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: var(--radius);
+            margin-bottom: 40px;
+        }
+
+        .form-success.visible { display: block; }
+
+        .form-success p {
+            font-size: 15px;
+            color: #34D399;
+            font-weight: 500;
+        }
+
+        /* Counter */
+        .waitlist-counter {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 48px;
+        }
+
+        .avatar-stack {
+            display: flex;
+        }
+
+        .avatar-stack span {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid var(--bg);
+            background: var(--surface-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--gray-1);
+            margin-left: -8px;
+        }
+        .avatar-stack span:first-child { margin-left: 0; }
+
+        .counter-text {
+            font-size: 14px;
+            color: var(--gray-2);
+        }
+
+        .counter-text strong {
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        /* Progress bar */
+        .progress-section {
+            margin-bottom: 48px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        .progress-label { color: var(--gray-2); }
+        .progress-count {
+            color: var(--accent-light);
+            font-family: var(--font-display);
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--gray-4);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            border-radius: 999px;
+            width: 0%;
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .progress-fill.animate {
+            width: 73%;
+        }
+
+        /* Features preview */
+        .features-preview {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .preview-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 20px 16px;
+            text-align: center;
+            transition: all var(--transition);
+        }
+
+        .preview-card:hover {
+            border-color: rgba(99,102,241,0.2);
+            background: var(--surface-2);
+        }
+
+        .preview-icon {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 10px;
+            background: var(--accent-bg);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-icon svg {
+            width: 20px;
+            height: 20px;
+            color: var(--accent-light);
+        }
+
+        .preview-card h4 {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 4px;
+        }
+
+        .preview-card p {
+            font-size: 12px;
+            color: var(--gray-2);
+            line-height: 1.5;
+        }
+
+        /* Countdown */
+        .countdown {
+            margin-bottom: 48px;
+        }
+
+        .countdown-label {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-2);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+
+        .countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .countdown-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px 8px;
+            text-align: center;
+        }
+
+        .countdown-num {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .countdown-unit {
+            font-size: 11px;
+            color: var(--gray-2);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Social links */
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            padding-bottom: 40px;
+        }
+
+        .social-link {
+            width: 40px;
+            height: 40px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-2);
+            transition: all var(--transition);
+            text-decoration: none;
+        }
+
+        .social-link:hover {
+            color: var(--accent-light);
+            border-color: rgba(99,102,241,0.3);
+            background: var(--accent-bg);
+        }
+
+        .social-link svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px 0;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--gray-3);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 640px) {
+            .waitlist-form {
+                flex-direction: column;
+            }
+            .features-preview {
+                grid-template-columns: 1fr;
+            }
+            .countdown-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+            .countdown-num { font-size: 24px; }
+        }
+
+        @media (max-width: 380px) {
+            .container { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <div class="container">
+        <nav class="nav">
+            <a href="#" class="nav-logo">
+                <div class="nav-logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </div>
+                BrandName
+            </a>
+        </nav>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-inner">
+                <div class="hero-badge">
+                    <span class="badge-dot"></span>
+                    Coming Soon
+                </div>
+
+                <h1>Something <span>incredible</span> is brewing.</h1>
+
+                <p class="hero-desc">We're building the next generation of [your product/service]. Be the first to know when we launch and get exclusive early access.</p>
+
+                <!-- Waitlist Form -->
+                <form class="waitlist-form" id="waitlistForm" onsubmit="handleSubmit(event)">
+                    <input type="email" class="waitlist-input" placeholder="Enter your email address" required>
+                    <button type="submit" class="waitlist-btn">Join Waitlist</button>
+                </form>
+
+                <p class="form-note">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                    No spam, ever. Unsubscribe anytime.
+                </p>
+
+                <!-- Success Message -->
+                <div class="form-success" id="formSuccess">
+                    <p>You're on the list! We'll email you when we launch.</p>
+                </div>
+
+                <!-- Counter -->
+                <div class="waitlist-counter">
+                    <div class="avatar-stack">
+                        <span>A</span>
+                        <span>M</span>
+                        <span>S</span>
+                        <span>J</span>
+                        <span>+</span>
+                    </div>
+                    <span class="counter-text"><strong>2,847</strong> people on the waitlist</span>
+                </div>
+
+                <!-- Progress -->
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <span class="progress-label">Waitlist progress</span>
+                        <span class="progress-count">2,847 / 4,000</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+
+                <!-- What's Coming -->
+                <div class="features-preview">
+                    <div class="preview-card">
+                        <div class="preview-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </div>
+                        <h4>Lightning Fast</h4>
+                        <p>Built for speed from the ground up.</p>
+                    </div>
+                    <div class="preview-card">
+                        <div class="preview-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <h4>Secure</h4>
+                        <p>Enterprise-grade security built in.</p>
+                    </div>
+                    <div class="preview-card">
+                        <div class="preview-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                        </div>
+                        <h4>Collaborative</h4>
+                        <p>Built for teams that move fast.</p>
+                    </div>
+                </div>
+
+                <!-- Countdown -->
+                <div class="countdown">
+                    <div class="countdown-label">Launching In</div>
+                    <div class="countdown-grid">
+                        <div class="countdown-block">
+                            <div class="countdown-num" id="days">00</div>
+                            <div class="countdown-unit">Days</div>
+                        </div>
+                        <div class="countdown-block">
+                            <div class="countdown-num" id="hours">00</div>
+                            <div class="countdown-unit">Hours</div>
+                        </div>
+                        <div class="countdown-block">
+                            <div class="countdown-num" id="minutes">00</div>
+                            <div class="countdown-unit">Min</div>
+                        </div>
+                        <div class="countdown-block">
+                            <div class="countdown-num" id="seconds">00</div>
+                            <div class="countdown-unit">Sec</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Social -->
+                <div class="social-links">
+                    <a href="#" class="social-link" title="Twitter">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg>
+                    </a>
+                    <a href="#" class="social-link" title="LinkedIn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                    </a>
+                    <a href="#" class="social-link" title="Instagram">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                    </a>
+                    <a href="#" class="social-link" title="Email">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            &copy; 2024 BrandName. All rights reserved.
+        </div>
+    </footer>
+
+    <script>
+        // Countdown Timer - Set to 30 days from now
+        const launchDate = new Date();
+        launchDate.setDate(launchDate.getDate() + 30);
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = launchDate - now;
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('days').textContent = String(days).padStart(2, '0');
+            document.getElementById('hours').textContent = String(hours).padStart(2, '0');
+            document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+            document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+
+        // Progress bar animation
+        setTimeout(() => {
+            document.getElementById('progressFill').classList.add('animate');
+        }, 300);
+
+        // Form submission
+        function handleSubmit(e) {
+            e.preventDefault();
+            const form = document.getElementById('waitlistForm');
+            const success = document.getElementById('formSuccess');
+            form.style.display = 'none';
+            document.querySelector('.form-note').style.display = 'none';
+            success.classList.add('visible');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "billing.nav.title": "Billing",
+  "billing.balance.title": "Credit Balance",
+  "billing.balance.addCredits": "Add Credits",
+  "billing.balance.lowBalance": "Low balance — add credits to keep sending",
+  "billing.transactions.title": "Transaction History",
+  "billing.transactions.empty": "No transactions yet",
+  "billing.transactions.columns.date": "Date",
+  "billing.transactions.columns.description": "Description",
+  "billing.transactions.columns.service": "Service",
+  "billing.transactions.columns.amount": "Amount",
+  "billing.transactions.columns.balance": "Balance",
+  "billing.packages.title": "Credit Packages",
+  "billing.packages.starter": "Starter",
+  "billing.packages.growth": "Growth",
+  "billing.packages.pro": "Pro",
+  "billing.flash.purchased": "Credits added to your account",
+  "billing.flash.purchaseFailed": "Failed to purchase credits"
+}

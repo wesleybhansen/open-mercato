@@ -1,0 +1,2523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Live Webinar | YourBrand</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+/* ====================
+   RESET & BASE
+==================== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    /* Primary Colors */
+    --teal: #0D9488;
+    --teal-hover: #0F766E;
+    --teal-light: #14B8A6;
+    --emerald: #10B981;
+    --emerald-hover: #059669;
+
+    /* Backgrounds & Surfaces */
+    --bg: #FFFFFF;
+    --surface: #F8FAFB;
+    --tint: #F0FDFA;
+    --mint: #F0FDFB;
+
+    /* Text */
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #94A3B8;
+    --text-white: #FFFFFF;
+
+    /* Borders */
+    --border: #E2E8F0;
+    --border-hover: #CBD5E1;
+    --border-light: #F1F5F9;
+
+    /* Accents & States */
+    --gradient: linear-gradient(135deg, #0D9488, #10B981);
+    --gradient-soft: linear-gradient(135deg, rgba(13, 148, 136, 0.08), rgba(16, 185, 129, 0.08));
+    --gradient-text: linear-gradient(135deg, #0D9488, #10B981);
+    --red: #EF4444;
+    --red-light: #FEF2F2;
+    --red-border: #FECACA;
+    --gold: #F59E0B;
+
+    /* Typography */
+    --font-head: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    --shadow-teal: 0 4px 14px rgba(13, 148, 136, 0.25);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+
+    /* Radii */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+
+    /* Spacing */
+    --section-pad: 100px 0;
+    --container-max: 1140px;
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.25s ease;
+    --transition-slow: 0.4s ease;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: var(--bg);
+    line-height: 1.6;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* ====================
+   GEOMETRIC GRID BG
+==================== */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+        linear-gradient(rgba(13, 148, 136, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(13, 148, 136, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+}
+
+/* ====================
+   UTILITY & LAYOUT
+==================== */
+.container {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 56px;
+}
+
+.section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--teal);
+    background: var(--tint);
+    border: 1px solid rgba(13, 148, 136, 0.15);
+    padding: 6px 16px;
+    border-radius: var(--radius-full);
+    margin-bottom: 16px;
+}
+
+.section-label svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.section-title {
+    font-family: var(--font-head);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+
+.section-subtitle {
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.7;
+}
+
+section {
+    padding: var(--section-pad);
+    position: relative;
+    z-index: 1;
+}
+
+/* ====================
+   BUTTONS
+==================== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 28px;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    line-height: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary {
+    background: var(--gradient);
+    color: var(--text-white);
+    box-shadow: var(--shadow-teal);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: var(--text-white);
+    color: var(--teal);
+    border: 1.5px solid var(--border);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+    border-color: var(--teal);
+    background: var(--tint);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* ====================
+   NAVIGATION
+==================== */
+.nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid transparent;
+    transition: all var(--transition-base);
+    padding: 0 24px;
+}
+
+.nav.scrolled {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom-color: var(--border);
+    box-shadow: var(--shadow-sm);
+}
+
+.nav-inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 68px;
+}
+
+.nav-logo {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    list-style: none;
+}
+
+.nav-links a {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    position: relative;
+}
+
+.nav-links a:hover {
+    color: var(--teal);
+}
+
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--gradient);
+    border-radius: 1px;
+    transition: width var(--transition-base);
+}
+
+.nav-links a:hover::after {
+    width: 100%;
+}
+
+.nav-cta {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-white);
+    background: var(--gradient);
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    box-shadow: var(--shadow-teal);
+}
+
+.nav-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
+}
+
+/* Hamburger */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1001;
+    gap: 6px;
+}
+
+.hamburger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transition: all var(--transition-base);
+    transform-origin: center;
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
+/* Mobile Menu */
+.mobile-menu {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-slow);
+}
+
+.mobile-menu.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.mobile-menu a {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    padding: 16px 32px;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+}
+
+.mobile-menu a:hover {
+    color: var(--teal);
+    background: var(--tint);
+}
+
+.mobile-menu .mobile-cta {
+    margin-top: 24px;
+    font-size: 18px;
+    color: var(--text-white);
+    background: var(--gradient);
+    padding: 16px 40px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-teal);
+}
+
+/* ====================
+   HERO SECTION
+==================== */
+.hero {
+    padding: 140px 0 100px;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(13, 148, 136, 0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero::after {
+    content: '';
+    position: absolute;
+    bottom: -150px;
+    left: -150px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 440px;
+    gap: 64px;
+    align-items: center;
+}
+
+/* Hero Left */
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--tint);
+    border: 1px solid rgba(13, 148, 136, 0.15);
+    padding: 8px 18px;
+    border-radius: var(--radius-full);
+    margin-bottom: 28px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--teal);
+    font-family: var(--font-head);
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--red);
+    border-radius: 50%;
+    position: relative;
+}
+
+.pulse-dot::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    width: 16px;
+    height: 16px;
+    background: rgba(239, 68, 68, 0.3);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0;
+    }
+}
+
+.hero-title {
+    font-family: var(--font-head);
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    letter-spacing: -0.03em;
+}
+
+.hero-title .gradient-text {
+    background: var(--gradient-text);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 32px;
+    max-width: 520px;
+}
+
+/* Date Card */
+.date-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 16px 24px;
+    border-radius: var(--radius-md);
+    margin-bottom: 40px;
+    box-shadow: var(--shadow-sm);
+}
+
+.date-card-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--tint);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.date-card-icon svg {
+    width: 22px;
+    height: 22px;
+    color: var(--teal);
+}
+
+.date-card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.date-card-date {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.date-card-time {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* Countdown Timer */
+.countdown {
+    display: grid;
+    grid-template-columns: repeat(4, 72px);
+    gap: 12px;
+}
+
+.countdown-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.countdown-value {
+    font-family: var(--font-head);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.countdown-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+/* ====================
+   FORM CARD
+==================== */
+.form-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 40px 36px;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    z-index: 2;
+}
+
+.form-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.form-card-title {
+    font-family: var(--font-head);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.form-card-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    letter-spacing: 0.01em;
+}
+
+.form-label .optional {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: all var(--transition-base);
+    line-height: 1.5;
+}
+
+.form-input::placeholder {
+    color: var(--text-muted);
+}
+
+.form-input:hover {
+    border-color: var(--border-hover);
+}
+
+.form-input:focus {
+    border-color: var(--teal);
+    background: var(--bg);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+}
+
+.form-input.error {
+    border-color: var(--red);
+    background: var(--red-light);
+}
+
+.form-input.error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--border-light);
+}
+
+.form-error-msg {
+    font-size: 12px;
+    color: var(--red);
+    margin-top: 6px;
+    display: none;
+    align-items: center;
+    gap: 4px;
+}
+
+.form-error-msg.show {
+    display: flex;
+}
+
+.form-error-msg svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Submit Button */
+.submit-btn {
+    width: 100%;
+    padding: 16px 24px;
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-white);
+    background: var(--gradient);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: var(--shadow-teal);
+    margin-top: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
+.submit-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.8;
+    transform: none;
+}
+
+.submit-btn .spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: var(--text-white);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.submit-btn.loading .spinner {
+    display: block;
+}
+
+.submit-btn.loading .btn-text {
+    display: none;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.submit-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.form-privacy {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 14px;
+    line-height: 1.6;
+}
+
+.form-privacy svg {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    vertical-align: -1px;
+    margin-right: 4px;
+}
+
+/* Spots Remaining */
+.spots-remaining {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-light);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.spots-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--emerald);
+    border-radius: 50%;
+    position: relative;
+}
+
+.spots-dot::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 14px;
+    height: 14px;
+    background: rgba(16, 185, 129, 0.3);
+    border-radius: 50%;
+    animation: spotsPulse 2s ease-in-out infinite;
+}
+
+@keyframes spotsPulse {
+    0%, 100% {
+        transform: scale(0.8);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scale(1.3);
+        opacity: 0;
+    }
+}
+
+.spots-count {
+    font-weight: 700;
+    color: var(--teal);
+}
+
+/* ====================
+   SUCCESS STATE
+==================== */
+.success-state {
+    display: none;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.success-state.show {
+    display: block;
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    background: var(--tint);
+    border: 2px solid rgba(13, 148, 136, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    animation: successPulse 0.6s ease-out;
+}
+
+.success-icon svg {
+    width: 36px;
+    height: 36px;
+    color: var(--teal);
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: successCheck 0.5s ease-out 0.3s forwards;
+}
+
+@keyframes successPulse {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes successCheck {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.success-title {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.success-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+    line-height: 1.7;
+}
+
+.calendar-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.calendar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--transition-base);
+    border: none;
+}
+
+.calendar-btn-google {
+    background: var(--gradient);
+    color: var(--text-white);
+    box-shadow: var(--shadow-teal);
+}
+
+.calendar-btn-google:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(13, 148, 136, 0.3);
+}
+
+.calendar-btn-ics {
+    background: var(--bg);
+    color: var(--teal);
+    border: 1.5px solid var(--border);
+    box-shadow: var(--shadow-sm);
+}
+
+.calendar-btn-ics:hover {
+    border-color: var(--teal);
+    background: var(--tint);
+}
+
+.calendar-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ====================
+   EVENT DETAILS
+==================== */
+.details-section {
+    background: var(--surface);
+    border-top: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+.detail-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px 28px;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-card);
+}
+
+.detail-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-hover);
+}
+
+.detail-card-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--tint);
+    border: 1px solid rgba(13, 148, 136, 0.1);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.detail-card-icon svg {
+    width: 24px;
+    height: 24px;
+    color: var(--teal);
+}
+
+.detail-card-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.detail-card-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+/* ====================
+   SPEAKER SECTION
+==================== */
+.speaker-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 48px;
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+    box-shadow: var(--shadow-md);
+}
+
+.speaker-avatar {
+    width: 140px;
+    height: 140px;
+    background: var(--tint);
+    border: 2px solid rgba(13, 148, 136, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.speaker-avatar svg {
+    width: 60px;
+    height: 60px;
+    color: var(--teal);
+}
+
+.speaker-info {
+    flex: 1;
+}
+
+.speaker-name {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.speaker-title {
+    font-size: 15px;
+    color: var(--teal);
+    font-weight: 500;
+    margin-bottom: 16px;
+}
+
+.speaker-bio {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 8px;
+}
+
+.speaker-bio-accent {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.speaker-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+}
+
+.speaker-stat {
+    text-align: center;
+}
+
+.speaker-stat-value {
+    font-family: var(--font-head);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--teal);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.speaker-stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+/* ====================
+   WHAT YOU'LL LEARN
+==================== */
+.learn-section {
+    background: var(--surface);
+    border-top: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.learn-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.learn-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px 28px;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+}
+
+.learn-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+.learn-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-hover);
+}
+
+.learn-card:hover::before {
+    opacity: 1;
+}
+
+.learn-card-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--tint);
+    border: 1px solid rgba(13, 148, 136, 0.1);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.learn-card-icon svg {
+    width: 24px;
+    height: 24px;
+    color: var(--teal);
+}
+
+.learn-card-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.learn-card-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+/* ====================
+   REPLAY BANNER
+==================== */
+.replay-banner {
+    background: var(--tint);
+    border: 1px solid rgba(13, 148, 136, 0.12);
+    border-radius: var(--radius-lg);
+    padding: 32px 40px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    max-width: var(--container-max);
+    margin: 0 auto;
+}
+
+.replay-banner-section {
+    padding: 60px 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.replay-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--gradient);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-teal);
+}
+
+.replay-icon svg {
+    width: 24px;
+    height: 24px;
+    color: var(--text-white);
+    margin-left: 2px;
+}
+
+.replay-content {
+    flex: 1;
+}
+
+.replay-title {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.replay-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.replay-btn {
+    flex-shrink: 0;
+}
+
+/* ====================
+   FAQ SECTION
+==================== */
+.faq-list {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.faq-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-card);
+}
+
+.faq-item:hover {
+    border-color: var(--border-hover);
+}
+
+.faq-item.open {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.1), var(--shadow-sm);
+}
+
+.faq-question {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: color var(--transition-fast);
+}
+
+.faq-question:hover {
+    color: var(--teal);
+}
+
+.faq-item.open .faq-question {
+    color: var(--teal);
+}
+
+.faq-chevron {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform var(--transition-base);
+}
+
+.faq-item.open .faq-chevron {
+    transform: rotate(180deg);
+    color: var(--teal);
+}
+
+.faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--transition-slow) ease;
+}
+
+.faq-answer-inner {
+    padding: 0 24px 20px;
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+/* ====================
+   CTA BANNER
+==================== */
+.cta-banner-section {
+    padding: 80px 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.cta-banner {
+    background: var(--gradient);
+    border-radius: var(--radius-xl);
+    padding: 56px 48px;
+    text-align: center;
+    max-width: var(--container-max);
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+}
+
+.cta-banner::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+}
+
+.cta-banner-title {
+    font-family: var(--font-head);
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--text-white);
+    margin-bottom: 14px;
+    position: relative;
+    z-index: 1;
+    letter-spacing: -0.02em;
+}
+
+.cta-banner-text {
+    font-size: 17px;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 32px;
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.7;
+}
+
+.cta-banner-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 16px 36px;
+    background: var(--text-white);
+    color: var(--teal);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cta-banner-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.cta-banner-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* ====================
+   FOOTER
+==================== */
+.footer {
+    padding: 40px 24px;
+    border-top: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+}
+
+.footer-inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.footer-brand {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.footer-links {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    list-style: none;
+}
+
+.footer-links a {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.footer-links a:hover {
+    color: var(--teal);
+}
+
+.footer-copy {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* ====================
+   REVEAL ANIMATIONS
+==================== */
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.reveal.delay-1 {
+    transition-delay: 0.1s;
+}
+
+.reveal.delay-2 {
+    transition-delay: 0.2s;
+}
+
+.reveal.delay-3 {
+    transition-delay: 0.3s;
+}
+
+.reveal.delay-4 {
+    transition-delay: 0.4s;
+}
+
+/* ====================
+   RESPONSIVE — TABLET
+==================== */
+@media (max-width: 768px) {
+    .nav-links,
+    .nav-cta {
+        display: none;
+    }
+
+    .hamburger {
+        display: flex;
+    }
+
+    .mobile-menu {
+        display: flex;
+    }
+
+    .hero {
+        padding: 120px 0 70px;
+    }
+
+    .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+    }
+
+    .hero-title {
+        font-size: 38px;
+    }
+
+    .hero-subtitle {
+        font-size: 16px;
+    }
+
+    .form-card {
+        max-width: 480px;
+    }
+
+    .details-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .speaker-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 36px 28px;
+    }
+
+    .speaker-avatar {
+        width: 120px;
+        height: 120px;
+    }
+
+    .speaker-stats {
+        gap: 12px;
+    }
+
+    .learn-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .replay-banner {
+        flex-direction: column;
+        text-align: center;
+        padding: 28px 24px;
+    }
+
+    .replay-btn {
+        width: 100%;
+    }
+
+    .replay-btn .btn {
+        width: 100%;
+    }
+
+    .section-title {
+        font-size: 30px;
+    }
+
+    .section-subtitle {
+        font-size: 15px;
+    }
+
+    section {
+        padding: 70px 0;
+    }
+
+    .cta-banner {
+        padding: 40px 28px;
+    }
+
+    .cta-banner-title {
+        font-size: 28px;
+    }
+
+    .cta-banner-text {
+        font-size: 15px;
+    }
+
+    .footer-inner {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+    }
+
+    .countdown {
+        grid-template-columns: repeat(4, 64px);
+        gap: 8px;
+    }
+
+    .countdown-value {
+        width: 64px;
+        height: 64px;
+        font-size: 28px;
+    }
+
+    .calendar-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .calendar-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ====================
+   RESPONSIVE — MOBILE
+==================== */
+@media (max-width: 480px) {
+    .hero {
+        padding: 110px 0 60px;
+    }
+
+    .hero-title {
+        font-size: 30px;
+    }
+
+    .hero-subtitle {
+        font-size: 15px;
+    }
+
+    .hero-badge {
+        font-size: 13px;
+    }
+
+    .form-card {
+        padding: 28px 20px;
+    }
+
+    .form-card-title {
+        font-size: 20px;
+    }
+
+    .date-card {
+        padding: 14px 18px;
+    }
+
+    .countdown {
+        grid-template-columns: repeat(4, 56px);
+        gap: 6px;
+    }
+
+    .countdown-value {
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+    }
+
+    .countdown-label {
+        font-size: 10px;
+    }
+
+    .detail-card {
+        padding: 24px 20px;
+    }
+
+    .learn-card {
+        padding: 24px 20px;
+    }
+
+    .faq-question {
+        padding: 16px 18px;
+        font-size: 15px;
+    }
+
+    .faq-answer-inner {
+        padding: 0 18px 16px;
+        font-size: 14px;
+    }
+
+    .cta-banner {
+        padding: 32px 20px;
+    }
+
+    .cta-banner-title {
+        font-size: 24px;
+    }
+
+    .section-title {
+        font-size: 26px;
+    }
+
+    section {
+        padding: 56px 0;
+    }
+
+    .speaker-stat-value {
+        font-size: 20px;
+    }
+
+    .replay-banner-section {
+        padding: 40px 24px;
+    }
+
+    .cta-banner-section {
+        padding: 56px 24px;
+    }
+
+    .mobile-menu a {
+        font-size: 22px;
+        padding: 12px 24px;
+    }
+}
+    </style>
+</head>
+<body>
+
+<!-- ====================
+     NAVIGATION
+==================== -->
+<nav class="nav" id="nav">
+    <div class="nav-inner">
+        <span class="nav-logo">YourBrand</span>
+        <ul class="nav-links">
+            <li><a href="#details">Details</a></li>
+            <li><a href="#speaker">Speaker</a></li>
+            <li><a href="#learn">What You'll Learn</a></li>
+            <li><a href="#faq">FAQ</a></li>
+        </ul>
+        <a href="#hero" class="nav-cta">Register Free</a>
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+</nav>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu" id="mobileMenu">
+    <a href="#details" class="mobile-link">Details</a>
+    <a href="#speaker" class="mobile-link">Speaker</a>
+    <a href="#learn" class="mobile-link">What You'll Learn</a>
+    <a href="#faq" class="mobile-link">FAQ</a>
+    <a href="#hero" class="mobile-link mobile-cta">Register Free</a>
+</div>
+
+<!-- ====================
+     HERO SECTION
+==================== -->
+<section class="hero" id="hero">
+    <div class="container">
+        <div class="hero-grid">
+            <!-- Left Column -->
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="pulse-dot"></span>
+                    Live Webinar
+                </div>
+                <h1 class="hero-title">
+                    The Playbook for <span class="gradient-text">Scaling Your Startup</span> to $10M ARR
+                </h1>
+                <p class="hero-subtitle">
+                    Join 2,000+ founders for a live, tactical breakdown of the exact frameworks, hiring strategies, and growth levers that separate breakout startups from the rest.
+                </p>
+                <div class="date-card">
+                    <div class="date-card-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                    </div>
+                    <div class="date-card-text">
+                        <span class="date-card-date">March 20, 2026</span>
+                        <span class="date-card-time">2:00 PM EST &middot; 60 minutes</span>
+                    </div>
+                </div>
+                <div class="countdown" id="countdown">
+                    <div class="countdown-unit">
+                        <div class="countdown-value" id="countDays">00</div>
+                        <span class="countdown-label">Days</span>
+                    </div>
+                    <div class="countdown-unit">
+                        <div class="countdown-value" id="countHours">00</div>
+                        <span class="countdown-label">Hours</span>
+                    </div>
+                    <div class="countdown-unit">
+                        <div class="countdown-value" id="countMins">00</div>
+                        <span class="countdown-label">Mins</span>
+                    </div>
+                    <div class="countdown-unit">
+                        <div class="countdown-value" id="countSecs">00</div>
+                        <span class="countdown-label">Secs</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Registration Form -->
+            <div class="form-card" id="formCard">
+                <!-- Registration Form -->
+                <div id="registrationForm">
+                    <h2 class="form-card-title">Save Your Spot</h2>
+                    <p class="form-card-subtitle">Free access. Limited seats. Reserve yours now.</p>
+                    <form id="webinarForm" novalidate>
+                        <div class="form-group">
+                            <label class="form-label" for="fullName">Full Name</label>
+                            <input class="form-input" type="text" id="fullName" name="fullName" placeholder="Jane Smith" required>
+                            <div class="form-error-msg" id="nameError">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                <span>Please enter your full name</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="email">Email Address</label>
+                            <input class="form-input" type="email" id="email" name="email" placeholder="jane@company.com" required>
+                            <div class="form-error-msg" id="emailError">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                <span>Please enter a valid email address</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="company">Company <span class="optional">(optional)</span></label>
+                            <input class="form-input" type="text" id="company" name="company" placeholder="Acme Inc.">
+                        </div>
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <span class="btn-text">Reserve My Seat</span>
+                            <span class="spinner"></span>
+                            <svg class="btn-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14"/>
+                                <path d="M12 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </form>
+                    <p class="form-privacy">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                        Your information is secure. We never share your data.
+                    </p>
+                    <div class="spots-remaining" id="spotsRemaining">
+                        <span class="spots-dot"></span>
+                        <span><span class="spots-count" id="spotsCount">247</span> spots remaining</span>
+                    </div>
+                </div>
+
+                <!-- Success State -->
+                <div class="success-state" id="successState">
+                    <div class="success-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <h2 class="success-title">You're Registered!</h2>
+                    <p class="success-text">
+                        Check your inbox for a confirmation email with all the details. Add this event to your calendar so you don't miss it.
+                    </p>
+                    <div class="calendar-buttons">
+                        <a href="#" class="calendar-btn calendar-btn-google" id="googleCalBtn" target="_blank" rel="noopener noreferrer">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/>
+                                <line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            Google Calendar
+                        </a>
+                        <button class="calendar-btn calendar-btn-ics" id="icsBtn">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download .ics
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====================
+     EVENT DETAILS
+==================== -->
+<section class="details-section" id="details">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Event Details
+            </span>
+            <h2 class="section-title">Everything You Need to Know</h2>
+            <p class="section-subtitle">Get the full picture of what to expect from this live session, designed to give you actionable strategies right away.</p>
+        </div>
+        <div class="details-grid">
+            <div class="detail-card reveal delay-1">
+                <div class="detail-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                </div>
+                <h3 class="detail-card-title">Date &amp; Duration</h3>
+                <p class="detail-card-text">March 20, 2026 at 2:00 PM EST. The session runs approximately 60 minutes, including a 15-minute live Q&amp;A at the end.</p>
+            </div>
+            <div class="detail-card reveal delay-2">
+                <div class="detail-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M5 18h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/>
+                    </svg>
+                </div>
+                <h3 class="detail-card-title">Live &amp; Interactive</h3>
+                <p class="detail-card-text">This is a live, interactive session — not a pre-recorded video. You'll be able to ask questions in real-time and get direct answers from the speaker.</p>
+            </div>
+            <div class="detail-card reveal delay-3">
+                <div class="detail-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                </div>
+                <h3 class="detail-card-title">Who This Is For</h3>
+                <p class="detail-card-text">Early-stage founders, product leaders, and growth operators who want a proven, repeatable playbook for scaling from $1M to $10M ARR.</p>
+            </div>
+            <div class="detail-card reveal delay-4">
+                <div class="detail-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                </div>
+                <h3 class="detail-card-title">Bonus Resources</h3>
+                <p class="detail-card-text">All registrants receive the slide deck, a worksheet template, and exclusive access to the post-event Slack community for continued networking.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====================
+     SPEAKER SECTION
+==================== -->
+<section id="speaker">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                Your Speaker
+            </span>
+            <h2 class="section-title">Learn from the Best</h2>
+            <p class="section-subtitle">An operator and advisor who has been in the trenches and emerged with frameworks worth sharing.</p>
+        </div>
+        <div class="speaker-card reveal">
+            <div class="speaker-avatar">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+            <div class="speaker-info">
+                <h3 class="speaker-name">Alex Rivera</h3>
+                <p class="speaker-title">General Partner, Horizon Ventures</p>
+                <p class="speaker-bio">
+                    Alex has spent the last 15 years building and scaling technology companies. After taking two startups from zero to acquisition, Alex now advises a portfolio of 40+ companies on go-to-market strategy, team building, and operational excellence.
+                </p>
+                <p class="speaker-bio-accent">
+                    "Growth isn't about shortcuts. It's about building the right systems and letting compounding do its work."
+                </p>
+                <div class="speaker-stats">
+                    <div class="speaker-stat">
+                        <span class="speaker-stat-value">3</span>
+                        <span class="speaker-stat-label">Companies Built</span>
+                    </div>
+                    <div class="speaker-stat">
+                        <span class="speaker-stat-value">$240M</span>
+                        <span class="speaker-stat-label">Raised</span>
+                    </div>
+                    <div class="speaker-stat">
+                        <span class="speaker-stat-value">500+</span>
+                        <span class="speaker-stat-label">Founders Mentored</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====================
+     WHAT YOU'LL LEARN
+==================== -->
+<section class="learn-section" id="learn">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                Curriculum
+            </span>
+            <h2 class="section-title">What You'll Learn</h2>
+            <p class="section-subtitle">Concrete frameworks and mental models that you can implement the very next day.</p>
+        </div>
+        <div class="learn-grid">
+            <div class="learn-card reveal delay-1">
+                <div class="learn-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+                <h3 class="learn-card-title">Growth Frameworks</h3>
+                <p class="learn-card-text">Discover the three-lever model for predictable revenue growth. Learn how to identify, prioritize, and execute on the highest-impact initiatives for your stage.</p>
+            </div>
+            <div class="learn-card reveal delay-2">
+                <div class="learn-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                </div>
+                <h3 class="learn-card-title">Hiring Playbook</h3>
+                <p class="learn-card-text">The exact interview rubric and onboarding process used to build high-performing teams. When to hire generalists vs. specialists and how to avoid costly mis-hires.</p>
+            </div>
+            <div class="learn-card reveal delay-3">
+                <div class="learn-card-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M2 12h20"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                </div>
+                <h3 class="learn-card-title">Market Expansion</h3>
+                <p class="learn-card-text">Proven strategies for entering adjacent markets, launching in new geographies, and building partner channels that create durable competitive advantages.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====================
+     REPLAY BANNER
+==================== -->
+<div class="replay-banner-section">
+    <div class="replay-banner reveal">
+        <div class="replay-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+        </div>
+        <div class="replay-content">
+            <h3 class="replay-title">Can't make it live?</h3>
+            <p class="replay-text">Register anyway and we'll send you the full recording within 24 hours of the event. You won't miss a thing.</p>
+        </div>
+        <div class="replay-btn">
+            <a href="#hero" class="btn btn-primary">Register for the Replay</a>
+        </div>
+    </div>
+</div>
+
+<!-- ====================
+     FAQ SECTION
+==================== -->
+<section id="faq">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                FAQ
+            </span>
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <p class="section-subtitle">Quick answers to the most common questions we receive about this event.</p>
+        </div>
+        <div class="faq-list">
+            <div class="faq-item reveal delay-1">
+                <button class="faq-question" aria-expanded="false">
+                    <span>Is this webinar really free?</span>
+                    <svg class="faq-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <div class="faq-answer-inner">
+                        Yes, 100% free. No credit card required and no hidden upsells during the session. We believe in delivering value upfront and building trust with our community. Register, show up, and learn.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item reveal delay-2">
+                <button class="faq-question" aria-expanded="false">
+                    <span>Will there be a replay available?</span>
+                    <svg class="faq-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <div class="faq-answer-inner">
+                        Absolutely. All registrants will receive a link to the full recording within 24 hours of the live event. However, we highly recommend attending live so you can participate in the Q&amp;A and interact with other attendees.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item reveal delay-3">
+                <button class="faq-question" aria-expanded="false">
+                    <span>What platform is used for the webinar?</span>
+                    <svg class="faq-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <div class="faq-answer-inner">
+                        The webinar is hosted on Zoom. After registering, you'll receive a unique link via email. No special software is required beyond the Zoom app or a modern web browser. You can also join from mobile devices.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item reveal delay-4">
+                <button class="faq-question" aria-expanded="false">
+                    <span>Can I ask questions during the session?</span>
+                    <svg class="faq-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="faq-answer">
+                    <div class="faq-answer-inner">
+                        Yes! The last 15 minutes are dedicated to live Q&amp;A. You can also submit questions at any time during the presentation using the chat feature, and the speaker will address as many as possible during the dedicated segment.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====================
+     CTA BANNER
+==================== -->
+<div class="cta-banner-section">
+    <div class="cta-banner reveal">
+        <h2 class="cta-banner-title">Ready to Accelerate Your Growth?</h2>
+        <p class="cta-banner-text">
+            Seats are limited and filling fast. Secure your spot today and get the frameworks you need to scale with confidence.
+        </p>
+        <a href="#hero" class="cta-banner-btn">
+            Claim Your Free Spot
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14"/>
+                <path d="M12 5l7 7-7 7"/>
+            </svg>
+        </a>
+    </div>
+</div>
+
+<!-- ====================
+     FOOTER
+==================== -->
+<footer class="footer">
+    <div class="footer-inner">
+        <span class="footer-brand">YourBrand</span>
+        <ul class="footer-links">
+            <li><a href="#">Privacy</a></li>
+            <li><a href="#">Terms</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+        <span class="footer-copy">&copy; 2026 YourBrand. All rights reserved.</span>
+    </div>
+</footer>
+
+<!-- ====================
+     JAVASCRIPT
+==================== -->
+<script>
+(function() {
+    'use strict';
+
+    /* ====================
+       COUNTDOWN TIMER
+    ==================== */
+    const targetDate = new Date('2026-03-20T19:00:00Z');
+
+    function updateCountdown() {
+        const now = new Date();
+        const diff = targetDate - now;
+
+        if (diff <= 0) {
+            document.getElementById('countDays').textContent = '00';
+            document.getElementById('countHours').textContent = '00';
+            document.getElementById('countMins').textContent = '00';
+            document.getElementById('countSecs').textContent = '00';
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+        document.getElementById('countDays').textContent = String(days).padStart(2, '0');
+        document.getElementById('countHours').textContent = String(hours).padStart(2, '0');
+        document.getElementById('countMins').textContent = String(mins).padStart(2, '0');
+        document.getElementById('countSecs').textContent = String(secs).padStart(2, '0');
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    /* ====================
+       SPOTS REMAINING
+    ==================== */
+    let spotsLeft = 247;
+    const spotsEl = document.getElementById('spotsCount');
+
+    function decrementSpots() {
+        const decrement = Math.floor(Math.random() * 3) + 1;
+        spotsLeft = Math.max(50, spotsLeft - decrement);
+        if (spotsEl) {
+            spotsEl.textContent = spotsLeft;
+        }
+        const nextInterval = (Math.floor(Math.random() * 31) + 15) * 1000;
+        setTimeout(decrementSpots, nextInterval);
+    }
+
+    const initialDelay = (Math.floor(Math.random() * 31) + 15) * 1000;
+    setTimeout(decrementSpots, initialDelay);
+
+    /* ====================
+       FORM VALIDATION & SUBMISSION
+    ==================== */
+    const form = document.getElementById('webinarForm');
+    const nameInput = document.getElementById('fullName');
+    const emailInput = document.getElementById('email');
+    const companyInput = document.getElementById('company');
+    const submitBtn = document.getElementById('submitBtn');
+    const nameError = document.getElementById('nameError');
+    const emailError = document.getElementById('emailError');
+    const registrationForm = document.getElementById('registrationForm');
+    const successState = document.getElementById('successState');
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function showError(input, errorEl) {
+        input.classList.add('error');
+        errorEl.classList.add('show');
+    }
+
+    function clearError(input, errorEl) {
+        input.classList.remove('error');
+        errorEl.classList.remove('show');
+    }
+
+    nameInput.addEventListener('input', function() {
+        clearError(nameInput, nameError);
+    });
+
+    emailInput.addEventListener('input', function() {
+        clearError(emailInput, emailError);
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        let isValid = true;
+
+        if (!nameInput.value.trim()) {
+            showError(nameInput, nameError);
+            isValid = false;
+        } else {
+            clearError(nameInput, nameError);
+        }
+
+        if (!emailInput.value.trim() || !emailRegex.test(emailInput.value.trim())) {
+            showError(emailInput, emailError);
+            isValid = false;
+        } else {
+            clearError(emailInput, emailError);
+        }
+
+        if (!isValid) return;
+
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+        nameInput.disabled = true;
+        emailInput.disabled = true;
+        companyInput.disabled = true;
+
+        setTimeout(function() {
+            registrationForm.style.display = 'none';
+            successState.classList.add('show');
+        }, 1800);
+    });
+
+    /* ====================
+       CALENDAR LINK GENERATION
+    ==================== */
+    const eventTitle = 'The Playbook for Scaling Your Startup to $10M ARR';
+    const eventDescription = 'Live webinar: Tactical frameworks for scaling from $1M to $10M ARR. Hosted by YourBrand.';
+    const eventLocation = 'Zoom (link will be emailed)';
+    const eventStart = '20260320T190000Z';
+    const eventEnd = '20260320T200000Z';
+
+    // Google Calendar
+    var googleCalBtn = document.getElementById('googleCalBtn');
+    var googleUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+        + '&text=' + encodeURIComponent(eventTitle)
+        + '&dates=' + eventStart + '/' + eventEnd
+        + '&details=' + encodeURIComponent(eventDescription)
+        + '&location=' + encodeURIComponent(eventLocation);
+    googleCalBtn.href = googleUrl;
+
+    // ICS Download
+    var icsBtn = document.getElementById('icsBtn');
+    icsBtn.addEventListener('click', function() {
+        var icsContent = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//YourBrand//Webinar//EN',
+            'BEGIN:VEVENT',
+            'DTSTART:' + eventStart,
+            'DTEND:' + eventEnd,
+            'SUMMARY:' + eventTitle,
+            'DESCRIPTION:' + eventDescription,
+            'LOCATION:' + eventLocation,
+            'STATUS:CONFIRMED',
+            'END:VEVENT',
+            'END:VCALENDAR'
+        ].join('\r\n');
+
+        var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'webinar-event.ics';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    });
+
+    /* ====================
+       FAQ ACCORDION
+    ==================== */
+    var faqItems = document.querySelectorAll('.faq-item');
+
+    faqItems.forEach(function(item) {
+        var question = item.querySelector('.faq-question');
+        question.addEventListener('click', function() {
+            var isOpen = item.classList.contains('open');
+
+            // Close all
+            faqItems.forEach(function(otherItem) {
+                otherItem.classList.remove('open');
+                var otherAnswer = otherItem.querySelector('.faq-answer');
+                otherAnswer.style.maxHeight = null;
+                otherItem.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+            });
+
+            // Open clicked (if wasn't open)
+            if (!isOpen) {
+                item.classList.add('open');
+                var answer = item.querySelector('.faq-answer');
+                answer.style.maxHeight = answer.scrollHeight + 'px';
+                question.setAttribute('aria-expanded', 'true');
+            }
+        });
+    });
+
+    /* ====================
+       SCROLL REVEAL
+    ==================== */
+    var revealElements = document.querySelectorAll('.reveal');
+
+    if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '-40px'
+        });
+
+        revealElements.forEach(function(el) {
+            observer.observe(el);
+        });
+    } else {
+        // Fallback: show all
+        revealElements.forEach(function(el) {
+            el.classList.add('visible');
+        });
+    }
+
+    /* ====================
+       MOBILE MENU TOGGLE
+    ==================== */
+    var hamburger = document.getElementById('hamburger');
+    var mobileMenu = document.getElementById('mobileMenu');
+    var mobileLinks = mobileMenu.querySelectorAll('a');
+
+    hamburger.addEventListener('click', function() {
+        hamburger.classList.toggle('active');
+        mobileMenu.classList.toggle('open');
+
+        if (mobileMenu.classList.contains('open')) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+    });
+
+    mobileLinks.forEach(function(link) {
+        link.addEventListener('click', function() {
+            hamburger.classList.remove('active');
+            mobileMenu.classList.remove('open');
+            document.body.style.overflow = '';
+        });
+    });
+
+    /* ====================
+       NAV SCROLL SHADOW
+    ==================== */
+    var nav = document.getElementById('nav');
+
+    function handleScroll() {
+        if (window.scrollY > 20) {
+            nav.classList.add('scrolled');
+        } else {
+            nav.classList.remove('scrolled');
+        }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+})();
+</script>
+</body>
+</html>

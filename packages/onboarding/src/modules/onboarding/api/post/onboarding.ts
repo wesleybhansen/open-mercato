@@ -146,19 +146,32 @@ export async function POST(req: Request) {
       footer: translate('onboarding.email.footer', 'Open Mercato · Tenant onboarding service'),
     }
     const emailReact = VerificationEmail({ verifyUrl, copy: emailCopy })
-    try {
-      await sendEmail({ to: request.email, subject, react: emailReact })
-    } catch (err) {
-      request.lastEmailSentAt = null
-      await em.flush()
-      console.error('[onboarding.start] verification email failed', err)
-      return NextResponse.json({
-        ok: false,
-        error: translate(
-          'onboarding.errors.emailSendFailed',
-          'We could not send the verification email. Please try again or contact support.',
-        ),
-      }, { status: 502 })
+
+    // Dev bypass: skip email when no RESEND_API_KEY in development
+    const devBypass = process.env.NODE_ENV === 'development' && !process.env.RESEND_API_KEY
+    if (devBypass) {
+      console.log('\n' + '='.repeat(70))
+      console.log('[DEV] Email verification bypass — click this link to verify:')
+      console.log(verifyUrl)
+      console.log('='.repeat(70) + '\n')
+
+      // Skip admin email too, return token in response for easy dev testing
+      return NextResponse.json({ ok: true, email: request.email, devVerifyUrl: verifyUrl })
+    } else {
+      try {
+        await sendEmail({ to: request.email, subject, react: emailReact })
+      } catch (err) {
+        request.lastEmailSentAt = null
+        await em.flush()
+        console.error('[onboarding.start] verification email failed', err)
+        return NextResponse.json({
+          ok: false,
+          error: translate(
+            'onboarding.errors.emailSendFailed',
+            'We could not send the verification email. Please try again or contact support.',
+          ),
+        }, { status: 502 })
+      }
     }
 
     const adminEmail = process.env.ADMIN_EMAIL || 'piotr@catchthetornado.com'

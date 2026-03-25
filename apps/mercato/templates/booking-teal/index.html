@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Book a free 30-minute strategy call with our team. Get personalized advice and actionable insights for your business.">
+    <meta name="theme-color" content="#0D9488">
+    <title>Book a Call — YourBrand</title>
+
+    <!-- ==================== Google Fonts ==================== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ====================
+           CSS RESET
+        ==================== */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ====================
+           CSS CUSTOM PROPERTIES
+        ==================== */
+        :root {
+            /* Primary Colors */
+            --color-primary: #0D9488;
+            --color-primary-light: #14B8A6;
+            --color-primary-dark: #0F766E;
+            --color-secondary: #10B981;
+            --color-secondary-light: #34D399;
+
+            /* Gradient */
+            --gradient-accent: linear-gradient(135deg, #0D9488, #10B981);
+            --gradient-accent-hover: linear-gradient(135deg, #0F766E, #059669);
+            --gradient-text: linear-gradient(135deg, #0D9488 0%, #10B981 50%, #0D9488 100%);
+
+            /* Backgrounds */
+            --bg-white: #FFFFFF;
+            --bg-surface: #F8FAFB;
+            --bg-surface-teal: #F0FDFA;
+            --bg-overlay: rgba(255, 255, 255, 0.85);
+
+            /* Text Colors */
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            --text-on-primary: #FFFFFF;
+
+            /* Borders */
+            --border-light: #E2E8F0;
+            --border-focus: #0D9488;
+
+            /* Spacing */
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 32px;
+            --space-2xl: 48px;
+            --space-3xl: 64px;
+            --space-4xl: 96px;
+
+            /* Border Radius */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+            --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+            --shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.08);
+            --shadow-xl: 0 16px 48px rgba(15, 23, 42, 0.1);
+            --shadow-glow: 0 0 40px rgba(13, 148, 136, 0.2);
+            --shadow-glow-strong: 0 0 60px rgba(13, 148, 136, 0.3);
+
+            /* Typography */
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Inter', sans-serif;
+
+            /* Transitions */
+            --transition-fast: 150ms ease;
+            --transition-base: 250ms ease;
+            --transition-slow: 400ms ease;
+
+            /* Layout */
+            --nav-height: 72px;
+            --container-max: 1080px;
+        }
+
+        /* ====================
+           BASE STYLES
+        ==================== */
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--bg-white);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ====================
+           BACKGROUND PATTERN
+           Subtle geometric grid
+        ==================== */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(13, 148, 136, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(13, 148, 136, 0.03) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 20%, transparent 70%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 20%, transparent 70%);
+        }
+
+        /* ====================
+           LINKS & BASE ELEMENTS
+        ==================== */
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+        }
+
+        /* ====================
+           CONTAINER
+        ==================== */
+        .container {
+            width: 100%;
+            max-width: var(--container-max);
+            margin: 0 auto;
+            padding: 0 var(--space-lg);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ====================
+           TYPOGRAPHY
+        ==================== */
+        h1 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(36px, 5vw, 56px);
+            line-height: 1.08;
+            letter-spacing: -0.03em;
+            color: var(--text-primary);
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(28px, 3.5vw, 40px);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        h3 {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 18px;
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* ====================
+           NAVIGATION
+        ==================== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            height: var(--nav-height);
+            display: flex;
+            align-items: center;
+            background: transparent;
+            transition: all var(--transition-base);
+        }
+
+        .nav.scrolled {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: var(--container-max);
+            margin: 0 auto;
+            padding: 0 var(--space-lg);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 20px;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            cursor: default;
+            user-select: none;
+        }
+
+        .nav-brand-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-accent);
+            border-radius: var(--radius-sm);
+            color: var(--text-on-primary);
+            flex-shrink: 0;
+        }
+
+        .nav-brand-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .nav-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: 10px 22px;
+            background: var(--gradient-accent);
+            color: var(--text-on-primary);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 14px;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+
+        .nav-cta:hover {
+            background: var(--gradient-accent-hover);
+            box-shadow: var(--shadow-glow);
+            transform: translateY(-1px);
+        }
+
+        .nav-cta:active {
+            transform: translateY(0);
+        }
+
+        .nav-cta svg {
+            width: 16px;
+            height: 16px;
+            transition: transform var(--transition-base);
+        }
+
+        .nav-cta:hover svg {
+            transform: translateX(2px);
+        }
+
+        /* ====================
+           HERO SECTION
+        ==================== */
+        .hero {
+            padding-top: calc(var(--nav-height) + var(--space-3xl));
+            padding-bottom: var(--space-4xl);
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: var(--space-3xl);
+            align-items: start;
+        }
+
+        .hero-content {
+            padding-top: var(--space-xl);
+        }
+
+        /* ====================
+           EYEBROW BADGE
+        ==================== */
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: 6px 16px;
+            background: var(--bg-surface-teal);
+            border: 1px solid rgba(13, 148, 136, 0.15);
+            border-radius: var(--radius-full);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--color-primary);
+            letter-spacing: 0.02em;
+            margin-bottom: var(--space-lg);
+        }
+
+        .eyebrow svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        /* ====================
+           HERO TYPOGRAPHY
+        ==================== */
+        .hero h1 {
+            margin-bottom: var(--space-lg);
+        }
+
+        .hero h1 .gradient-text {
+            background: var(--gradient-text);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-sub {
+            font-size: 18px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: var(--space-xl);
+            max-width: 480px;
+        }
+
+        /* ====================
+           TRUST ITEMS
+        ==================== */
+        .trust-items {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .trust-item-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: var(--bg-surface-teal);
+            border-radius: var(--radius-full);
+            flex-shrink: 0;
+        }
+
+        .trust-item-icon svg {
+            width: 14px;
+            height: 14px;
+            color: var(--color-primary);
+        }
+
+        /* ====================
+           FORM CARD
+        ==================== */
+        .form-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl) var(--space-xl) var(--space-lg);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-accent);
+        }
+
+        .form-card-header {
+            text-align: center;
+            margin-bottom: var(--space-lg);
+        }
+
+        .form-card-title {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 22px;
+            color: var(--text-primary);
+            margin-bottom: var(--space-xs);
+            letter-spacing: -0.02em;
+        }
+
+        .form-card-sub {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* ====================
+           FORM GROUPS & INPUTS
+        ==================== */
+        .form-group {
+            margin-bottom: var(--space-md);
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            letter-spacing: -0.01em;
+        }
+
+        .form-group label .optional-tag {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-surface);
+            border: 1.5px solid var(--border-light);
+            border-radius: var(--radius-md);
+            font-family: var(--font-body);
+            font-size: 15px;
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group input:hover,
+        .form-group select:hover,
+        .form-group textarea:hover {
+            border-color: #CBD5E1;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--border-focus);
+            background: var(--bg-white);
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+        }
+
+        .form-group select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+            cursor: pointer;
+        }
+
+        .form-group textarea {
+            min-height: 90px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        /* ====================
+           FORM ROW (2-column)
+        ==================== */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-md);
+        }
+
+        /* ====================
+           SUBMIT BUTTON
+        ==================== */
+        .btn-submit {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            width: 100%;
+            padding: 14px 24px;
+            background: var(--gradient-accent);
+            color: var(--text-on-primary);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 15px;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            letter-spacing: -0.01em;
+            margin-top: var(--space-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--gradient-accent-hover);
+            opacity: 0;
+            transition: opacity var(--transition-base);
+        }
+
+        .btn-submit:hover {
+            box-shadow: var(--shadow-glow-strong);
+            transform: translateY(-2px);
+        }
+
+        .btn-submit:hover::before {
+            opacity: 1;
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-submit span,
+        .btn-submit svg {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-submit svg {
+            width: 18px;
+            height: 18px;
+            transition: transform var(--transition-base);
+        }
+
+        .btn-submit:hover svg {
+            transform: translateX(3px);
+        }
+
+        /* ====================
+           FORM TRUST LINE
+        ==================== */
+        .form-trust {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .form-trust svg {
+            width: 14px;
+            height: 14px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        /* ====================
+           FORM SUCCESS STATE
+        ==================== */
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: var(--space-2xl) var(--space-lg);
+        }
+
+        .form-success.show {
+            display: block;
+        }
+
+        .form-success-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            margin: 0 auto var(--space-lg);
+            background: var(--bg-surface-teal);
+            border-radius: var(--radius-full);
+            animation: successPulse 2s ease-in-out infinite;
+        }
+
+        .form-success-icon svg {
+            width: 36px;
+            height: 36px;
+            color: var(--color-primary);
+            animation: successCheck 0.5s ease-out 0.2s both;
+        }
+
+        .form-success h3 {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+            color: var(--text-primary);
+        }
+
+        .form-success p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            max-width: 340px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* ====================
+           SUCCESS ANIMATIONS
+        ==================== */
+        @keyframes successPulse {
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.15);
+            }
+            50% {
+                box-shadow: 0 0 0 16px rgba(13, 148, 136, 0);
+            }
+        }
+
+        @keyframes successCheck {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) rotate(-10deg);
+            }
+            50% {
+                transform: scale(1.15) rotate(3deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0);
+            }
+        }
+
+        /* ====================
+           STEPS / HOW IT WORKS
+        ==================== */
+        .steps {
+            padding: var(--space-4xl) 0;
+            position: relative;
+            z-index: 1;
+            background: var(--bg-surface-teal);
+        }
+
+        .steps-header {
+            text-align: center;
+            margin-bottom: var(--space-3xl);
+        }
+
+        .section-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: 6px 14px;
+            background: var(--bg-white);
+            border: 1px solid rgba(13, 148, 136, 0.12);
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: var(--space-md);
+            letter-spacing: 0.02em;
+        }
+
+        .steps-header h2 {
+            margin-bottom: var(--space-md);
+        }
+
+        .steps-header p {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 520px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-lg);
+        }
+
+        /* ====================
+           STEP CARD
+        ==================== */
+        .step-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            text-align: center;
+            transition: all var(--transition-slow);
+            position: relative;
+        }
+
+        .step-card:hover {
+            border-color: rgba(13, 148, 136, 0.2);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-4px);
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-accent);
+            color: var(--text-on-primary);
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 20px;
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+        }
+
+        .step-card-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            margin: 0 auto var(--space-md);
+            background: var(--bg-surface-teal);
+            border-radius: var(--radius-md);
+            color: var(--color-primary);
+        }
+
+        .step-card-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .step-card h3 {
+            margin-bottom: var(--space-sm);
+            font-size: 18px;
+        }
+
+        .step-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Step connector lines between cards */
+        .steps-grid .step-card:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -13px;
+            width: 26px;
+            height: 2px;
+            background: var(--border-light);
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        /* ====================
+           TESTIMONIAL SECTION
+        ==================== */
+        .testimonial {
+            padding: var(--space-4xl) 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .testimonial-card {
+            max-width: 680px;
+            margin: 0 auto;
+            background: var(--bg-white);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2xl);
+            text-align: center;
+            position: relative;
+            box-shadow: var(--shadow-md);
+        }
+
+        .testimonial-quote-mark {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            margin: 0 auto var(--space-lg);
+            background: var(--gradient-accent);
+            border-radius: var(--radius-full);
+            color: var(--text-on-primary);
+        }
+
+        .testimonial-quote-mark svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .testimonial-text {
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: var(--space-xl);
+            font-style: italic;
+            letter-spacing: -0.01em;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-md);
+        }
+
+        .testimonial-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-full);
+            background: var(--gradient-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-on-primary);
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .testimonial-info {
+            text-align: left;
+        }
+
+        .testimonial-name {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .testimonial-role {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* ====================
+           BOTTOM CTA SECTION
+        ==================== */
+        .bottom-cta {
+            padding: 0 0 var(--space-4xl);
+            position: relative;
+            z-index: 1;
+        }
+
+        .bottom-cta-card {
+            background: var(--bg-surface-teal);
+            border: 1px solid rgba(13, 148, 136, 0.12);
+            border-radius: var(--radius-xl);
+            padding: var(--space-3xl) var(--space-2xl);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bottom-cta-card::before {
+            content: '';
+            position: absolute;
+            top: -40%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(13, 148, 136, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .bottom-cta-card::after {
+            content: '';
+            position: absolute;
+            bottom: -40%;
+            left: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .bottom-cta-card h2 {
+            margin-bottom: var(--space-md);
+            position: relative;
+            z-index: 1;
+        }
+
+        .bottom-cta-card p {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 480px;
+            margin: 0 auto var(--space-xl);
+            line-height: 1.7;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ====================
+           CTA BUTTON
+        ==================== */
+        .btn-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: 14px 32px;
+            background: var(--gradient-accent);
+            color: var(--text-on-primary);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 16px;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            letter-spacing: -0.01em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-cta:hover {
+            background: var(--gradient-accent-hover);
+            box-shadow: var(--shadow-glow-strong);
+            transform: translateY(-2px);
+        }
+
+        .btn-cta:active {
+            transform: translateY(0);
+        }
+
+        .btn-cta svg {
+            width: 18px;
+            height: 18px;
+            transition: transform var(--transition-base);
+        }
+
+        .btn-cta:hover svg {
+            transform: translateY(-2px);
+        }
+
+        /* ====================
+           FOOTER
+        ==================== */
+        .footer {
+            padding: var(--space-xl) 0;
+            border-top: 1px solid var(--border-light);
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .footer-copy {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .footer-copy .footer-brand {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-family: var(--font-display);
+            cursor: default;
+        }
+
+        .footer-links {
+            display: flex;
+            align-items: center;
+            gap: var(--space-lg);
+        }
+
+        .footer-links a {
+            font-size: 14px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        .footer-links a:hover {
+            color: var(--color-primary);
+        }
+
+        /* ====================
+           REVEAL ANIMATIONS
+        ==================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition:
+                opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-delay-1 {
+            transition-delay: 100ms;
+        }
+
+        .reveal-delay-2 {
+            transition-delay: 200ms;
+        }
+
+        .reveal-delay-3 {
+            transition-delay: 300ms;
+        }
+
+        .reveal-delay-4 {
+            transition-delay: 400ms;
+        }
+
+        .reveal-delay-5 {
+            transition-delay: 500ms;
+        }
+
+        /* ====================
+           RESPONSIVE — TABLET
+           max-width: 768px
+        ==================== */
+        @media (max-width: 768px) {
+            :root {
+                --nav-height: 64px;
+            }
+
+            .hero {
+                padding-top: calc(var(--nav-height) + var(--space-2xl));
+                padding-bottom: var(--space-3xl);
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: var(--space-2xl);
+            }
+
+            .hero-content {
+                padding-top: 0;
+                text-align: center;
+            }
+
+            .hero-sub {
+                max-width: 100%;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .trust-items {
+                align-items: center;
+            }
+
+            .form-card {
+                max-width: 520px;
+                margin: 0 auto;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .steps {
+                padding: var(--space-3xl) 0;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+
+            .steps-grid .step-card::after {
+                display: none;
+            }
+
+            .testimonial {
+                padding: var(--space-3xl) 0;
+            }
+
+            .testimonial-card {
+                padding: var(--space-xl);
+            }
+
+            .bottom-cta {
+                padding-bottom: var(--space-3xl);
+            }
+
+            .bottom-cta-card {
+                padding: var(--space-2xl) var(--space-lg);
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                gap: var(--space-md);
+                text-align: center;
+            }
+        }
+
+        /* ====================
+           RESPONSIVE — MOBILE
+           max-width: 480px
+        ==================== */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 var(--space-md);
+            }
+
+            .nav-inner {
+                padding: 0 var(--space-md);
+            }
+
+            .nav-brand {
+                font-size: 17px;
+            }
+
+            .nav-brand-icon {
+                width: 32px;
+                height: 32px;
+            }
+
+            .nav-brand-icon svg {
+                width: 17px;
+                height: 17px;
+            }
+
+            .nav-cta {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+
+            .eyebrow {
+                font-size: 12px;
+                padding: 5px 12px;
+            }
+
+            .hero-sub {
+                font-size: 16px;
+            }
+
+            .trust-item {
+                font-size: 14px;
+            }
+
+            .form-card {
+                padding: var(--space-lg) var(--space-md) var(--space-md);
+            }
+
+            .form-card-title {
+                font-size: 20px;
+            }
+
+            .form-card-sub {
+                font-size: 13px;
+            }
+
+            .form-group label {
+                font-size: 12px;
+            }
+
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+
+            .btn-submit {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+
+            .step-card {
+                padding: var(--space-lg);
+            }
+
+            .testimonial-text {
+                font-size: 16px;
+            }
+
+            .testimonial-card {
+                padding: var(--space-lg);
+            }
+
+            .bottom-cta-card {
+                padding: var(--space-xl) var(--space-md);
+            }
+
+            .btn-cta {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+
+            .footer-links {
+                gap: var(--space-md);
+            }
+
+            .footer-links a {
+                font-size: 13px;
+            }
+
+            .footer-copy {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ====================
+         NAVIGATION
+    ==================== -->
+    <nav class="nav" id="nav">
+        <div class="nav-inner">
+            <span class="nav-brand">
+                <span class="nav-brand-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+                        <line x1="12" y1="22" x2="12" y2="15.5"></line>
+                        <polyline points="22 8.5 12 15.5 2 8.5"></polyline>
+                        <polyline points="2 15.5 12 8.5 22 15.5"></polyline>
+                        <line x1="12" y1="2" x2="12" y2="8.5"></line>
+                    </svg>
+                </span>
+                YourBrand
+            </span>
+            <button class="nav-cta" id="navCta">
+                Book a Call
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ====================
+         HERO SECTION
+    ==================== -->
+    <section class="hero" id="hero">
+        <div class="container">
+            <div class="hero-grid">
+
+                <!-- ========== Hero Content ========== -->
+                <div class="hero-content">
+
+                    <!-- Eyebrow Badge -->
+                    <div class="eyebrow reveal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        Free 30-Minute Call
+                    </div>
+
+                    <!-- Heading -->
+                    <h1 class="reveal reveal-delay-1">
+                        Let's build your<br>
+                        <span class="gradient-text">growth strategy</span><br>
+                        together
+                    </h1>
+
+                    <!-- Subtitle -->
+                    <p class="hero-sub reveal reveal-delay-2">
+                        Book a free consultation with our team to explore how we can
+                        help you scale faster, work smarter, and achieve your goals.
+                    </p>
+
+                    <!-- Trust Items -->
+                    <div class="trust-items reveal reveal-delay-3">
+                        <div class="trust-item">
+                            <span class="trust-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                            No commitment required
+                        </div>
+                        <div class="trust-item">
+                            <span class="trust-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                            Personalized action plan included
+                        </div>
+                        <div class="trust-item">
+                            <span class="trust-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                            Talk with a senior strategist
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ========== Form Card ========== -->
+                <div class="form-card reveal reveal-delay-2">
+
+                    <!-- Form Header -->
+                    <div class="form-card-header">
+                        <div class="form-card-title">Schedule Your Call</div>
+                        <p class="form-card-sub">Fill out the form below and we'll be in touch within 24 hours.</p>
+                    </div>
+
+                    <!-- Booking Form -->
+                    <form id="bookingForm">
+
+                        <!-- Name & Email — 2 Column Row -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="name">Full Name</label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    name="name"
+                                    placeholder="Jane Smith"
+                                    required
+                                    autocomplete="name"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    placeholder="jane@company.com"
+                                    required
+                                    autocomplete="email"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Topic Select -->
+                        <div class="form-group">
+                            <label for="topic">What would you like to discuss?</label>
+                            <select id="topic" name="topic" required>
+                                <option value="" disabled selected>Select a topic</option>
+                                <option value="growth">Growth Strategy</option>
+                                <option value="product">Product Development</option>
+                                <option value="marketing">Marketing &amp; Acquisition</option>
+                                <option value="operations">Operations &amp; Scaling</option>
+                                <option value="other">Something Else</option>
+                            </select>
+                        </div>
+
+                        <!-- Message Textarea -->
+                        <div class="form-group">
+                            <label for="message">
+                                Anything else?
+                                <span class="optional-tag">(optional)</span>
+                            </label>
+                            <textarea
+                                id="message"
+                                name="message"
+                                placeholder="Tell us a bit about your current challenges or what you're hoping to achieve..."
+                                rows="4"
+                            ></textarea>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="btn-submit">
+                            <span>Book My Free Call</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <!-- Trust Line -->
+                    <div class="form-trust" id="formTrust">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Your information is secure and will never be shared.
+                    </div>
+
+                    <!-- Success State (hidden by default) -->
+                    <div class="form-success" id="formSuccess">
+                        <div class="form-success-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <h3>You're all set!</h3>
+                        <p>
+                            Thanks for booking a call. We'll reach out within
+                            24 hours to confirm your time slot and send you
+                            a calendar invite.
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ====================
+         HOW IT WORKS SECTION
+    ==================== -->
+    <section class="steps" id="steps">
+        <div class="container">
+
+            <!-- Section Header -->
+            <div class="steps-header">
+                <div class="section-eyebrow reveal">
+                    How It Works
+                </div>
+                <h2 class="reveal reveal-delay-1">
+                    Three simple steps to get started
+                </h2>
+                <p class="reveal reveal-delay-2">
+                    Our process is designed to be effortless. You focus on
+                    your business, and we handle the rest.
+                </p>
+            </div>
+
+            <!-- Steps Grid -->
+            <div class="steps-grid">
+
+                <!-- Step 1: Book -->
+                <div class="step-card reveal reveal-delay-1">
+                    <div class="step-number">1</div>
+                    <div class="step-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                    <h3>Book</h3>
+                    <p>
+                        Pick a time that works for you by filling out the
+                        quick form above. It only takes 30 seconds.
+                    </p>
+                </div>
+
+                <!-- Step 2: Prepare -->
+                <div class="step-card reveal reveal-delay-2">
+                    <div class="step-number">2</div>
+                    <div class="step-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                    </div>
+                    <h3>Prepare</h3>
+                    <p>
+                        We'll send you a brief questionnaire so we can tailor
+                        the conversation to your exact needs.
+                    </p>
+                </div>
+
+                <!-- Step 3: Meet -->
+                <div class="step-card reveal reveal-delay-3">
+                    <div class="step-number">3</div>
+                    <div class="step-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </div>
+                    <h3>Meet</h3>
+                    <p>
+                        Join a focused 30-minute video call where we'll dive
+                        into your challenges and map out next steps.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ====================
+         TESTIMONIAL SECTION
+    ==================== -->
+    <section class="testimonial">
+        <div class="container">
+            <div class="testimonial-card reveal">
+
+                <!-- Quote Icon -->
+                <div class="testimonial-quote-mark">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311C9.591 11.69 11 13.23 11 15c0 1.93-1.57 3.5-3.5 3.5-1.073 0-2.099-.49-2.917-1.179zM15.583 17.321C14.553 16.227 14 15 14 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311C20.591 11.69 22 13.23 22 15c0 1.93-1.57 3.5-3.5 3.5-1.073 0-2.099-.49-2.917-1.179z"></path>
+                    </svg>
+                </div>
+
+                <!-- Quote Text -->
+                <p class="testimonial-text">
+                    "The strategy call was the turning point for our business.
+                    Within 30 minutes, we had a clear roadmap and knew exactly
+                    where to focus our efforts. Truly invaluable."
+                </p>
+
+                <!-- Author -->
+                <div class="testimonial-author">
+                    <div class="testimonial-avatar">AK</div>
+                    <div class="testimonial-info">
+                        <div class="testimonial-name">Alex Kowalski</div>
+                        <div class="testimonial-role">Co-founder, Nimbus Labs</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ====================
+         BOTTOM CTA SECTION
+    ==================== -->
+    <section class="bottom-cta">
+        <div class="container">
+            <div class="bottom-cta-card reveal">
+                <h2>Ready to accelerate your growth?</h2>
+                <p>
+                    Don't wait to get the clarity you need. Book your free
+                    strategy call today and take the first step toward
+                    your next milestone.
+                </p>
+                <button class="btn-cta" id="bottomCta">
+                    Book Your Free Call
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5"></line>
+                        <polyline points="5 12 12 5 19 12"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====================
+         FOOTER
+    ==================== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-copy">
+                    &copy; 2026 <span class="footer-brand">YourBrand</span>. All rights reserved.
+                </div>
+                <div class="footer-links">
+                    <a href="#" onclick="event.preventDefault()">Privacy Policy</a>
+                    <a href="#" onclick="event.preventDefault()">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ====================
+         JAVASCRIPT
+    ==================== -->
+    <script>
+        (function () {
+            'use strict';
+
+            /* ====================
+               DOM REFERENCES
+            ==================== */
+            var nav = document.getElementById('nav');
+            var navCta = document.getElementById('navCta');
+            var bookingForm = document.getElementById('bookingForm');
+            var formSuccess = document.getElementById('formSuccess');
+            var formTrust = document.getElementById('formTrust');
+            var bottomCta = document.getElementById('bottomCta');
+            var nameInput = document.getElementById('name');
+
+            /* ====================
+               NAV SCROLL STATE
+               Add .scrolled class when
+               user scrolls past 20px
+            ==================== */
+            function handleNavScroll() {
+                if (window.scrollY > 20) {
+                    nav.classList.add('scrolled');
+                } else {
+                    nav.classList.remove('scrolled');
+                }
+            }
+
+            window.addEventListener('scroll', handleNavScroll, { passive: true });
+
+            /* Run on load in case page is
+               already scrolled */
+            handleNavScroll();
+
+            /* ====================
+               INTERSECTION OBSERVER
+               Reveal elements as they
+               scroll into view
+            ==================== */
+            var revealElements = document.querySelectorAll('.reveal');
+
+            if ('IntersectionObserver' in window) {
+                var revealObserver = new IntersectionObserver(
+                    function (entries) {
+                        entries.forEach(function (entry) {
+                            if (entry.isIntersecting) {
+                                entry.target.classList.add('visible');
+                                revealObserver.unobserve(entry.target);
+                            }
+                        });
+                    },
+                    {
+                        threshold: 0.15,
+                        rootMargin: '0px 0px -40px 0px'
+                    }
+                );
+
+                revealElements.forEach(function (el) {
+                    revealObserver.observe(el);
+                });
+            } else {
+                /* Fallback for older browsers:
+                   show everything immediately */
+                revealElements.forEach(function (el) {
+                    el.classList.add('visible');
+                });
+            }
+
+            /* ====================
+               FORM SUBMIT HANDLER
+               Prevent default, hide form,
+               show success state
+            ==================== */
+            bookingForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                /* Hide the form */
+                bookingForm.style.display = 'none';
+
+                /* Hide the trust line */
+                if (formTrust) {
+                    formTrust.style.display = 'none';
+                }
+
+                /* Show the success state */
+                formSuccess.classList.add('show');
+            });
+
+            /* ====================
+               NAV CTA BUTTON
+               Scroll to top and focus
+               the name input
+            ==================== */
+            navCta.addEventListener('click', function () {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+
+                setTimeout(function () {
+                    if (nameInput) {
+                        nameInput.focus();
+                    }
+                }, 600);
+            });
+
+            /* ====================
+               BOTTOM CTA BUTTON
+               Scroll to top and focus
+               the name input
+            ==================== */
+            bottomCta.addEventListener('click', function () {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+
+                setTimeout(function () {
+                    if (nameInput) {
+                        nameInput.focus();
+                    }
+                }, 600);
+            });
+
+        })();
+    </script>
+
+</body>
+</html>

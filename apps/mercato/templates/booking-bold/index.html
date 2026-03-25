@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book a Free Strategy Call</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --black: #0A0A0A;
+            --white: #FFFFFF;
+            --off-white: #F5F5F5;
+            --gray-100: #EBEBEB;
+            --gray-200: #D4D4D4;
+            --gray-400: #999999;
+            --gray-600: #666666;
+            --yellow: #FFEC3E;
+            --yellow-dark: #E6D435;
+            --yellow-light: #FFF9C4;
+            --font-display: 'Sora', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+            --container: 760px;
+            --container-wide: 1000px;
+            --radius: 0px;
+            --transition: 0.2s ease;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-display);
+            color: var(--black);
+            background: var(--white);
+            line-height: 1.6;
+            font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: var(--container); margin: 0 auto; padding: 0 24px; }
+        .container--wide { max-width: var(--container-wide); }
+
+        h1, h2, h3, h4 {
+            font-family: var(--font-display);
+            color: var(--black);
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+        }
+
+        /* ============ NAV ============ */
+        .nav {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid var(--black);
+        }
+
+        .nav-logo {
+            font-family: var(--font-mono);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--black);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .nav-cta {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--black);
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            padding: 8px 16px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .nav-cta:hover {
+            background: var(--black);
+            color: var(--yellow);
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            padding: 64px 0;
+            position: relative;
+        }
+
+        .hero-layout {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--yellow);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--black);
+            margin-bottom: 20px;
+            border: 2px solid var(--black);
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 5.5vw, 56px);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 18px;
+            line-height: 1.0;
+        }
+
+        .hero h1 .highlight {
+            position: relative;
+            display: inline;
+        }
+
+        .hero h1 .highlight::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: -2px;
+            right: -2px;
+            height: 0.3em;
+            background: var(--yellow);
+            z-index: -1;
+            transform: skewX(-2deg);
+        }
+
+        .hero-sub {
+            font-size: 16px;
+            color: var(--gray-600);
+            line-height: 1.7;
+            margin-bottom: 28px;
+            max-width: 440px;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 32px;
+            padding: 20px 0;
+            border-top: 2px solid var(--black);
+            border-bottom: 2px solid var(--black);
+            margin-bottom: 0;
+        }
+
+        .hero-stat-value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--black);
+            line-height: 1;
+        }
+
+        .hero-stat-label {
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* Form card */
+        .booking-card {
+            background: var(--off-white);
+            border: 2px solid var(--black);
+            padding: 32px;
+            position: relative;
+        }
+
+        /* Corner accent triangle */
+        .booking-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 48px 48px 0;
+            border-color: transparent var(--yellow) transparent transparent;
+            z-index: 2;
+        }
+        .booking-card::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 48px;
+            height: 48px;
+            border-left: 2px solid var(--black);
+            border-bottom: 2px solid var(--black);
+            z-index: 3;
+            background: transparent;
+            clip-path: polygon(100% 0, 0 100%, 100% 100%);
+        }
+
+        .booking-card h3 {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+
+        .booking-card .form-sub {
+            font-size: 14px;
+            color: var(--gray-600);
+            margin-bottom: 24px;
+        }
+
+        .form-group { margin-bottom: 14px; }
+
+        .form-label {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--black);
+            margin-bottom: 6px;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--white);
+            border: 2px solid var(--black);
+            border-radius: 0;
+            font-family: var(--font-display);
+            font-size: 15px;
+            color: var(--black);
+            outline: none;
+            transition: all var(--transition);
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        .form-input::placeholder { color: var(--gray-400); }
+        .form-input:focus,
+        .form-select:focus {
+            box-shadow: 4px 4px 0 var(--yellow);
+            transform: translate(-2px, -2px);
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+        .select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid var(--black);
+            pointer-events: none;
+        }
+
+        .form-select {
+            cursor: pointer;
+            padding-right: 40px;
+        }
+        .form-select option { font-family: var(--font-display); }
+
+        .form-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--black);
+            color: var(--white);
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 700;
+            border: 2px solid var(--black);
+            border-radius: 0;
+            cursor: pointer;
+            transition: all var(--transition);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            position: relative;
+        }
+        .form-btn:hover {
+            background: var(--yellow);
+            color: var(--black);
+            box-shadow: 4px 4px 0 var(--black);
+            transform: translate(-2px, -2px);
+        }
+        .form-btn:active {
+            box-shadow: none;
+            transform: translate(0, 0);
+        }
+
+        .form-trust {
+            text-align: center;
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .form-trust svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+        /* Success state */
+        .form-success {
+            display: none;
+            text-align: center;
+            padding: 28px 0;
+        }
+        .form-success.visible { display: block; }
+
+        .success-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 14px;
+            animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .success-icon svg { width: 28px; height: 28px; color: var(--black); }
+
+        @keyframes pop-in {
+            0% { transform: scale(0) rotate(-12deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+
+        .form-success h3 { font-size: 20px; margin-bottom: 6px; }
+        .form-success p { font-size: 14px; color: var(--gray-600); }
+
+        /* ============ SOCIAL PROOF STRIP ============ */
+        .proof-strip {
+            padding: 20px 0;
+            border-bottom: 2px solid var(--black);
+            border-top: 2px solid var(--black);
+            overflow: hidden;
+            position: relative;
+            background: var(--white);
+        }
+
+        .proof-scroll {
+            display: flex;
+            gap: 48px;
+            animation: scroll-left 22s linear infinite;
+            width: max-content;
+        }
+
+        .proof-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .proof-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--yellow);
+            border: 1.5px solid var(--black);
+            flex-shrink: 0;
+        }
+
+        @keyframes scroll-left {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ============ WHAT TO EXPECT ============ */
+        .expect {
+            padding: 72px 0;
+            background: var(--black);
+            color: var(--white);
+            position: relative;
+        }
+
+        .expect-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .expect-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--yellow);
+            margin-bottom: 12px;
+        }
+
+        .expect-header h2 {
+            color: var(--white);
+            font-size: clamp(28px, 4vw, 40px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .expect-header p {
+            color: var(--gray-400);
+            font-size: 15px;
+            margin-top: 10px;
+        }
+
+        .expect-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            background: var(--gray-600);
+        }
+
+        .expect-card {
+            background: var(--black);
+            padding: 36px 28px;
+            transition: background var(--transition);
+        }
+        .expect-card:hover { background: #141414; }
+
+        .expect-number {
+            font-family: var(--font-mono);
+            font-size: 44px;
+            font-weight: 700;
+            color: var(--yellow);
+            line-height: 1;
+            margin-bottom: 16px;
+        }
+
+        .expect-card h3 {
+            color: var(--white);
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -0.01em;
+        }
+
+        .expect-card p {
+            font-size: 14px;
+            color: var(--gray-400);
+            line-height: 1.7;
+        }
+
+        /* ============ TESTIMONIAL ============ */
+        .testimonial {
+            padding: 72px 0;
+        }
+
+        .testimonial-card {
+            max-width: 620px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .testimonial-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--gray-400);
+            margin-bottom: 22px;
+        }
+
+        .testimonial-text {
+            font-size: clamp(20px, 3vw, 26px);
+            font-weight: 700;
+            line-height: 1.4;
+            letter-spacing: -0.02em;
+            color: var(--black);
+            margin-bottom: 28px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .testimonial-avatar {
+            width: 44px;
+            height: 44px;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .testimonial-name {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .testimonial-role {
+            font-size: 12px;
+            color: var(--gray-600);
+        }
+
+        /* ============ BOTTOM CTA ============ */
+        .bottom-cta {
+            padding: 0 0 80px;
+        }
+
+        .cta-card {
+            max-width: 620px;
+            margin: 0 auto;
+            background: var(--yellow);
+            border: 2px solid var(--black);
+            padding: 48px 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Hard shadow */
+        .cta-card::after {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: -6px;
+            bottom: -6px;
+            background: var(--black);
+            z-index: -1;
+        }
+
+        .cta-card h2 {
+            font-size: clamp(26px, 4vw, 36px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 10px;
+        }
+
+        .cta-card .cta-sub {
+            font-size: 15px;
+            color: rgba(10,10,10,0.65);
+            margin-bottom: 28px;
+        }
+
+        .cta-inline-form {
+            display: flex;
+            gap: 0;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .cta-inline-form .form-input {
+            border-right: none;
+            flex: 1;
+        }
+        .cta-inline-form .form-input:focus {
+            box-shadow: none;
+            transform: none;
+            border-color: var(--black);
+        }
+
+        .cta-inline-form .form-btn {
+            width: auto;
+            white-space: nowrap;
+            padding: 14px 24px;
+            margin-top: 0;
+            background: var(--black);
+            color: var(--yellow);
+        }
+        .cta-inline-form .form-btn:hover {
+            background: var(--black);
+            color: var(--yellow);
+            box-shadow: none;
+            transform: none;
+            opacity: 0.85;
+        }
+
+        /* ============ FOOTER ============ */
+        .footer {
+            max-width: var(--container-wide);
+            margin: 0 auto;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 2px solid var(--black);
+            font-size: 12px;
+            color: var(--gray-600);
+            font-family: var(--font-mono);
+        }
+
+        .footer-links { display: flex; gap: 20px; }
+        .footer-links a {
+            color: var(--gray-600);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 11px;
+            transition: color var(--transition);
+        }
+        .footer-links a:hover { color: var(--black); }
+
+        /* ============ SCROLL REVEAL ============ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal-d1 { transition-delay: 0.1s; }
+        .reveal-d2 { transition-delay: 0.2s; }
+        .reveal-d3 { transition-delay: 0.3s; }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .hero { padding: 40px 0 48px; }
+            .hero-layout { grid-template-columns: 1fr; gap: 32px; }
+            .hero-stats { gap: 20px; }
+            .expect-grid { grid-template-columns: 1fr; }
+            .cta-card { padding: 36px 24px; }
+            .cta-inline-form { flex-direction: column; }
+            .cta-inline-form .form-input { border-right: 2px solid var(--black); }
+            .cta-inline-form .form-btn { width: 100%; }
+            .nav-cta { padding: 6px 12px; font-size: 10px; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 0 16px; }
+            .nav { padding: 0 16px; }
+            .hero { padding: 28px 0 40px; }
+            .hero-stats { flex-direction: column; gap: 16px; }
+            .booking-card { padding: 24px; }
+            .expect { padding: 48px 0; }
+            .testimonial { padding: 48px 0; }
+            .bottom-cta { padding: 0 0 56px; }
+            .footer { flex-direction: column; gap: 12px; text-align: center; }
+            .proof-item { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <nav class="nav">
+        <span class="nav-logo">BrandName</span>
+        <a href="#booking" class="nav-cta">Book a Call</a>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container container--wide">
+            <div class="hero-layout">
+                <div>
+                    <div class="hero-tag reveal">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Free &mdash; 30 Min Strategy Call
+                    </div>
+                    <h1 class="reveal reveal-d1">Let's build your <span class="highlight">roadmap.</span></h1>
+                    <p class="hero-sub reveal reveal-d2">Book a free 30-minute strategy call. We'll dig into your biggest bottleneck and map out a clear plan to move forward &mdash; no pitch, no fluff, just signal.</p>
+                    <div class="hero-stats reveal reveal-d3">
+                        <div>
+                            <div class="hero-stat-value">500+</div>
+                            <div class="hero-stat-label">Sessions</div>
+                        </div>
+                        <div>
+                            <div class="hero-stat-value">4.9/5</div>
+                            <div class="hero-stat-label">Rating</div>
+                        </div>
+                        <div>
+                            <div class="hero-stat-value">30 Min</div>
+                            <div class="hero-stat-label">Duration</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Booking Form -->
+                <div class="booking-card reveal" id="booking">
+                    <h3>Book your free call</h3>
+                    <p class="form-sub">Pick a topic and we'll come prepared with a plan.</p>
+                    <form id="mainForm" onsubmit="handleSubmit(event, 'main')">
+                        <div class="form-group">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-input" placeholder="Your full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-input" placeholder="you@company.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Topic</label>
+                            <div class="select-wrapper">
+                                <select class="form-select" required>
+                                    <option value="" disabled selected>What do you need help with?</option>
+                                    <option value="growth">Growth Strategy</option>
+                                    <option value="product">Product &amp; Positioning</option>
+                                    <option value="marketing">Marketing &amp; Acquisition</option>
+                                    <option value="systems">Systems &amp; Operations</option>
+                                    <option value="other">Something Else</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="form-btn">
+                            Book My Free Call &rarr;
+                        </button>
+                    </form>
+                    <p class="form-trust">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        No spam. No sales pitch. Just a real conversation.
+                    </p>
+                    <div class="form-success" id="mainSuccess">
+                        <div class="success-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <h3>You're booked!</h3>
+                        <p>Check your inbox for a calendar invite and prep details.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Scrolling proof strip -->
+    <div class="proof-strip">
+        <div class="proof-scroll">
+            <span class="proof-item"><span class="proof-dot"></span> 500+ Strategy Sessions</span>
+            <span class="proof-item"><span class="proof-dot"></span> 4.9 Star Rating</span>
+            <span class="proof-item"><span class="proof-dot"></span> Founders in 40+ Countries</span>
+            <span class="proof-item"><span class="proof-dot"></span> 92% Book a Follow-Up</span>
+            <span class="proof-item"><span class="proof-dot"></span> 30 Min &mdash; Zero Fluff</span>
+            <span class="proof-item"><span class="proof-dot"></span> Backed by Real Operators</span>
+            <span class="proof-item"><span class="proof-dot"></span> 500+ Strategy Sessions</span>
+            <span class="proof-item"><span class="proof-dot"></span> 4.9 Star Rating</span>
+            <span class="proof-item"><span class="proof-dot"></span> Founders in 40+ Countries</span>
+            <span class="proof-item"><span class="proof-dot"></span> 92% Book a Follow-Up</span>
+            <span class="proof-item"><span class="proof-dot"></span> 30 Min &mdash; Zero Fluff</span>
+            <span class="proof-item"><span class="proof-dot"></span> Backed by Real Operators</span>
+        </div>
+    </div>
+
+    <!-- What to Expect -->
+    <section class="expect">
+        <div class="container container--wide">
+            <div class="expect-header reveal">
+                <p class="expect-label">What to Expect</p>
+                <h2>30 minutes. Three clear outcomes.</h2>
+                <p>Every call follows a proven structure so you leave with real clarity.</p>
+            </div>
+            <div class="expect-grid reveal">
+                <div class="expect-card">
+                    <div class="expect-number">01</div>
+                    <h3>Diagnose the Bottleneck</h3>
+                    <p>We'll identify the single biggest thing slowing you down right now &mdash; whether it's product, marketing, systems, or focus.</p>
+                </div>
+                <div class="expect-card">
+                    <div class="expect-number">02</div>
+                    <h3>Map the Next Moves</h3>
+                    <p>You'll walk away with a prioritized action plan &mdash; not theory, but concrete steps you can start executing this week.</p>
+                </div>
+                <div class="expect-card">
+                    <div class="expect-number">03</div>
+                    <h3>Get Unblocked Fast</h3>
+                    <p>Live feedback on your positioning, funnel, pricing, or whatever's keeping you stuck. Straight answers, no hand-waving.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonial -->
+    <section class="testimonial">
+        <div class="container">
+            <div class="testimonial-card reveal">
+                <p class="testimonial-label">What founders are saying</p>
+                <p class="testimonial-text">"I came in with a vague idea and left with a crystal-clear plan. One 30-minute call saved me months of going in circles. This is the conversation every founder needs."</p>
+                <div class="testimonial-author">
+                    <div class="testimonial-avatar">JD</div>
+                    <div style="text-align: left">
+                        <div class="testimonial-name">Jane Doe</div>
+                        <div class="testimonial-role">Founder, CompanyName</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="bottom-cta">
+        <div class="container">
+            <div class="cta-card reveal" id="ctaWrap">
+                <h2>Stop stalling. Start building.</h2>
+                <p class="cta-sub">30 minutes. No cost. No pitch. Just a clear next step for your business.</p>
+                <form class="cta-inline-form" id="ctaForm" onsubmit="handleSubmit(event, 'cta')">
+                    <input type="email" class="form-input" placeholder="Your email" required>
+                    <button type="submit" class="form-btn">Book Now &rarr;</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 BrandName</p>
+        <div class="footer-links">
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+        </div>
+    </footer>
+
+    <script>
+        function handleSubmit(e, formId) {
+            e.preventDefault();
+            if (formId === 'main') {
+                document.getElementById('mainForm').style.display = 'none';
+                document.querySelector('#booking .form-trust').style.display = 'none';
+                document.getElementById('mainSuccess').classList.add('visible');
+            } else {
+                var wrap = document.getElementById('ctaWrap');
+                wrap.innerHTML = '<div class="form-success visible"><div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div><h3>You\'re booked!</h3><p>Check your inbox for a calendar invite and prep details.</p></div>';
+            }
+        }
+
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(function(el) {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

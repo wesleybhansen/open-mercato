@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Idea to Revenue in 30 Days — Free Live Webinar</title>
+<meta name="description" content="Join our free live webinar and learn the exact framework to validate, build, and launch your startup in 30 days. Limited spots available.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700&family=Inter:wght@400;500&family=Newsreader:ital@1&display=swap" rel="stylesheet">
+<style>
+/* ========================================
+   CSS CUSTOM PROPERTIES
+   ======================================== */
+:root {
+  /* Colors */
+  --bg-primary: #06060A;
+  --bg-secondary: #0C0C14;
+  --bg-card: rgba(255,255,255,0.03);
+  --bg-card-hover: rgba(255,255,255,0.05);
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-light: rgba(255,255,255,0.10);
+  --border-accent: rgba(139,92,246,0.3);
+  --text-primary: #F5F5F7;
+  --text-secondary: rgba(245,245,247,0.6);
+  --text-tertiary: rgba(245,245,247,0.4);
+  --accent: #8B5CF6;
+  --accent-light: #A78BFA;
+  --accent-dark: #7C3AED;
+  --accent-glow: rgba(139,92,246,0.15);
+  --accent-glow-strong: rgba(139,92,246,0.25);
+  --success: #34D399;
+  --success-glow: rgba(52,211,153,0.15);
+  --error: #F87171;
+  --white: #FFFFFF;
+  --glass-bg: rgba(12,12,20,0.8);
+  --glass-border: rgba(255,255,255,0.08);
+
+  /* Typography */
+  --font-heading: 'Instrument Sans', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-accent: 'Newsreader', Georgia, serif;
+
+  /* Spacing */
+  --section-padding: clamp(4rem, 8vw, 7rem);
+  --container-max: 1200px;
+  --container-padding: clamp(1.25rem, 4vw, 2rem);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* Borders */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+}
+
+/* ========================================
+   RESET & BASE
+   ======================================== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; }
+input { font-family: inherit; border: none; outline: none; background: none; }
+ul, ol { list-style: none; }
+
+/* ========================================
+   DOT GRID BACKGROUND
+   ======================================== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+/* ========================================
+   AMBIENT GRADIENT ORBS
+   ======================================== */
+.ambient-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-orb--1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+  top: -200px;
+  right: -100px;
+}
+
+.ambient-orb--2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%);
+  bottom: 20%;
+  left: -150px;
+}
+
+.ambient-orb--3 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%);
+  top: 60%;
+  right: -100px;
+}
+
+/* ========================================
+   LAYOUT
+   ======================================== */
+.container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 var(--container-padding);
+}
+
+section {
+  position: relative;
+  z-index: 1;
+}
+
+/* ========================================
+   SCROLL REVEAL
+   ======================================== */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ========================================
+   NAVIGATION
+   ======================================== */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 0 var(--container-padding);
+  transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+}
+
+.nav.scrolled {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-bottom-color: var(--glass-border);
+  box-shadow: 0 1px 24px rgba(0,0,0,0.4);
+}
+
+.nav-inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.nav-logo {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.nav-links a {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  position: relative;
+}
+
+.nav-links a:hover {
+  color: var(--text-primary);
+}
+
+.nav-cta {
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  background: var(--accent);
+  color: var(--white);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.nav-cta:hover {
+  background: var(--accent-dark);
+  box-shadow: 0 0 24px var(--accent-glow-strong);
+}
+
+/* Hamburger */
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 4px;
+  z-index: 1001;
+}
+
+.nav-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: transform var(--transition-base), opacity var(--transition-base);
+}
+
+.nav-hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-hamburger.active span:nth-child(2) { opacity: 0; }
+.nav-hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile Menu */
+.nav-mobile {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(6,6,10,0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.nav-mobile.open {
+  display: flex;
+}
+
+.nav-mobile a {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.nav-mobile a:hover {
+  color: var(--text-primary);
+}
+
+.nav-mobile .nav-cta {
+  font-size: 1.1rem;
+  padding: 0.75rem 2rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .nav-hamburger { display: flex; }
+}
+
+/* ========================================
+   HERO
+   ======================================== */
+.hero {
+  padding-top: calc(64px + var(--section-padding));
+  padding-bottom: var(--section-padding);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 600px;
+  background: radial-gradient(ellipse, rgba(139,92,246,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 4vw, 4rem);
+  align-items: start;
+}
+
+/* Hero Left */
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem 0.375rem 0.625rem;
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--accent-light);
+  margin-bottom: 1.5rem;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  position: relative;
+}
+
+.pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.6); opacity: 0; }
+}
+
+.hero-headline {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4.5vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.25rem;
+  color: var(--text-primary);
+}
+
+.hero-headline .gradient-text {
+  background: linear-gradient(135deg, var(--accent-light) 0%, #C4B5FD 40%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: clamp(1rem, 1.5vw, 1.125rem);
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  max-width: 520px;
+}
+
+/* Date/Time Card */
+.date-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 2rem;
+}
+
+.date-card-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--accent-glow);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.date-card-icon svg { width: 20px; height: 20px; color: var(--accent-light); }
+
+.date-card-info { display: flex; flex-direction: column; gap: 0.125rem; }
+.date-card-date { font-family: var(--font-heading); font-weight: 600; font-size: 0.9375rem; }
+.date-card-time { font-size: 0.8125rem; color: var(--text-secondary); }
+
+/* Countdown */
+.countdown {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.countdown-unit {
+  text-align: center;
+  min-width: 64px;
+  padding: 0.75rem 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.countdown-number {
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.countdown-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Hero Right — Registration Form */
+.form-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  position: relative;
+}
+
+.form-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-dark), var(--accent-light), var(--accent));
+}
+
+.form-card-inner {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.form-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.375rem;
+}
+
+.form-card-sub {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.75rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.375rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.form-input.error {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(248,113,113,0.1);
+}
+
+.form-error-msg {
+  font-size: 0.75rem;
+  color: var(--error);
+  margin-top: 0.25rem;
+  display: none;
+}
+
+.form-error-msg.show {
+  display: block;
+}
+
+.form-submit {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background: var(--accent);
+  color: var(--white);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  position: relative;
+}
+
+.form-submit:hover:not(:disabled) {
+  background: var(--accent-dark);
+  box-shadow: 0 0 32px var(--accent-glow-strong);
+  transform: translateY(-1px);
+}
+
+.form-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.form-submit .spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: var(--white);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: none;
+}
+
+.form-submit.loading .spinner { display: block; }
+.form-submit.loading .btn-text { opacity: 0; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.form-privacy {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 0.75rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.spots-remaining {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.625rem 1rem;
+  background: rgba(248,113,113,0.06);
+  border: 1px solid rgba(248,113,113,0.12);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: #FCA5A5;
+}
+
+.spots-remaining .spots-dot {
+  width: 6px;
+  height: 6px;
+  background: #F87171;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Form Success State */
+.form-success {
+  display: none;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.form-success.show {
+  display: block;
+}
+
+.form-fields.hidden {
+  display: none;
+}
+
+.success-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--success-glow);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+.success-icon svg { width: 32px; height: 32px; color: var(--success); }
+
+.success-title {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.success-text {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.calendar-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.calendar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.calendar-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-accent);
+}
+
+.calendar-btn svg { width: 16px; height: 16px; }
+
+/* Hero Responsive */
+@media (max-width: 768px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .countdown {
+    justify-content: flex-start;
+  }
+
+  .date-card {
+    display: flex;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .countdown-unit { min-width: 56px; }
+}
+
+/* ========================================
+   SECTION HEADER (reusable)
+   ======================================== */
+.section-header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.section-label {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-light);
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 1rem;
+}
+
+.section-desc {
+  font-size: clamp(0.9375rem, 1.3vw, 1.0625rem);
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ========================================
+   EVENT DETAILS
+   ======================================== */
+.details {
+  padding: var(--section-padding) 0;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.detail-card {
+  padding: clamp(1.5rem, 3vw, 2rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.detail-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 32px var(--accent-glow);
+  transform: translateY(-2px);
+}
+
+.detail-card-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--accent-glow);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.detail-card-icon svg { width: 22px; height: 22px; color: var(--accent-light); }
+
+.detail-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.detail-card-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+@media (max-width: 768px) {
+  .details-grid { grid-template-columns: 1fr; }
+}
+
+/* ========================================
+   SPEAKER
+   ======================================== */
+.speaker {
+  padding: var(--section-padding) 0;
+}
+
+.speaker-card {
+  max-width: 680px;
+  margin: 0 auto;
+  text-align: center;
+  padding: clamp(2rem, 4vw, 3rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  position: relative;
+}
+
+.speaker-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.speaker-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, var(--accent-dark), var(--accent-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.speaker-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--border-accent);
+}
+
+.speaker-avatar svg { width: 44px; height: 44px; color: rgba(255,255,255,0.9); }
+
+.speaker-name {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.speaker-title {
+  font-size: 0.9375rem;
+  color: var(--accent-light);
+  margin-bottom: 1.25rem;
+}
+
+.speaker-bio {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.speaker-bio em {
+  font-family: var(--font-accent);
+  font-style: italic;
+  color: var(--text-primary);
+}
+
+.speaker-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+.speaker-stat { text-align: center; }
+
+.speaker-stat-number {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.speaker-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 480px) {
+  .speaker-stats { gap: 1.5rem; }
+  .speaker-stat-number { font-size: 1.25rem; }
+}
+
+/* ========================================
+   WHAT YOU'LL LEARN
+   ======================================== */
+.learn {
+  padding: var(--section-padding) 0;
+}
+
+.learn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.learn-card {
+  padding: clamp(1.5rem, 3vw, 2rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.learn-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 32px var(--accent-glow);
+  transform: translateY(-2px);
+}
+
+.learn-card-icon {
+  width: 52px;
+  height: 52px;
+  background: var(--accent-glow);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+.learn-card-icon svg { width: 24px; height: 24px; color: var(--accent-light); }
+
+.learn-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.learn-card-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+@media (max-width: 768px) {
+  .learn-grid { grid-template-columns: 1fr; }
+}
+
+/* ========================================
+   REPLAY
+   ======================================== */
+.replay {
+  padding: var(--section-padding) 0;
+}
+
+.replay-banner {
+  padding: clamp(2rem, 4vw, 3rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  position: relative;
+  overflow: hidden;
+}
+
+.replay-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.replay-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.replay-icon svg { width: 28px; height: 28px; color: var(--accent-light); }
+
+.replay-content { flex: 1; position: relative; z-index: 1; }
+
+.replay-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: 700;
+  margin-bottom: 0.375rem;
+}
+
+.replay-text {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.replay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent);
+  color: var(--white);
+  font-family: var(--font-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.replay-btn:hover {
+  background: var(--accent-dark);
+  box-shadow: 0 0 24px var(--accent-glow-strong);
+}
+
+@media (max-width: 768px) {
+  .replay-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+/* ========================================
+   FAQ
+   ======================================== */
+.faq {
+  padding: var(--section-padding) 0;
+}
+
+.faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-base);
+}
+
+.faq-item.open {
+  border-color: var(--border-accent);
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  font-family: var(--font-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: left;
+  transition: color var(--transition-fast);
+}
+
+.faq-question:hover { color: var(--accent-light); }
+
+.faq-chevron {
+  width: 20px;
+  height: 20px;
+  color: var(--text-tertiary);
+  transition: transform var(--transition-base), color var(--transition-base);
+  flex-shrink: 0;
+}
+
+.faq-item.open .faq-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-light);
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
+.faq-answer-inner {
+  padding: 0 1.5rem 1.25rem;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ========================================
+   CTA BANNER
+   ======================================== */
+.cta-banner {
+  padding: var(--section-padding) 0;
+}
+
+.cta-banner-inner {
+  padding: clamp(2.5rem, 5vw, 4rem);
+  background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(99,102,241,0.08) 50%, rgba(139,92,246,0.06) 100%);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-xl);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-banner-inner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(139,92,246,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cta-banner-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.cta-banner-text {
+  font-size: clamp(0.9375rem, 1.3vw, 1.0625rem);
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.cta-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  background: var(--white);
+  color: var(--bg-primary);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  position: relative;
+  z-index: 1;
+}
+
+.cta-banner-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(255,255,255,0.1);
+}
+
+.cta-banner-btn svg { width: 18px; height: 18px; }
+
+/* ========================================
+   FOOTER
+   ======================================== */
+.footer {
+  padding: 3rem 0;
+  border-top: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 1;
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-brand {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.footer-links a {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.footer-links a:hover { color: var(--text-secondary); }
+
+.footer-copy {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  width: 100%;
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 480px) {
+  .footer-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Ambient Gradient Orbs -->
+<div class="ambient-orb ambient-orb--1"></div>
+<div class="ambient-orb ambient-orb--2"></div>
+<div class="ambient-orb ambient-orb--3"></div>
+
+<!-- ===================== NAVIGATION ===================== -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <span class="nav-logo">LaunchLab</span>
+    <div class="nav-links">
+      <a href="#details">Details</a>
+      <a href="#speaker">Speaker</a>
+      <a href="#learn">What You'll Learn</a>
+      <a href="#faq">FAQ</a>
+      <a href="#hero" class="nav-cta">Register Free</a>
+    </div>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile Menu -->
+<div class="nav-mobile" id="navMobile">
+  <a href="#details" class="nav-mobile-link">Details</a>
+  <a href="#speaker" class="nav-mobile-link">Speaker</a>
+  <a href="#learn" class="nav-mobile-link">What You'll Learn</a>
+  <a href="#faq" class="nav-mobile-link">FAQ</a>
+  <a href="#hero" class="nav-cta">Register Free</a>
+</div>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <!-- Left Column -->
+      <div class="hero-left">
+        <div class="hero-badge reveal">
+          <span class="pulse-dot"></span>
+          Live Webinar
+        </div>
+
+        <h1 class="hero-headline reveal">
+          From Idea to Revenue<br><span class="gradient-text">in 30 Days</span>
+        </h1>
+
+        <p class="hero-sub reveal">
+          Learn the exact framework that 200+ founders have used to validate their idea, build an MVP, acquire their first customers, and generate revenue — all within a single month.
+        </p>
+
+        <div class="date-card reveal">
+          <div class="date-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="date-card-info">
+            <span class="date-card-date">March 20, 2026</span>
+            <span class="date-card-time">2:00 PM ET / 7:00 PM UTC &middot; 90 minutes</span>
+          </div>
+        </div>
+
+        <div class="countdown reveal" id="countdown">
+          <div class="countdown-unit">
+            <span class="countdown-number" id="countDays">00</span>
+            <span class="countdown-label">Days</span>
+          </div>
+          <div class="countdown-unit">
+            <span class="countdown-number" id="countHours">00</span>
+            <span class="countdown-label">Hours</span>
+          </div>
+          <div class="countdown-unit">
+            <span class="countdown-number" id="countMins">00</span>
+            <span class="countdown-label">Mins</span>
+          </div>
+          <div class="countdown-unit">
+            <span class="countdown-number" id="countSecs">00</span>
+            <span class="countdown-label">Secs</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column — Registration Form -->
+      <div class="form-card reveal">
+        <div class="form-card-inner">
+          <h2 class="form-card-title">Save Your Spot</h2>
+          <p class="form-card-sub">Join hundreds of founders going from zero to revenue.</p>
+
+          <form id="regForm" class="form-fields" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="regName">Full Name *</label>
+              <input class="form-input" type="text" id="regName" placeholder="Jane Smith" required autocomplete="name">
+              <div class="form-error-msg" id="nameError">Please enter your name.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="regEmail">Email Address *</label>
+              <input class="form-input" type="email" id="regEmail" placeholder="jane@company.com" required autocomplete="email">
+              <div class="form-error-msg" id="emailError">Please enter a valid email address.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="regCompany">Company <span style="color:var(--text-tertiary)">(optional)</span></label>
+              <input class="form-input" type="text" id="regCompany" placeholder="Acme Inc." autocomplete="organization">
+            </div>
+
+            <button type="submit" class="form-submit" id="formSubmit">
+              <span class="spinner"></span>
+              <span class="btn-text">Register for Free</span>
+            </button>
+
+            <p class="form-privacy">We respect your privacy. No spam, ever. Unsubscribe anytime.</p>
+
+            <div class="spots-remaining">
+              <span class="spots-dot"></span>
+              <span>Only <strong id="spotsCount">247</strong> spots remaining</span>
+            </div>
+          </form>
+
+          <!-- Success State -->
+          <div class="form-success" id="formSuccess">
+            <div class="success-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h3 class="success-title">You're Registered!</h3>
+            <p class="success-text">Check your inbox for a confirmation email with the event link. Add it to your calendar so you don't miss it.</p>
+            <div class="calendar-buttons">
+              <a href="#" class="calendar-btn" id="googleCalBtn" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Google Calendar
+              </a>
+              <button class="calendar-btn" id="icsBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Download .ics
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== EVENT DETAILS ===================== -->
+<section class="details" id="details">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">Event Details</p>
+      <h2 class="section-title">Everything You Need to Launch Fast</h2>
+      <p class="section-desc">In 90 minutes, we'll cover the complete playbook — from validating your idea to landing your first paying customers. No fluff, no filler.</p>
+    </div>
+
+    <div class="details-grid">
+      <!-- Card 1 -->
+      <div class="detail-card reveal">
+        <div class="detail-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </div>
+        <h3 class="detail-card-title">Market Validation Framework</h3>
+        <p class="detail-card-text">Learn how to test your idea with real customers before writing a single line of code. Identify demand, size your market, and de-risk your launch in under a week.</p>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="detail-card reveal">
+        <div class="detail-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+        </div>
+        <h3 class="detail-card-title">The 30-Day Launch Timeline</h3>
+        <p class="detail-card-text">Follow our proven week-by-week breakdown to go from concept to live product. Each phase builds on the last so you always know exactly what to do next.</p>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="detail-card reveal">
+        <div class="detail-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3 class="detail-card-title">Customer Acquisition Playbook</h3>
+        <p class="detail-card-text">Discover the exact outreach strategies, channels, and messaging templates that early-stage founders use to land their first 50 paying customers.</p>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="detail-card reveal">
+        <div class="detail-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/></svg>
+        </div>
+        <h3 class="detail-card-title">Live Q&A + Bonus Templates</h3>
+        <p class="detail-card-text">Get your specific questions answered in real time. Plus, every attendee receives our complete startup toolkit — templates, scripts, and checklists included.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SPEAKER ===================== -->
+<section class="speaker" id="speaker">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">Your Host</p>
+      <h2 class="section-title">Meet the Speaker</h2>
+    </div>
+
+    <div class="speaker-card reveal">
+      <div class="speaker-avatar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <h3 class="speaker-name">Alex Rivera</h3>
+      <p class="speaker-title">Serial Entrepreneur & Startup Advisor</p>
+      <p class="speaker-bio">
+        Alex has built and scaled three venture-backed startups from zero to acquisition. Now, they spend their time mentoring the next generation of founders and sharing the <em>exact frameworks</em> that turned ideas into seven-figure businesses.
+      </p>
+      <div class="speaker-stats">
+        <div class="speaker-stat">
+          <div class="speaker-stat-number">3</div>
+          <div class="speaker-stat-label">Companies Built</div>
+        </div>
+        <div class="speaker-stat">
+          <div class="speaker-stat-number">$42M</div>
+          <div class="speaker-stat-label">Raised</div>
+        </div>
+        <div class="speaker-stat">
+          <div class="speaker-stat-number">200+</div>
+          <div class="speaker-stat-label">Founders Mentored</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== WHAT YOU'LL LEARN ===================== -->
+<section class="learn" id="learn">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">Bonus Resources</p>
+      <h2 class="section-title">What You'll Walk Away With</h2>
+      <p class="section-desc">Every registrant gets instant access to these battle-tested resources — built from real startup launches.</p>
+    </div>
+
+    <div class="learn-grid">
+      <!-- Card 1 -->
+      <div class="learn-card reveal">
+        <div class="learn-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h3 class="learn-card-title">Launch Checklist Template</h3>
+        <p class="learn-card-text">A step-by-step checklist covering every milestone from Day 1 to launch day. Never miss a critical step again.</p>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="learn-card reveal">
+        <div class="learn-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <h3 class="learn-card-title">Customer Outreach Scripts</h3>
+        <p class="learn-card-text">Proven cold email and DM templates that have generated 40%+ response rates for early-stage founders reaching out to prospects.</p>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="learn-card reveal">
+        <div class="learn-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <h3 class="learn-card-title">Pricing Strategy Guide</h3>
+        <p class="learn-card-text">Frameworks for setting your initial pricing, structuring tiers, and positioning against competitors — without leaving money on the table.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== REPLAY ===================== -->
+<section class="replay" id="replay">
+  <div class="container">
+    <div class="replay-banner reveal">
+      <div class="replay-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <div class="replay-content">
+        <h3 class="replay-title">Can't make it live?</h3>
+        <p class="replay-text">Register anyway and we'll send you the full replay recording within 24 hours — plus all the bonus templates.</p>
+      </div>
+      <a href="#hero" class="replay-btn">Register for the Replay</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="faq" id="faq">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">FAQ</p>
+      <h2 class="section-title">Common Questions</h2>
+    </div>
+
+    <div class="faq-list">
+      <!-- Q1 -->
+      <div class="faq-item reveal">
+        <button class="faq-question">
+          Is this webinar really free?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Yes, 100% free. There's no credit card required, no hidden fees, and no upsell during the session. We believe in delivering value first — and this webinar is our way of helping founders launch smarter.</div>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="faq-item reveal">
+        <button class="faq-question">
+          Will there be a recording?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Absolutely. Everyone who registers will receive the full replay within 24 hours of the live event. That said, we highly recommend attending live so you can participate in the Q&A and get your specific questions answered.</div>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="faq-item reveal">
+        <button class="faq-question">
+          What stage should my startup be at?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">This webinar is designed for pre-launch and early-stage founders. Whether you have a rough idea on a napkin or a prototype you haven't shipped yet, the frameworks we cover will help you move forward with clarity and speed.</div>
+        </div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="faq-item reveal">
+        <button class="faq-question">
+          How do I join the live event?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">After registering, you'll receive an email with a unique join link. On the day of the event, simply click the link a few minutes before start time. No special software is needed — the webinar runs right in your browser.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CTA BANNER ===================== -->
+<section class="cta-banner">
+  <div class="container">
+    <div class="cta-banner-inner reveal">
+      <h2 class="cta-banner-title">Ready to Launch Your Startup?</h2>
+      <p class="cta-banner-text">Join hundreds of founders who are turning their ideas into real businesses. It starts here.</p>
+      <a href="#hero" class="cta-banner-btn">
+        Claim Your Free Spot
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <span class="footer-brand">LaunchLab</span>
+      <div class="footer-links">
+        <a href="#privacy">Privacy Policy</a>
+        <a href="#terms">Terms of Service</a>
+        <a href="#contact">Contact</a>
+      </div>
+    </div>
+    <p class="footer-copy">&copy; 2026 LaunchLab. All rights reserved.</p>
+  </div>
+</footer>
+
+<!-- ===================== JAVASCRIPT ===================== -->
+<script>
+(function() {
+  'use strict';
+
+  /* ========================================
+     COUNTDOWN TIMER
+     ======================================== */
+  const WEBINAR_DATE = new Date('2026-03-20T19:00:00Z');
+
+  const countDays = document.getElementById('countDays');
+  const countHours = document.getElementById('countHours');
+  const countMins = document.getElementById('countMins');
+  const countSecs = document.getElementById('countSecs');
+
+  function updateCountdown() {
+    const now = new Date();
+    const diff = WEBINAR_DATE - now;
+
+    if (diff <= 0) {
+      countDays.textContent = '00';
+      countHours.textContent = '00';
+      countMins.textContent = '00';
+      countSecs.textContent = '00';
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+    countDays.textContent = String(days).padStart(2, '0');
+    countHours.textContent = String(hours).padStart(2, '0');
+    countMins.textContent = String(mins).padStart(2, '0');
+    countSecs.textContent = String(secs).padStart(2, '0');
+  }
+
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+
+  /* ========================================
+     SPOTS REMAINING SIMULATION
+     ======================================== */
+  let spotsLeft = 247;
+  const spotsEl = document.getElementById('spotsCount');
+  const MIN_SPOTS = 50;
+
+  function decrementSpots() {
+    if (spotsLeft <= MIN_SPOTS) return;
+    const decrement = Math.floor(Math.random() * 3) + 1;
+    spotsLeft = Math.max(MIN_SPOTS, spotsLeft - decrement);
+    spotsEl.textContent = spotsLeft;
+
+    const nextInterval = (Math.random() * 30 + 15) * 1000; // 15-45 seconds
+    setTimeout(decrementSpots, nextInterval);
+  }
+
+  setTimeout(decrementSpots, (Math.random() * 30 + 15) * 1000);
+
+  /* ========================================
+     FORM VALIDATION & SUBMISSION
+     ======================================== */
+  const regForm = document.getElementById('regForm');
+  const nameInput = document.getElementById('regName');
+  const emailInput = document.getElementById('regEmail');
+  const nameError = document.getElementById('nameError');
+  const emailError = document.getElementById('emailError');
+  const formSubmit = document.getElementById('formSubmit');
+  const formSuccess = document.getElementById('formSuccess');
+
+  function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function clearErrors() {
+    nameInput.classList.remove('error');
+    emailInput.classList.remove('error');
+    nameError.classList.remove('show');
+    emailError.classList.remove('show');
+  }
+
+  // Real-time clearing of errors on input
+  nameInput.addEventListener('input', function() {
+    if (this.value.trim()) {
+      this.classList.remove('error');
+      nameError.classList.remove('show');
+    }
+  });
+
+  emailInput.addEventListener('input', function() {
+    if (validateEmail(this.value.trim())) {
+      this.classList.remove('error');
+      emailError.classList.remove('show');
+    }
+  });
+
+  regForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    clearErrors();
+
+    let valid = true;
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+
+    if (!name) {
+      nameInput.classList.add('error');
+      nameError.classList.add('show');
+      valid = false;
+    }
+
+    if (!email || !validateEmail(email)) {
+      emailInput.classList.add('error');
+      emailError.classList.add('show');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    // Loading state
+    formSubmit.classList.add('loading');
+    formSubmit.disabled = true;
+
+    // Simulate submission
+    setTimeout(function() {
+      regForm.classList.add('hidden');
+      formSuccess.classList.add('show');
+      formSubmit.classList.remove('loading');
+      formSubmit.disabled = false;
+    }, 1800);
+  });
+
+  /* ========================================
+     CALENDAR LINK GENERATION
+     ======================================== */
+  const EVENT_TITLE = 'From Idea to Revenue in 30 Days — Live Webinar';
+  const EVENT_DESCRIPTION = 'Join this free live webinar to learn the exact framework to validate, build, and launch your startup in 30 days.\\n\\nYour join link will be sent via email before the event.';
+  const EVENT_LOCATION = 'Online (link sent via email)';
+  const EVENT_START = '20260320T190000Z';
+  const EVENT_END = '20260320T203000Z';
+
+  // Google Calendar
+  const googleCalBtn = document.getElementById('googleCalBtn');
+  const gcalURL = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + '&text=' + encodeURIComponent(EVENT_TITLE)
+    + '&dates=' + EVENT_START + '/' + EVENT_END
+    + '&details=' + encodeURIComponent(EVENT_DESCRIPTION.replace(/\\n/g, '\n'))
+    + '&location=' + encodeURIComponent(EVENT_LOCATION);
+  googleCalBtn.href = gcalURL;
+
+  // ICS Download
+  const icsBtn = document.getElementById('icsBtn');
+  icsBtn.addEventListener('click', function() {
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//LaunchLab//Webinar//EN',
+      'BEGIN:VEVENT',
+      'DTSTART:' + EVENT_START,
+      'DTEND:' + EVENT_END,
+      'SUMMARY:' + EVENT_TITLE,
+      'DESCRIPTION:' + EVENT_DESCRIPTION.replace(/\\n/g, '\\n'),
+      'LOCATION:' + EVENT_LOCATION,
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'webinar-from-idea-to-revenue.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  });
+
+  /* ========================================
+     FAQ ACCORDION
+     ======================================== */
+  const faqItems = document.querySelectorAll('.faq-item');
+
+  faqItems.forEach(function(item) {
+    const question = item.querySelector('.faq-question');
+    const answer = item.querySelector('.faq-answer');
+
+    question.addEventListener('click', function() {
+      const isOpen = item.classList.contains('open');
+
+      // Close all
+      faqItems.forEach(function(other) {
+        other.classList.remove('open');
+        other.querySelector('.faq-answer').style.maxHeight = null;
+      });
+
+      // Toggle clicked
+      if (!isOpen) {
+        item.classList.add('open');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+      }
+    });
+  });
+
+  /* ========================================
+     SCROLL REVEAL (Intersection Observer)
+     ======================================== */
+  const revealEls = document.querySelectorAll('.reveal');
+
+  const revealObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -40px 0px'
+  });
+
+  revealEls.forEach(function(el) {
+    revealObserver.observe(el);
+  });
+
+  /* ========================================
+     MOBILE MENU TOGGLE
+     ======================================== */
+  const hamburger = document.getElementById('navHamburger');
+  const mobileMenu = document.getElementById('navMobile');
+
+  hamburger.addEventListener('click', function() {
+    hamburger.classList.toggle('active');
+    mobileMenu.classList.toggle('open');
+    document.body.style.overflow = mobileMenu.classList.contains('open') ? 'hidden' : '';
+  });
+
+  // Close mobile menu on link click
+  document.querySelectorAll('.nav-mobile a').forEach(function(link) {
+    link.addEventListener('click', function() {
+      hamburger.classList.remove('active');
+      mobileMenu.classList.remove('open');
+      document.body.style.overflow = '';
+    });
+  });
+
+  /* ========================================
+     NAV SCROLL SHADOW
+     ======================================== */
+  const nav = document.getElementById('nav');
+  let lastScroll = 0;
+
+  function handleNavScroll() {
+    const scrollY = window.scrollY;
+    if (scrollY > 20) {
+      nav.classList.add('scrolled');
+    } else {
+      nav.classList.remove('scrolled');
+    }
+    lastScroll = scrollY;
+  }
+
+  window.addEventListener('scroll', handleNavScroll, { passive: true });
+  handleNavScroll();
+
+})();
+</script>
+</body>
+</html>
