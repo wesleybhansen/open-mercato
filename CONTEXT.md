@@ -487,7 +487,7 @@ Key insight: The app is too complex for solopreneurs. Open Mercato's enterprise 
 - [x] Phase 3: Dashboard — AI-generated action items, KPI stats, quick actions, recent activity
 - [x] Phase 4: Contacts — merged People/Companies with tabs, side panel, search, email button
 - [x] Phase 5: AI Email — compose modal with AI draft (6 purpose types), open/click tracking
-- [ ] Phase 6: AI Onboarding — first-login wizard (deferred to next session)
+- [x] Phase 6: AI Onboarding — 4-step welcome wizard at /backend/welcome (business info, clients, AI pipeline, next steps)
 
 **AI provider:** Configurable via AI_PROVIDER env var. Default: Gemini (cheapest). Options: google, anthropic, openai.
 **Form submissions → auto-create contacts:** Already built (inline in submit endpoint).
