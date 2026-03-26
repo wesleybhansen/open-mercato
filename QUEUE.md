@@ -164,7 +164,7 @@ These features are needed before the CRM is useful for day-to-day business.
 
 ### Completed
 - [x] CRM core (contacts, companies, deals, pipeline) — Open Mercato
-- [x] AI landing page builder (Gemini, 55 templates, wizard)
+- [x] AI landing page builder (Gemini, 49 templates, wizard)
 - [x] Simplified sidebar (simple vs advanced mode)
 - [x] AI Assistant floating chat
 - [x] AI-driven dashboard (action items, stats, quick actions)
@@ -176,6 +176,12 @@ These features are needed before the CRM is useful for day-to-day business.
 - [x] Twenty-inspired theme (light + dark)
 - [x] Self-service signup
 - [x] Branding (CRM, blue icon)
+- [x] **Payments module** — products, invoices, payment tracking
+- [x] **Notes & Tasks** — add notes/tasks to contacts, tabbed side panel, dashboard integration
+- [x] **Tags** — add/remove tags on contacts, auto-create with colors
+- [x] **Contact Import** — paste CSV data, auto-parse, duplicate detection
+- [x] **Settings page** — theme toggle, mode switch, integrations
+- [x] **Template cleanup** — removed 7 useless templates, reclassified 4
 
 ### Next Up
-→ **Priority 1.1: Payments & Invoicing** — this fills the biggest gap
+→ **Priority 2: Infrastructure** — Gemini paid tier, Resend, end-to-end testing, deploy
