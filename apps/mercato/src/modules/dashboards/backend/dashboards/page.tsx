@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, DollarSign, FileText, Eye, Plus, Send, TrendingUp, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Users, DollarSign, FileText, Eye, Plus, Send, TrendingUp, AlertCircle, CheckCircle2, ArrowRight, BarChart3 } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 
 interface ActionItem {
@@ -125,6 +125,9 @@ export default function SimpleDashboard() {
       <div className="mb-8">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => window.location.href = '/backend/reports'}>
+            <BarChart3 className="size-3.5 mr-1.5" /> Reports
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => window.location.href = '/backend/customers/people'}>
             <Plus className="size-3.5 mr-1.5" /> Add Contact
           </Button>
