@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers'
 import Script from 'next/script'
 import { createElement, type ReactNode } from 'react'
-import { Users, Kanban, FileText, Mail, LayoutDashboard } from 'lucide-react'
+import { Users, Kanban, FileText, Mail, LayoutDashboard, CreditCard } from 'lucide-react'
 import { modules } from '@/.mercato/generated/modules.generated'
 import { findBackendMatch } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
@@ -511,6 +511,13 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         defaultTitle: 'Pipeline',
         enabled: true,
         icon: createElement(Kanban, { className: iconClass }),
+      },
+      {
+        href: '/backend/payments',
+        title: translate('nav.payments', 'Payments'),
+        defaultTitle: 'Payments',
+        enabled: true,
+        icon: createElement(CreditCard, { className: iconClass }),
       },
     ],
     weight: 10,
