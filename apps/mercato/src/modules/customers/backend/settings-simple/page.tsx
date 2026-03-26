@@ -110,6 +110,27 @@ export default function SimpleSettingsPage() {
         </div>
       </section>
 
+      {/* Calendar Feed */}
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <Settings className="size-4 text-muted-foreground" /> Calendar Feed
+        </h2>
+        <div className="rounded-lg border divide-y">
+          <div className="px-4 py-3">
+            <p className="text-sm font-medium mb-1">Subscribe to Calendar</p>
+            <p className="text-xs text-muted-foreground mb-2">Add this URL to Apple Calendar, Outlook, or any calendar app to see your bookings.</p>
+            <div className="flex gap-2">
+              <Input value={typeof window !== 'undefined' ? `${window.location.origin}/api/calendar/feed/USER_ID.ics` : ''} readOnly
+                className="h-8 text-xs flex-1 font-mono" onClick={e => (e.target as HTMLInputElement).select()} />
+              <Button type="button" variant="outline" size="sm" onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/api/calendar/feed/USER_ID.ics`)
+                alert('Calendar URL copied!')
+              }}>Copy</Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Account */}
       <section className="mb-8">
         <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">

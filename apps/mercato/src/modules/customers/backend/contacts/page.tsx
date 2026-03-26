@@ -206,6 +206,9 @@ export default function ContactsPage() {
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-lg font-semibold">Contacts</h1>
             <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => window.location.href = '/api/contacts/export'}>
+                Export
+              </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowImport(true)}>
                 <Upload className="size-3.5 mr-1.5" /> Import
               </Button>
