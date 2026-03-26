@@ -18,15 +18,15 @@ const actionTypes = [
   { id: 'notify', label: 'Log Activity', icon: Bell, description: 'Log an activity note on the contact' },
 ]
 
-const defaultStages = ['New Lead', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost']
-
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
-  const [triggerStage, setTriggerStage] = useState('Won')
+  const [triggerStage, setTriggerStage] = useState('')
   const [actionType, setActionType] = useState('send_email')
   const [creating, setCreating] = useState(false)
+  const [pipelineStages, setPipelineStages] = useState<string[]>([])
+  const [customStage, setCustomStage] = useState('')
 
   // Action config fields
   const [emailSubject, setEmailSubject] = useState('')
@@ -37,7 +37,38 @@ export default function AutomationsPage() {
   const [contactValue, setContactValue] = useState('customer')
   const [notifyMessage, setNotifyMessage] = useState('')
 
-  useEffect(() => { loadAutomations() }, [])
+  useEffect(() => {
+    loadAutomations()
+    // Load pipeline stages from the database
+    fetch('/api/customers/pipeline-stages', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        let stages: string[] = []
+        const items = Array.isArray(d.data) ? d.data : d.data?.items || d.items || []
+        if (items.length > 0) {
+          stages = items.map((s: any) => s.name || s.title || s.label).filter(Boolean)
+        }
+        if (stages.length === 0) {
+          // Fallback — check business profile for custom stages
+          fetch('/api/business-profile', { credentials: 'include' })
+            .then(r => r.json())
+            .then(bp => {
+              if (bp.ok && bp.data?.pipeline_stages) {
+                const ps = typeof bp.data.pipeline_stages === 'string' ? JSON.parse(bp.data.pipeline_stages) : bp.data.pipeline_stages
+                stages = ps.map((s: any) => s.name || s).filter(Boolean)
+              }
+              if (stages.length === 0) stages = ['New Lead', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost']
+              setPipelineStages(stages)
+              if (!triggerStage && stages.length > 0) setTriggerStage(stages[stages.length - 2] || stages[0])
+            })
+            .catch(() => { setPipelineStages(['New Lead', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost']); setTriggerStage('Won') })
+        } else {
+          setPipelineStages(stages)
+          if (!triggerStage && stages.length > 0) setTriggerStage(stages[stages.length - 2] || stages[0])
+        }
+      })
+      .catch(() => { setPipelineStages(['New Lead', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost']); setTriggerStage('Won') })
+  }, [])
 
   function loadAutomations() {
     fetch('/api/automations', { credentials: 'include' })
@@ -96,10 +127,18 @@ export default function AutomationsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">When deal moves to</label>
-              <select value={triggerStage} onChange={e => setTriggerStage(e.target.value)}
+              <select value={triggerStage} onChange={e => {
+                  if (e.target.value === '__custom__') { setTriggerStage(''); setCustomStage('') }
+                  else setTriggerStage(e.target.value)
+                }}
                 className="w-full h-9 rounded-md border bg-card px-3 text-sm">
-                {defaultStages.map(s => <option key={s} value={s}>{s}</option>)}
+                {pipelineStages.map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="__custom__">Custom stage...</option>
               </select>
+              {triggerStage === '' && (
+                <Input value={customStage} onChange={e => { setCustomStage(e.target.value); setTriggerStage(e.target.value) }}
+                  placeholder="Type your stage name" className="h-9 text-sm mt-1" autoFocus />
+              )}
             </div>
             <div>
               <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Then</label>

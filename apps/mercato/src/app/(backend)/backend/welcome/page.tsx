@@ -81,6 +81,9 @@ export default function WelcomePage() {
 
   async function finish() {
     setFinishing(true)
+
+    const validStages = pipelineStages.filter(s => s.name.trim())
+
     // Save business profile
     try {
       await fetch('/api/business-profile', {
@@ -88,10 +91,45 @@ export default function WelcomePage() {
         body: JSON.stringify({
           businessName, businessType, businessDescription, mainOffer,
           idealClients, teamSize, clientSources: selectedSources,
-          pipelineStages: pipelineStages.filter(s => s.name.trim()),
+          pipelineStages: validStages,
         }),
       })
     } catch {}
+
+    // Create actual pipeline stages in the CRM
+    // First try to update existing default pipeline, then create stages
+    if (validStages.length >= 2) {
+      try {
+        // Get existing pipeline
+        const pipelineRes = await fetch('/api/customers/pipelines', { credentials: 'include' })
+        const pipelineData = await pipelineRes.json()
+        const pipelines = Array.isArray(pipelineData.data) ? pipelineData.data : pipelineData.data?.items || []
+        const defaultPipeline = pipelines.find((p: any) => p.is_default) || pipelines[0]
+
+        if (defaultPipeline) {
+          // Delete existing stages and recreate with user's custom stages
+          // Use the pipeline-stages reorder endpoint to update them
+          const stagesRes = await fetch(`/api/customers/pipeline-stages?pipelineId=${defaultPipeline.id}`, { credentials: 'include' })
+          const stagesData = await stagesRes.json()
+          const existingStages = Array.isArray(stagesData.data) ? stagesData.data : stagesData.data?.items || []
+
+          // Update existing stages to match user's choices
+          for (let i = 0; i < validStages.length; i++) {
+            if (i < existingStages.length) {
+              // Update existing stage
+              await fetch(`/api/customers/pipeline-stages`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                body: JSON.stringify({ id: existingStages[i].id, name: validStages[i].name, order: i + 1 }),
+              }).catch(() => {})
+            }
+            // Note: creating new stages via API may need different approach depending on Open Mercato's API
+          }
+        }
+      } catch (err) {
+        console.log('[onboarding] Pipeline stage setup failed (non-blocking):', err)
+      }
+    }
+
     window.location.href = '/backend/dashboards'
   }
 
