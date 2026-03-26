@@ -150,37 +150,50 @@ These features are needed before the CRM is useful for day-to-day business.
 - [ ] Send/receive SMS from contact detail
 - [ ] SMS in activity timeline
 
-### 5.2 Calendar Integrations (extend existing module)
+### 5.2 Calendar Integrations — DO AFTER DEPLOYMENT (needs live redirect URIs)
 
-**Phase A: Google Calendar — build first, covers ~75% of users (2-3 days)**
-- [ ] Google OAuth flow — user connects Google account in Settings
-- [ ] Two-way sync — CRM bookings → Google Calendar events
-- [ ] Availability check — pull Google Calendar busy times, block those slots on booking page
-- [ ] Google Calendar webhook — detect changes on Google side, update CRM
+**What's already built (code exists, needs credentials to activate):**
+- [x] Google OAuth flow (/api/google/auth → /api/google/callback)
+- [x] Token storage + automatic refresh (google_calendar_connections table)
+- [x] Calendar service: getGoogleBusyTimes(), createGoogleCalendarEvent()
+- [x] Booking page checks Google Calendar for busy times
+- [x] New bookings auto-create Google Calendar events with attendee
+- [x] "Connect Google Calendar" button in Settings
 
-**Phase B: .ics Calendar Feed — build second, covers Apple/Outlook/any app (1 day)**
+**Pending work to activate Google Calendar:**
+- [ ] Create Google Cloud project at console.cloud.google.com
+- [ ] Enable Google Calendar API
+- [ ] Configure OAuth consent screen (app name, scopes: calendar.readonly, calendar.events)
+- [ ] Create OAuth 2.0 Client ID (Web application)
+- [ ] Add authorized redirect URI: https://YOUR_DOMAIN/api/google/callback
+- [ ] Add to .env: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+- [ ] Test: connect calendar → create booking page → have someone book → verify event appears on Google Calendar
+- [ ] Verify busy time blocking works (block a time on Google Calendar → booking page should not show that slot)
+
+**Phase B: .ics Calendar Feed — covers Apple/Outlook/any app (1 day build)**
 - [ ] Generate .ics feed URL per user (e.g., /api/calendar/feed/:userId.ics)
 - [ ] Feed includes all upcoming bookings in iCalendar format
 - [ ] User subscribes to URL in Apple Calendar, Outlook, etc. — auto-updates
 - [ ] "Subscribe to Calendar" button in Settings with copyable URL
 - [ ] Covers: Apple Calendar, Outlook desktop, Thunderbird, Fastmail, Nextcloud
 
-**Phase C: Microsoft 365 / Outlook — build later if user demand (2-3 days)**
+**Phase C: Microsoft 365 / Outlook — build if user demand (2-3 days)**
 - [ ] Microsoft Graph API OAuth
 - [ ] Two-way sync with Outlook/Microsoft 365 calendars
 - [ ] Only needed if significant user base on Microsoft — .ics feed covers Outlook personal
 
 **Phase D: Booking page enhancements**
-- [ ] Public booking page UI — styled page at /book/:slug, guests pick available time + fill form
 - [ ] Automated booking reminders (email 24h before, SMS 1h before)
 - [ ] Timezone handling — guests see slots in their timezone
 - [ ] Reschedule/cancel links in confirmation email
+- [ ] Styling customization (match user's brand colors)
 
-### 5.3 Reporting & Analytics
-- [ ] Pipeline conversion funnel
-- [ ] Revenue reports
-- [ ] Landing page performance
-- [ ] Email campaign stats
+### 5.3 Reporting & Analytics (basic version built)
+- [x] Reports page with KPIs, pipeline by stage, contacts by source, deal outcomes, landing page performance, payment revenue, booking stats
+- [ ] Export reports to CSV/PDF
+- [ ] Date range selector on reports
+- [ ] Email campaign stats (when campaigns are built)
+- [ ] Funnel visualization (lead → contact → deal → won)
 
 ### 5.4 Courses & Memberships
 - [ ] Course builder
