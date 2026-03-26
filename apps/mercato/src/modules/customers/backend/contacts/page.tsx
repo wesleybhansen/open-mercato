@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Plus, Search, X, Mail, DollarSign, Tag, StickyNote, Phone, Building2, ExternalLink, CheckCircle2, Circle, Send, Loader2 } from 'lucide-react'
+import { Plus, Search, X, Mail, DollarSign, Tag, StickyNote, Phone, Building2, ExternalLink, CheckCircle2, Circle, Send, Loader2, Upload } from 'lucide-react'
 import { EmailComposeModal } from '@/components/EmailComposeModal'
 
 type Contact = {
@@ -22,6 +22,7 @@ type Contact = {
 
 type Note = { id: string; content: string; created_at: string }
 type Task = { id: string; title: string; due_date: string | null; is_done: boolean; created_at: string }
+type ContactTag = { id: string; name: string; slug: string; color: string }
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -31,6 +32,12 @@ export default function ContactsPage() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
+  const [contactTags, setContactTags] = useState<ContactTag[]>([])
+  const [newTagName, setNewTagName] = useState('')
+  const [showImport, setShowImport] = useState(false)
+  const [importData, setImportData] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<any>(null)
   const [tab, setTab] = useState<'people' | 'companies'>('people')
   const [panelTab, setPanelTab] = useState<'details' | 'notes' | 'tasks'>('details')
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -70,15 +77,13 @@ export default function ContactsPage() {
     setPanelTab('details')
     setNewNote('')
     setNewTask('')
-    // Load notes and tasks
+    // Load notes, tasks, and tags
     fetch(`/api/notes?contactId=${contact.id}`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { if (d.ok) setNotes(d.data || []) })
-      .catch(() => {})
+      .then(r => r.json()).then(d => { if (d.ok) setNotes(d.data || []) }).catch(() => {})
     fetch(`/api/tasks?contactId=${contact.id}`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { if (d.ok) setTasks(d.data || []) })
-      .catch(() => {})
+      .then(r => r.json()).then(d => { if (d.ok) setTasks(d.data || []) }).catch(() => {})
+    fetch(`/api/contact-tags?contactId=${contact.id}`, { credentials: 'include' })
+      .then(r => r.json()).then(d => { if (d.ok) setContactTags(d.data || []) }).catch(() => {})
   }
 
   function closePanel() {
@@ -86,6 +91,62 @@ export default function ContactsPage() {
     setSelectedContact(null)
     setNotes([])
     setTasks([])
+    setContactTags([])
+  }
+
+  async function addTag() {
+    if (!newTagName.trim() || !selectedContact) return
+    try {
+      const res = await fetch('/api/contact-tags', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ contactId: selectedContact.id, tagName: newTagName }),
+      })
+      const data = await res.json()
+      if (data.ok && data.data) {
+        setContactTags(prev => [...prev.filter(t => t.id !== data.data.id), data.data])
+        setNewTagName('')
+      }
+    } catch {}
+  }
+
+  async function removeTag(tagId: string) {
+    if (!selectedContact) return
+    try {
+      await fetch('/api/contact-tags', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ contactId: selectedContact.id, tagId, action: 'remove' }),
+      })
+      setContactTags(prev => prev.filter(t => t.id !== tagId))
+    } catch {}
+  }
+
+  async function importContacts() {
+    if (!importData.trim()) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      // Parse CSV-like data (name, email per line)
+      const lines = importData.trim().split('\n').filter(l => l.trim())
+      const contacts = lines.map(line => {
+        const parts = line.split(/[,\t]+/).map(p => p.trim())
+        // Try to detect: name, email, phone
+        const email = parts.find(p => p.includes('@'))
+        const phone = parts.find(p => /^\+?\d[\d\s()-]{6,}$/.test(p))
+        const name = parts.find(p => p !== email && p !== phone) || email
+        return { name, email, phone }
+      }).filter(c => c.name || c.email)
+
+      const res = await fetch('/api/contacts/import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ contacts }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setImportResult(data.data)
+        if (data.data.imported > 0) loadContacts()
+      }
+    } catch {}
+    setImporting(false)
   }
 
   async function addNote() {
@@ -140,9 +201,14 @@ export default function ContactsPage() {
         <div className="px-6 py-4 border-b">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-lg font-semibold">Contacts</h1>
-            <Button type="button" size="sm" onClick={() => window.location.href = '/backend/customers/people/create'}>
-              <Plus className="size-3.5 mr-1.5" /> Add Contact
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowImport(true)}>
+                <Upload className="size-3.5 mr-1.5" /> Import
+              </Button>
+              <Button type="button" size="sm" onClick={() => window.location.href = '/backend/customers/people/create'}>
+                <Plus className="size-3.5 mr-1.5" /> Add Contact
+              </Button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -215,6 +281,43 @@ export default function ContactsPage() {
         </div>
       </div>
 
+      {/* Import Modal */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl border shadow-2xl w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between px-5 py-3 border-b">
+              <h2 className="text-sm font-semibold">Import Contacts</h2>
+              <IconButton type="button" variant="ghost" size="sm" onClick={() => { setShowImport(false); setImportResult(null); setImportData('') }} aria-label="Close">
+                <X className="size-4" />
+              </IconButton>
+            </div>
+            <div className="p-5 space-y-3">
+              {importResult ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="size-8 mx-auto mb-2 text-emerald-500" />
+                  <p className="text-sm font-medium">{importResult.imported} contacts imported</p>
+                  {importResult.skipped > 0 && <p className="text-xs text-muted-foreground">{importResult.skipped} skipped (duplicates)</p>}
+                  <Button type="button" size="sm" className="mt-4" onClick={() => { setShowImport(false); setImportResult(null); setImportData('') }}>Done</Button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">Paste contacts below — one per line. Format: <code className="bg-muted px-1 rounded">Name, email, phone</code></p>
+                  <textarea value={importData} onChange={e => setImportData(e.target.value)}
+                    placeholder="Jane Doe, jane@example.com, +1-555-1234&#10;John Smith, john@company.com&#10;Sarah Chen, sarah@startup.io"
+                    className="w-full rounded-md border bg-card px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring h-32 font-mono" autoFocus />
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs text-muted-foreground">{importData.trim().split('\n').filter(l => l.trim()).length} contacts</p>
+                    <Button type="button" size="sm" onClick={importContacts} disabled={importing || !importData.trim()}>
+                      {importing ? <><Loader2 className="size-3 animate-spin mr-1" /> Importing...</> : <><Upload className="size-3 mr-1" /> Import</>}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Email Modal */}
       {showEmailModal && selectedContact && (
         <EmailComposeModal
@@ -276,6 +379,32 @@ export default function ContactsPage() {
                 <DetailRow icon={Building2} label="Type" value={selectedContact.kind === 'person' ? 'Person' : 'Company'} />
                 <DetailRow icon={Tag} label="Source" value={selectedContact.source} />
                 <DetailRow icon={Tag} label="Stage" value={selectedContact.lifecycle_stage} />
+
+                {/* Tags */}
+                <div className="pt-3 border-t">
+                  <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">Tags</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {contactTags.map(tag => (
+                      <span key={tag.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: tag.color + '20', color: tag.color }}>
+                        {tag.name}
+                        <button type="button" onClick={() => removeTag(tag.id)} className="hover:opacity-70">
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Input value={newTagName} onChange={e => setNewTagName(e.target.value)}
+                      placeholder="Add tag..." className="h-7 text-xs flex-1"
+                      onKeyDown={e => { if (e.key === 'Enter') addTag() }} />
+                    <Button type="button" size="sm" variant="outline" onClick={addTag}
+                      disabled={!newTagName.trim()} className="h-7 text-xs px-2">
+                      <Plus className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="pt-3 border-t">
                   <a href={`/backend/customers/people/${selectedContact.id}`}
                     className="text-xs text-accent hover:underline flex items-center gap-1">
