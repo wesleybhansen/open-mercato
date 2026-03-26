@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers'
 import Script from 'next/script'
 import { createElement, type ReactNode } from 'react'
-import { Users, Kanban, FileText, Mail, LayoutDashboard, CreditCard } from 'lucide-react'
+import { Users, Kanban, FileText, Mail, LayoutDashboard, CreditCard, Settings } from 'lucide-react'
 import { modules } from '@/.mercato/generated/modules.generated'
 import { findBackendMatch } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
@@ -545,6 +545,22 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
       },
     ],
     weight: 20,
+  })
+
+  // Settings
+  simpleGroups.push({
+    id: 'simple-settings',
+    name: '',
+    defaultName: '',
+    items: [{
+      href: '/backend/settings-simple',
+      title: translate('nav.settings', 'Settings'),
+      defaultTitle: 'Settings',
+      enabled: true,
+      icon: createElement(Settings, { className: iconClass }),
+      pageContext: 'settings' as const,
+    }],
+    weight: 100,
   })
 
   return simpleGroups
