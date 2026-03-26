@@ -6,6 +6,7 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Plus, Search, X, Mail, DollarSign, Tag, StickyNote, Phone, Building2, ExternalLink, CheckCircle2, Circle, Send, Loader2, Upload } from 'lucide-react'
 import { EmailComposeModal } from '@/components/EmailComposeModal'
+import { CreateDealModal } from '@/components/CreateDealModal'
 
 type Contact = {
   id: string
@@ -41,6 +42,7 @@ export default function ContactsPage() {
   const [tab, setTab] = useState<'people' | 'companies'>('people')
   const [panelTab, setPanelTab] = useState<'details' | 'notes' | 'tasks'>('details')
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const [showDealModal, setShowDealModal] = useState(false)
   const [newNote, setNewNote] = useState('')
   const [newTask, setNewTask] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -318,6 +320,16 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {/* Deal Modal */}
+      {showDealModal && selectedContact && (
+        <CreateDealModal
+          contactName={selectedContact.display_name}
+          contactId={selectedContact.id}
+          onClose={() => setShowDealModal(false)}
+          onCreated={() => setShowDealModal(false)}
+        />
+      )}
+
       {/* Email Modal */}
       {showEmailModal && selectedContact && (
         <EmailComposeModal
@@ -351,7 +363,7 @@ export default function ContactsPage() {
               disabled={!selectedContact?.primary_email}>
               <Mail className="size-3.5 mr-1.5" /> Email
             </Button>
-            <Button type="button" variant="outline" size="sm">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowDealModal(true)}>
               <DollarSign className="size-3.5 mr-1.5" /> Deal
             </Button>
             <Button type="button" variant="outline" size="sm">
