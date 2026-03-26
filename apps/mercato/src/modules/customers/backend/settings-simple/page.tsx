@@ -9,6 +9,9 @@ export default function SimpleSettingsPage() {
   const [mode, setMode] = useState('simple')
   const [theme, setTheme] = useState('light')
   const [saved, setSaved] = useState(false)
+  const [aiUsage, setAiUsage] = useState<{ callsUsed: number; callsCap: number; hasUserKey: boolean } | null>(null)
+  const [byokKey, setByokKey] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
 
   useEffect(() => {
     // Read current mode from cookie
@@ -17,6 +20,9 @@ export default function SimpleSettingsPage() {
     if (modeCookie) setMode(modeCookie.split('=')[1])
     // Read theme
     setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light')
+    // Load AI usage
+    fetch('/api/ai/usage', { credentials: 'include' })
+      .then(r => r.json()).then(d => { if (d.ok) setAiUsage(d.data) }).catch(() => {})
   }, [])
 
   async function changeMode(newMode: string) {
@@ -119,17 +125,68 @@ export default function SimpleSettingsPage() {
               Manage Keys
             </Button>
           </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <div>
-              <p className="text-sm font-medium">AI Provider Key (BYOK)</p>
-              <p className="text-xs text-muted-foreground">Add your own AI API key for unlimited AI features</p>
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium">AI Provider Key (BYOK)</p>
+                <p className="text-xs text-muted-foreground">Add your own API key for unlimited AI features</p>
+              </div>
             </div>
-            <Button type="button" variant="outline" size="sm" disabled>
-              Coming Soon
-            </Button>
+            <div className="flex gap-2">
+              <Input value={byokKey} onChange={e => setByokKey(e.target.value)}
+                type="password" placeholder={aiUsage?.hasUserKey ? '••••••••••••••••' : 'Paste your Gemini or OpenAI API key'}
+                className="h-8 text-sm flex-1" />
+              <Button type="button" variant="outline" size="sm"
+                onClick={async () => {
+                  setSavingKey(true)
+                  await fetch('/api/ai/usage', {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify({ userKey: byokKey }),
+                  })
+                  setByokKey('')
+                  setSavingKey(false)
+                  fetch('/api/ai/usage', { credentials: 'include' })
+                    .then(r => r.json()).then(d => { if (d.ok) setAiUsage(d.data) })
+                }}
+                disabled={savingKey || !byokKey.trim()}>
+                {savingKey ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* AI Usage */}
+      {aiUsage && (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Monitor className="size-4 text-muted-foreground" /> AI Usage
+          </h2>
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium">This month</p>
+              <p className="text-sm tabular-nums">
+                <span className="font-semibold">{aiUsage.callsUsed}</span>
+                <span className="text-muted-foreground"> / {aiUsage.callsCap} calls</span>
+              </p>
+            </div>
+            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-accent transition-all"
+                style={{ width: `${Math.min(100, (aiUsage.callsUsed / aiUsage.callsCap) * 100)}%` }} />
+            </div>
+            {aiUsage.callsUsed >= aiUsage.callsCap && !aiUsage.hasUserKey && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Limit reached. Add your own API key above to continue using AI features.
+              </p>
+            )}
+            {aiUsage.hasUserKey && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+                <Check className="size-3" /> Your own API key is active. Unlimited AI usage.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

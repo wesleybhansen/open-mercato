@@ -81,7 +81,18 @@ export default function WelcomePage() {
 
   async function finish() {
     setFinishing(true)
-    setTimeout(() => { window.location.href = '/backend/dashboards' }, 1000)
+    // Save business profile
+    try {
+      await fetch('/api/business-profile', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({
+          businessName, businessType, businessDescription, mainOffer,
+          idealClients, teamSize, clientSources: selectedSources,
+          pipelineStages: pipelineStages.filter(s => s.name.trim()),
+        }),
+      })
+    } catch {}
+    window.location.href = '/backend/dashboards'
   }
 
   const steps = [
