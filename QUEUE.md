@@ -151,12 +151,30 @@ These features are needed before the CRM is useful for day-to-day business.
 - [ ] SMS in activity timeline
 
 ### 5.2 Calendar Integrations (extend existing module)
-- [ ] Google Calendar OAuth — user connects Google account in Settings
-- [ ] Two-way sync — bookings → Google Calendar events, Google busy times → block slots
-- [ ] Availability check — public booking page checks Google Calendar before showing slots
-- [ ] Automated booking reminders (email/SMS before appointment)
-- [ ] Public booking page UI — styled page at /book/:slug where guests pick time + fill form
-- [ ] Outlook/Microsoft Calendar support (future)
+
+**Phase A: Google Calendar — build first, covers ~75% of users (2-3 days)**
+- [ ] Google OAuth flow — user connects Google account in Settings
+- [ ] Two-way sync — CRM bookings → Google Calendar events
+- [ ] Availability check — pull Google Calendar busy times, block those slots on booking page
+- [ ] Google Calendar webhook — detect changes on Google side, update CRM
+
+**Phase B: .ics Calendar Feed — build second, covers Apple/Outlook/any app (1 day)**
+- [ ] Generate .ics feed URL per user (e.g., /api/calendar/feed/:userId.ics)
+- [ ] Feed includes all upcoming bookings in iCalendar format
+- [ ] User subscribes to URL in Apple Calendar, Outlook, etc. — auto-updates
+- [ ] "Subscribe to Calendar" button in Settings with copyable URL
+- [ ] Covers: Apple Calendar, Outlook desktop, Thunderbird, Fastmail, Nextcloud
+
+**Phase C: Microsoft 365 / Outlook — build later if user demand (2-3 days)**
+- [ ] Microsoft Graph API OAuth
+- [ ] Two-way sync with Outlook/Microsoft 365 calendars
+- [ ] Only needed if significant user base on Microsoft — .ics feed covers Outlook personal
+
+**Phase D: Booking page enhancements**
+- [ ] Public booking page UI — styled page at /book/:slug, guests pick available time + fill form
+- [ ] Automated booking reminders (email 24h before, SMS 1h before)
+- [ ] Timezone handling — guests see slots in their timezone
+- [ ] Reschedule/cancel links in confirmation email
 
 ### 5.3 Reporting & Analytics
 - [ ] Pipeline conversion funnel
