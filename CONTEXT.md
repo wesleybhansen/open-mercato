@@ -500,14 +500,22 @@ Key insight: The app is too complex for solopreneurs. Open Mercato's enterprise 
 - [x] Template preview — full-screen modal with "Use This Template" button
 - [x] Template cleanup — removed 7 (privacy/terms/thank-you), reclassified 4, 49 remaining
 - [x] Dashboard activity — shows contacts/deals instead of encrypted activity data
+- [x] Stripe Checkout — sessions, webhooks, payment links on products/invoices, auto-create contacts
+- [x] Calendar & Booking — booking pages, bookings with conflict detection, auto-create contacts
+- [x] Create Deal modal — from contact side panel
+- [x] Email Compose — works from Email page
+- [x] First-login redirect to welcome wizard
+- [x] AI revision quality improved
+- [x] Dark mode hover fixes
 
 ### Current Sidebar (Simple Mode)
 ```
 Dashboard          — AI action items, KPIs, quick actions, activity feed
 CRM
-  → Contacts       — merged People/Companies, tabs, side panel (Details/Notes/Tasks), tags, import
+  → Contacts       — merged People/Companies, side panel (Details/Notes/Tasks), tags, import
   → Pipeline       — Kanban deal board
-  → Payments       — Products & Services, Invoices
+  → Payments       — Products & Invoices, Stripe checkout links
+  → Calendar       — Booking pages, upcoming bookings
 Marketing
   → Landing Pages  — AI-powered builder, 49 templates, wizard + preview
   → Email          — send/receive, AI drafts, tracking
@@ -517,10 +525,15 @@ Settings           — theme, mode, integrations, BYOK, AI usage meter
 
 ### Remaining Before Users Can Use It
 1. Gemini paid tier (Wesley's action)
-2. Resend API key + domain setup (Wesley's action)
-3. End-to-end testing (create page → publish → form submit → contact created)
-4. Deploy to Hetzner
-5. Stripe Connect for actual payment processing
+2. Stripe API keys (Wesley's action — test mode keys from stripe.com/dashboard)
+3. Resend API key + domain setup (Wesley's action)
+4. End-to-end testing
+5. Deploy to Hetzner
+
+### Future: Calendar Integrations
+- Google Calendar OAuth for two-way sync
+- Public booking page UI at /book/:slug
+- Automated booking reminders
 
 **AI provider:** Configurable via AI_PROVIDER env var. Default: Gemini. Options: google, anthropic, openai.
 **AI cost model:** System-wide monthly cap (admin adjustable) + BYOK fallback for users who exceed cap.

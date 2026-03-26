@@ -52,7 +52,15 @@ These features are needed before the CRM is useful for day-to-day business.
 - [ ] Wesley upgrades Gemini API key to pay-as-you-go
 - [ ] Verify all AI features work reliably
 
-### 2.2 Email Setup (Resend)
+### 2.2 Stripe Setup
+- [ ] Create Stripe account (or use existing)
+- [ ] Get test mode API keys (STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY)
+- [ ] Add to .env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+- [ ] Set up webhook endpoint in Stripe dashboard pointing to /api/stripe/webhook
+- [ ] Test: create product → generate payment link → complete test payment → verify invoice marked paid
+- [ ] Later: switch to live keys for production
+
+### 2.3 Email Setup (Resend)
 - [ ] Configure Resend API key
 - [ ] Set up sending domain (SPF/DKIM/DMARC)
 - [ ] Test signup verification email flow
@@ -142,10 +150,13 @@ These features are needed before the CRM is useful for day-to-day business.
 - [ ] Send/receive SMS from contact detail
 - [ ] SMS in activity timeline
 
-### 5.2 Calendar & Booking
-- [ ] Booking page builder (shareable URL)
-- [ ] Google Calendar sync
-- [ ] Automated reminders
+### 5.2 Calendar Integrations (extend existing module)
+- [ ] Google Calendar OAuth — user connects Google account in Settings
+- [ ] Two-way sync — bookings → Google Calendar events, Google busy times → block slots
+- [ ] Availability check — public booking page checks Google Calendar before showing slots
+- [ ] Automated booking reminders (email/SMS before appointment)
+- [ ] Public booking page UI — styled page at /book/:slug where guests pick time + fill form
+- [ ] Outlook/Microsoft Calendar support (future)
 
 ### 5.3 Reporting & Analytics
 - [ ] Pipeline conversion funnel
@@ -183,5 +194,14 @@ These features are needed before the CRM is useful for day-to-day business.
 - [x] **Settings page** — theme toggle, mode switch, integrations
 - [x] **Template cleanup** — removed 7 useless templates, reclassified 4
 
+- [x] **Stripe Checkout** — checkout sessions, webhook handler, payment links on products/invoices
+- [x] **Calendar & Booking** — booking pages, bookings, conflict detection, auto-create contacts
+- [x] **Create Deal Modal** — from contact side panel
+- [x] **Email Compose** — works from Email page Compose button
+- [x] **First-login redirect** — new signups → welcome wizard
+- [x] **AI revision quality** — improved prompt for more aggressive changes
+- [x] **Dark mode hover fixes** — SVG icons inherit parent color
+
 ### Next Up
-→ **Priority 2: Infrastructure** — Gemini paid tier, Resend, end-to-end testing, deploy
+→ **Priority 2: Infrastructure** — Gemini paid, Stripe keys, Resend, deploy
+→ **Priority 5.2: Calendar Integrations** — Google Calendar sync, public booking page
