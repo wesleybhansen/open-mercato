@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Plus, Send, Mail, X, Loader2, Users, Eye, Sparkles, FlaskConical, Wand2, LayoutTemplate, ArrowLeft, Paintbrush, Trash2 } from 'lucide-react'
+import { Plus, Send, Mail, X, Loader2, Users, Eye, FlaskConical, Sparkles, LayoutTemplate, ArrowLeft, Trash2, Pencil } from 'lucide-react'
 
 type Campaign = {
-  id: string; name: string; subject: string; status: string
+  id: string; name: string; subject: string; body_html: string; status: string
   stats: string; created_at: string; sent_at: string | null
+  segment_filter: any; template_id: string | null
 }
 
 type StyleTemplate = {
@@ -16,20 +17,20 @@ type StyleTemplate = {
   is_default: boolean; categoryColor: string
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  newsletter: 'Newsletter',
-  announcement: 'Announcement',
-  product: 'Product',
-  onboarding: 'Onboarding',
-  promotion: 'Promotion',
-  event: 'Event',
-  'social-proof': 'Social Proof',
-  educational: 'Educational',
-  seasonal: 'Seasonal',
-  general: 'General',
+const STYLE_LABELS: Record<string, string> = {
+  newsletter: 'Clean',
+  announcement: 'Bold',
+  product: 'Showcase',
+  onboarding: 'Friendly',
+  promotion: 'Vibrant',
+  event: 'Elegant',
+  'social-proof': 'Warm',
+  educational: 'Professional',
+  seasonal: 'Festive',
+  general: 'Simple',
 }
 
-export default function CampaignsPage() {
+export default function CampaignsPage({ embedded }: { embedded?: boolean } = {}) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -37,28 +38,28 @@ export default function CampaignsPage() {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [audienceType, setAudienceType] = useState<'all' | 'list' | 'tag'>('all')
+  const [selectedListId, setSelectedListId] = useState('')
+  const [availableLists, setAvailableLists] = useState<Array<{ id: string; name: string; member_count: number }>>([])
+  const [listsLoaded, setListsLoaded] = useState(false)
+  const [availableTags, setAvailableTags] = useState<Array<{ slug: string; name: string }>>([])
+  const [tagsLoaded, setTagsLoaded] = useState(false)
   const [creating, setCreating] = useState(false)
   const [sending, setSending] = useState<string | null>(null)
   const [drafting, setDrafting] = useState(false)
+  const [showAiPrompt, setShowAiPrompt] = useState(false)
+  const [aiDraftPrompt, setAiDraftPrompt] = useState('')
   const [testing, setTesting] = useState<string | null>(null)
-  const [optimizing, setOptimizing] = useState(false)
-  const [subjectFeedback, setSubjectFeedback] = useState<{ score: number; feedback: string; alternatives: string[] } | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Template state
-  const [step, setStep] = useState<'template' | 'compose'>('template')
+  const [step, setStep] = useState<'template' | 'compose' | 'preview'>('template')
   const [templates, setTemplates] = useState<StyleTemplate[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<StyleTemplate | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<StyleTemplate | null>(null)
 
-  // AI template generation state
-  const [showAiGen, setShowAiGen] = useState(false)
-  const [aiPrimary, setAiPrimary] = useState('#3B82F6')
-  const [aiSecondary, setAiSecondary] = useState('#1E40AF')
-  const [aiBg, setAiBg] = useState('#ffffff')
-  const [aiTone, setAiTone] = useState('professional')
-  const [aiLayout, setAiLayout] = useState('standard single column')
-  const [generatingTemplate, setGeneratingTemplate] = useState(false)
 
   useEffect(() => { loadCampaigns() }, [])
 
@@ -85,9 +86,57 @@ export default function CampaignsPage() {
     setSubject('')
     setBody('')
     setTagFilter('')
-    setSubjectFeedback(null)
-    setShowAiGen(false)
+    setAudienceType('all')
+    setSelectedListId('')
+
+    setEditingId(null)
     loadTemplates()
+  }
+
+  function openEdit(campaign: Campaign) {
+    setEditingId(campaign.id)
+    setShowCreate(true)
+    setStep('compose')
+    setName(campaign.name)
+    setSubject(campaign.subject)
+    // Extract plain text from HTML body for editing
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = campaign.body_html || ''
+    const bodyText = tempDiv.innerText || tempDiv.textContent || ''
+    setBody(bodyText)
+    setSelectedTemplate(null)
+
+    // Restore audience
+    const filter = campaign.segment_filter
+      ? (typeof campaign.segment_filter === 'string' ? JSON.parse(campaign.segment_filter) : campaign.segment_filter)
+      : null
+    if (filter?.type === 'list' && filter.listId) {
+      setAudienceType('list')
+      setSelectedListId(filter.listId)
+      if (!listsLoaded) {
+        setListsLoaded(true)
+        fetch('/api/email-lists', { credentials: 'include' }).then(r => r.json())
+          .then(d => { if (d.ok) setAvailableLists(d.data || []) }).catch(() => {})
+      }
+    } else if (filter?.type === 'tag' && filter.tag) {
+      setAudienceType('tag')
+      setTagFilter(filter.tag)
+    } else {
+      setAudienceType('all')
+      setTagFilter('')
+      setSelectedListId('')
+    }
+    loadTemplates()
+  }
+
+  async function deleteCampaign(id: string) {
+    if (!confirm('Delete this blast?')) return
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, { method: 'DELETE', credentials: 'include' })
+      const data = await res.json()
+      if (data.ok) loadCampaigns()
+      else alert(data.error || 'Failed to delete')
+    } catch { alert('Failed to delete') }
   }
 
   function selectTemplate(template: StyleTemplate | null) {
@@ -95,93 +144,90 @@ export default function CampaignsPage() {
     setStep('compose')
   }
 
-  function buildFinalHtml(bodyContent: string): string {
-    if (!selectedTemplate) {
-      return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:20px">${bodyContent.replace(/\n/g, '<br>')}</body></html>`
+  function buildFinalHtml(bodyContent: string, forPreview = false): string {
+    let formattedBody = bodyContent.replace(/\n/g, '<br>')
+    if (forPreview) {
+      formattedBody = formattedBody
+        .replace(/\{\{firstName\}\}/g, 'John')
+        .replace(/\{\{name\}\}/g, 'John Smith')
+        .replace(/\{\{email\}\}/g, 'john@example.com')
     }
+
+    if (!selectedTemplate) {
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1a1a1a;font-size:15px;line-height:1.6}a{color:#3b82f6}</style></head><body>${formattedBody}</body></html>`
+    }
+
     const html = selectedTemplate.html_template
-      .replace(/\{\{content\}\}/g, bodyContent.replace(/\n/g, '<br>'))
+      .replace(/\{\{content\}\}/g, formattedBody)
       .replace(/\{\{brand_primary\}\}/g, '#3B82F6')
       .replace(/\{\{brand_secondary\}\}/g, '#1E40AF')
-      .replace(/\{\{brand_bg\}\}/g, '#ffffff')
+      .replace(/\{\{brand_bg\}\}/g, '#f8fafc')
+      .replace(/\{\{unsubscribe_url\}\}/g, '#')
+      .replace(/\{\{preferences_url\}\}/g, '#')
+      .replace(/\{\{preference_url\}\}/g, '#')
+      .replace(/\{\{(?!firstName|name|email)[a-zA-Z_]+\}\}/g, '')
+
     return html
   }
 
-  async function createCampaign() {
+  async function saveCampaign() {
     if (!name.trim() || !subject.trim() || !body.trim()) return
     setCreating(true)
+    const payload = {
+      name, subject,
+      bodyHtml: buildFinalHtml(body),
+      segmentFilter: audienceType === 'list' && selectedListId ? { type: 'list', listId: selectedListId }
+        : audienceType === 'tag' && tagFilter ? { type: 'tag', tag: tagFilter } : null,
+      templateId: selectedTemplate?.id || null,
+    }
     try {
-      const res = await fetch('/api/campaigns', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({
-          name, subject,
-          bodyHtml: buildFinalHtml(body),
-          segmentFilter: tagFilter ? { tag: tagFilter } : null,
-          templateId: selectedTemplate?.id || null,
-        }),
-      })
+      const res = editingId
+        ? await fetch(`/api/campaigns/${editingId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify(payload),
+          })
+        : await fetch('/api/campaigns', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify(payload),
+          })
       const data = await res.json()
-      if (data.ok) { setName(''); setSubject(''); setBody(''); setTagFilter(''); setShowCreate(false); setSelectedTemplate(null); loadCampaigns() }
+      if (data.ok) { setName(''); setSubject(''); setBody(''); setTagFilter(''); setShowCreate(false); setSelectedTemplate(null); setEditingId(null); loadCampaigns() }
     } catch {}
     setCreating(false)
   }
 
   async function sendCampaign(id: string) {
-    if (!confirm('Send this campaign to all matching contacts?')) return
+    if (!confirm('Send this blast to all matching contacts?')) return
     setSending(id)
     try {
       const res = await fetch(`/api/campaigns/${id}/send`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
       })
       const data = await res.json()
-      if (data.ok) alert(`Campaign sent to ${data.data.sent} of ${data.data.total} contacts.`)
-      else alert(data.error || 'Send failed')
+      if (data.ok) alert(`Blast sent to ${data.data.sent} of ${data.data.total} contacts.`)
+      else alert(data.error || 'Failed to send blast')
       loadCampaigns()
-    } catch { alert('Failed') }
+    } catch { alert('Failed to send blast') }
     setSending(null)
   }
 
   async function draftWithAI() {
-    if (!name.trim()) return
     setDrafting(true)
     try {
+      const parts: string[] = []
+      if (name.trim()) parts.push(`Blast name: ${name}`)
+      if (aiDraftPrompt.trim()) parts.push(`User instructions: ${aiDraftPrompt}`)
+      if (parts.length === 0) parts.push('Write a general marketing email blast')
+      parts.push('IMPORTANT: Use {{firstName}} to personalize the greeting (e.g. "Hi {{firstName}},"). Available variables: {{firstName}}, {{name}}, {{email}}.')
+      const context = parts.join('. ')
       const res = await fetch('/api/ai/draft-email', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ contactName: 'valued subscriber', purpose: 'campaign', context: `Campaign name: ${name}` }),
+        body: JSON.stringify({ contactName: '{{firstName}}', purpose: 'campaign', context }),
       })
       const data = await res.json()
-      if (data.ok) { setSubject(data.subject); setBody(data.body) }
+      if (data.ok) { setSubject(data.subject); setBody(data.body); setShowAiPrompt(false); setAiDraftPrompt('') }
     } catch {}
     setDrafting(false)
-  }
-
-  async function generateAiTemplate() {
-    setGeneratingTemplate(true)
-    try {
-      const res = await fetch('/api/ai/generate-email-template', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({
-          brandColors: { primary: aiPrimary, secondary: aiSecondary, background: aiBg },
-          tone: aiTone,
-          layoutPreference: aiLayout,
-        }),
-      })
-      const data = await res.json()
-      if (data.ok && data.htmlTemplate) {
-        const saveRes = await fetch('/api/email/templates', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-          body: JSON.stringify({ name: `AI: ${aiTone} ${aiLayout}`, category: 'general', htmlTemplate: data.htmlTemplate }),
-        })
-        const saveData = await saveRes.json()
-        if (saveData.ok) {
-          setShowAiGen(false)
-          loadTemplates()
-        }
-      } else {
-        alert(data.error || 'Failed to generate template')
-      }
-    } catch { alert('Failed to generate template') }
-    setGeneratingTemplate(false)
   }
 
   async function deleteTemplate(id: string) {
@@ -208,18 +254,23 @@ export default function CampaignsPage() {
   }, {})
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-lg font-semibold">Email Campaigns</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Send broadcasts to your contact list</p>
+    <div className={embedded ? '' : 'p-6 max-w-4xl mx-auto'}>
+      {!embedded && (
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-lg font-semibold">Email Blasts</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Send blasts to your contact list</p>
+          </div>
         </div>
+      )}
+      <div className={`flex items-center justify-between ${embedded ? 'mb-4' : 'mb-6'}`}>
+        <div />
         <Button type="button" size="sm" onClick={openCreate}>
-          <Plus className="size-3.5 mr-1.5" /> New Campaign
+          <Plus className="size-3.5 mr-1.5" /> New Blast
         </Button>
       </div>
 
-      {/* Create Campaign Flow */}
+      {/* Create Blast Flow */}
       {showCreate && (
         <div className="rounded-lg border bg-card p-5 mb-6 space-y-4">
           {/* Step 1: Template Selection */}
@@ -228,72 +279,10 @@ export default function CampaignsPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <LayoutTemplate className="size-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">Choose a Template</h3>
+                  <h3 className="text-sm font-semibold">Choose a Style</h3>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowAiGen(!showAiGen)}>
-                    <Sparkles className="size-3 mr-1.5" /> AI Generate
-                  </Button>
-                  <IconButton type="button" variant="ghost" size="sm" onClick={() => setShowCreate(false)} aria-label="Close"><X className="size-4" /></IconButton>
-                </div>
+                <IconButton type="button" variant="ghost" size="sm" onClick={() => setShowCreate(false)} aria-label="Close"><X className="size-4" /></IconButton>
               </div>
-
-              {/* AI Template Generator */}
-              {showAiGen && (
-                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground">Generate a custom template with AI</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Primary Color</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={aiPrimary} onChange={e => setAiPrimary(e.target.value)} className="w-8 h-8 rounded border cursor-pointer" />
-                        <Input value={aiPrimary} onChange={e => setAiPrimary(e.target.value)} className="h-8 text-xs flex-1" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Secondary Color</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={aiSecondary} onChange={e => setAiSecondary(e.target.value)} className="w-8 h-8 rounded border cursor-pointer" />
-                        <Input value={aiSecondary} onChange={e => setAiSecondary(e.target.value)} className="h-8 text-xs flex-1" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Background</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={aiBg} onChange={e => setAiBg(e.target.value)} className="w-8 h-8 rounded border cursor-pointer" />
-                        <Input value={aiBg} onChange={e => setAiBg(e.target.value)} className="h-8 text-xs flex-1" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Tone</label>
-                      <select value={aiTone} onChange={e => setAiTone(e.target.value)} className="w-full h-8 rounded-md border bg-card px-2 text-xs">
-                        <option value="professional">Professional</option>
-                        <option value="casual">Casual & Friendly</option>
-                        <option value="bold">Bold & Energetic</option>
-                        <option value="elegant">Elegant & Minimal</option>
-                        <option value="playful">Playful & Fun</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Layout</label>
-                      <select value={aiLayout} onChange={e => setAiLayout(e.target.value)} className="w-full h-8 rounded-md border bg-card px-2 text-xs">
-                        <option value="standard single column">Single Column</option>
-                        <option value="two column with sidebar">Two Column with Sidebar</option>
-                        <option value="hero image with content below">Hero + Content</option>
-                        <option value="card-based grid layout">Card Grid</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button type="button" size="sm" onClick={generateAiTemplate} disabled={generatingTemplate}>
-                      {generatingTemplate ? <Loader2 className="size-3 animate-spin mr-1.5" /> : <Paintbrush className="size-3 mr-1.5" />}
-                      {generatingTemplate ? 'Generating...' : 'Generate Template'}
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               {loadingTemplates ? (
                 <div className="flex items-center justify-center py-12">
@@ -305,7 +294,7 @@ export default function CampaignsPage() {
                   <button
                     type="button"
                     onClick={() => selectTemplate(null)}
-                    className="w-full flex items-center gap-3 rounded-md border border-dashed p-3 hover:bg-muted/50 transition text-left"
+                    className="w-full flex items-center gap-3 rounded-md border border p-3 hover:bg-muted/50 transition text-left"
                   >
                     <div className="w-16 h-12 rounded bg-muted flex items-center justify-center shrink-0">
                       <Mail className="size-5 text-muted-foreground/50" />
@@ -316,14 +305,9 @@ export default function CampaignsPage() {
                     </div>
                   </button>
 
-                  {/* Grouped Templates */}
-                  {Object.entries(groupedTemplates).map(([category, catTemplates]) => (
-                    <div key={category}>
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-3">
-                        {CATEGORY_LABELS[category] || category}
-                      </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {catTemplates.map(t => (
+                  {/* Templates */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                    {templates.map(t => (
                           <div key={t.id} className="group relative">
                             <button
                               type="button"
@@ -344,7 +328,7 @@ export default function CampaignsPage() {
                               <div className="px-3 py-2 border-t">
                                 <p className="text-xs font-medium truncate">{t.name}</p>
                                 <div className="flex items-center justify-between mt-0.5">
-                                  <span className="text-[10px] text-muted-foreground">{CATEGORY_LABELS[t.category] || t.category}</span>
+                                  <span className="text-[10px] text-muted-foreground">{STYLE_LABELS[t.category] || t.category}</span>
                                   {t.is_default && <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground">Default</span>}
                                 </div>
                               </div>
@@ -360,10 +344,8 @@ export default function CampaignsPage() {
                               )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </>
               )}
             </>
@@ -377,7 +359,7 @@ export default function CampaignsPage() {
                   <button type="button" onClick={() => setStep('template')} className="text-muted-foreground hover:text-foreground transition">
                     <ArrowLeft className="size-4" />
                   </button>
-                  <h3 className="text-sm font-semibold">New Campaign</h3>
+                  <h3 className="text-sm font-semibold">{editingId ? 'Edit Blast' : 'New Blast'}</h3>
                   {selectedTemplate && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       Template: {selectedTemplate.name}
@@ -387,98 +369,148 @@ export default function CampaignsPage() {
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Plain</span>
                   )}
                 </div>
-                <IconButton type="button" variant="ghost" size="sm" onClick={() => setShowCreate(false)} aria-label="Close"><X className="size-4" /></IconButton>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowAiPrompt(!showAiPrompt)} disabled={drafting} className="h-7 text-xs">
+                    {drafting ? <Loader2 className="size-3 animate-spin mr-1" /> : <Sparkles className="size-3 mr-1" />} AI Draft
+                  </Button>
+                  <IconButton type="button" variant="ghost" size="sm" onClick={() => setShowCreate(false)} aria-label="Close"><X className="size-4" /></IconButton>
+                </div>
               </div>
-              <div className="grid gap-3">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Campaign Name</label>
-                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. March Newsletter" className="h-9 text-sm" autoFocus />
+              {showAiPrompt && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <p className="text-[11px] text-muted-foreground">Describe what you want to say (optional):</p>
+                  <textarea value={aiDraftPrompt} onChange={e => setAiDraftPrompt(e.target.value)}
+                    placeholder="e.g. Announce our new coaching program launching next month, mention the early bird discount"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring h-16" />
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" onClick={draftWithAI} disabled={drafting} className="h-7 text-xs">
+                      {drafting ? <><Loader2 className="size-3 animate-spin mr-1" /> Generating...</> : <><Sparkles className="size-3 mr-1" /> Generate</>}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setShowAiPrompt(false); setAiDraftPrompt('') }} className="h-7 text-xs">Cancel</Button>
                   </div>
-                  <div className="w-40">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Filter by Tag</label>
-                    <Input value={tagFilter} onChange={e => setTagFilter(e.target.value)} placeholder="e.g. newsletter" className="h-9 text-sm" />
+                </div>
+              )}
+
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Blast Name</label>
+                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. March Newsletter" className="h-9 text-sm" autoFocus />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Send To</label>
+                  <div className="flex gap-2">
+                    <select value={audienceType} onChange={e => {
+                      setAudienceType(e.target.value as 'all' | 'list' | 'tag')
+                      if (e.target.value === 'list' && !listsLoaded) {
+                        setListsLoaded(true)
+                        fetch('/api/email-lists', { credentials: 'include' }).then(r => r.json())
+                          .then(d => { if (d.ok) setAvailableLists(d.data || []) }).catch(() => {})
+                      }
+                    }} className="h-9 text-sm rounded-md border bg-background px-2 flex-1">
+                      <option value="all">All contacts with email</option>
+                      <option value="list">A mailing list</option>
+                      <option value="tag">Contacts with a specific tag</option>
+                    </select>
+                    {audienceType === 'list' && (
+                      <select value={selectedListId} onChange={e => setSelectedListId(e.target.value)}
+                        className="h-9 text-sm rounded-md border bg-background px-2 flex-1">
+                        <option value="">Select a list...</option>
+                        {availableLists.map(l => <option key={l.id} value={l.id}>{l.name} ({l.member_count})</option>)}
+                      </select>
+                    )}
+                    {audienceType === 'tag' && (
+                      <select value={tagFilter} onChange={e => setTagFilter(e.target.value)}
+                        onFocus={() => {
+                          if (!tagsLoaded) {
+                            setTagsLoaded(true)
+                            fetch('/api/crm-contact-tags', { credentials: 'include' }).then(r => r.json())
+                              .then(d => { if (d.ok) setAvailableTags((d.data || []).map((t: any) => ({ slug: t.slug || t.id, name: t.name || t.label }))) }).catch(() => {})
+                          }
+                        }}
+                        className="h-9 text-sm rounded-md border bg-background px-2 flex-1">
+                        <option value="">Select a tag...</option>
+                        {availableTags.map(t => <option key={t.slug} value={t.slug}>{t.name}</option>)}
+                      </select>
+                    )}
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Subject Line</label>
-                    <Button type="button" variant="outline" size="sm" onClick={async () => {
-                      if (!subject.trim()) return
-                      setOptimizing(true); setSubjectFeedback(null)
-                      try {
-                        const res = await fetch('/api/ai/optimize-subject', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-                          body: JSON.stringify({ subject }),
-                        })
-                        const data = await res.json()
-                        if (data.ok) setSubjectFeedback({ score: data.score, feedback: data.feedback, alternatives: data.alternatives })
-                      } catch {}
-                      setOptimizing(false)
-                    }} disabled={optimizing || !subject.trim()} className="h-6 text-[10px] px-2">
-                      {optimizing ? <Loader2 className="size-3 animate-spin mr-1" /> : <Wand2 className="size-3 mr-1" />} Optimize
-                    </Button>
-                  </div>
-                  <Input value={subject} onChange={e => { setSubject(e.target.value); setSubjectFeedback(null) }} placeholder="Your email subject" className="h-9 text-sm" />
-                  {subjectFeedback && (
-                    <div className="mt-2 rounded border bg-muted/30 p-2.5 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold ${subjectFeedback.score >= 7 ? 'text-emerald-600' : subjectFeedback.score >= 4 ? 'text-amber-600' : 'text-red-600'}`}>
-                          {subjectFeedback.score}/10
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{subjectFeedback.feedback}</span>
-                      </div>
-                      {subjectFeedback.alternatives?.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] text-muted-foreground font-medium">Suggestions:</p>
-                          {subjectFeedback.alternatives.map((alt, i) => (
-                            <button key={i} type="button" onClick={() => { setSubject(alt); setSubjectFeedback(null) }}
-                              className="block w-full text-left text-[11px] px-2 py-1 rounded hover:bg-muted transition truncate">
-                              {alt}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Subject Line</label>
+                  <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Your email subject" className="h-9 text-sm" />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Email Body</label>
-                    <Button type="button" variant="outline" size="sm" onClick={draftWithAI} disabled={drafting || !name.trim()} className="h-6 text-[10px] px-2">
-                      {drafting ? <Loader2 className="size-3 animate-spin mr-1" /> : <Sparkles className="size-3 mr-1" />} AI Draft
-                    </Button>
-                  </div>
+                  <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Email Body</label>
                   <textarea value={body} onChange={e => setBody(e.target.value)}
                     placeholder="Write your email... Use {{firstName}} for personalization."
                     className="w-full rounded-md border bg-card px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring h-32" />
                   <p className="text-[10px] text-muted-foreground mt-1">Variables: {'{{firstName}}'}, {'{{name}}'}, {'{{email}}'}</p>
                 </div>
-
-                {/* Template Preview */}
-                {selectedTemplate && body.trim() && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Preview</label>
-                    </div>
-                    <div className="rounded-md border overflow-hidden bg-white">
-                      <iframe
-                        srcDoc={buildFinalHtml(body)}
-                        className="w-full h-64 pointer-events-none"
-                        title="Template Preview"
-                        sandbox=""
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button type="button" variant="outline" size="sm" onClick={() => setStep('template')}>
                   <ArrowLeft className="size-3 mr-1" /> Change Template
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
-                <Button type="button" size="sm" onClick={createCampaign} disabled={creating || !name.trim() || !subject.trim() || !body.trim()}>
-                  {creating ? <Loader2 className="size-3 animate-spin mr-1" /> : <Mail className="size-3 mr-1" />} Create Campaign
+                <Button type="button" size="sm" onClick={() => setStep('preview')} disabled={!name.trim() || !subject.trim() || !body.trim()}>
+                  Preview Blast
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Step 3: Preview */}
+          {step === 'preview' && (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setStep('compose')} className="text-muted-foreground hover:text-foreground transition">
+                    <ArrowLeft className="size-4" />
+                  </button>
+                  <h3 className="text-sm font-semibold">Preview Blast</h3>
+                </div>
+                <IconButton type="button" variant="ghost" size="sm" onClick={() => setShowCreate(false)} aria-label="Close"><X className="size-4" /></IconButton>
+              </div>
+
+              <div className="rounded-lg border overflow-hidden">
+                <div className="bg-muted/30 px-4 py-3 border-b">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Blast Name</p>
+                      <p className="text-sm font-medium">{name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Audience</p>
+                      <p className="text-sm font-medium">
+                        {audienceType === 'all' ? 'All contacts' : audienceType === 'list' ? availableLists.find(l => l.id === selectedListId)?.name || 'Selected list' : `Tag: ${tagFilter}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-4 py-3 border-b">
+                  <p className="text-xs text-muted-foreground mb-0.5">Subject</p>
+                  <p className="text-sm font-medium">{subject}</p>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Email Body</p>
+                      <iframe
+                    srcDoc={buildFinalHtml(body, true)}
+                    className="w-full h-[300px] rounded border"
+                    sandbox=""
+                  />
+                </div>
+              </div>
+
+              {selectedTemplate && (
+                <p className="text-xs text-muted-foreground">Template: {selectedTemplate.name} ({STYLE_LABELS[selectedTemplate.category] || selectedTemplate.category})</p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button type="button" variant="outline" size="sm" onClick={() => setStep('compose')}>
+                  <ArrowLeft className="size-3 mr-1" /> Edit
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button type="button" size="sm" onClick={saveCampaign} disabled={creating}>
+                  {creating ? <Loader2 className="size-3 animate-spin mr-1" /> : <Mail className="size-3 mr-1" />} {editingId ? 'Save Blast' : 'Create Blast'}
                 </Button>
               </div>
             </>
@@ -493,7 +525,7 @@ export default function CampaignsPage() {
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div>
                 <p className="text-sm font-semibold">{previewTemplate.name}</p>
-                <p className="text-[10px] text-muted-foreground">{CATEGORY_LABELS[previewTemplate.category] || previewTemplate.category}</p>
+                <p className="text-[10px] text-muted-foreground">{STYLE_LABELS[previewTemplate.category] || previewTemplate.category}</p>
               </div>
               <IconButton type="button" variant="ghost" size="sm" onClick={() => setPreviewTemplate(null)} aria-label="Close">
                 <X className="size-4" />
@@ -523,48 +555,84 @@ export default function CampaignsPage() {
       campaigns.length === 0 ? (
         <div className="rounded-lg border p-12 text-center">
           <Mail className="size-8 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">No campaigns yet. Create one to send a broadcast to your contacts.</p>
+          <p className="text-sm text-muted-foreground">No blasts yet. Create one to send a message to people on your lists.</p>
         </div>
       ) : (
         <div className="rounded-lg border divide-y">
           {campaigns.map(c => {
             const stats = typeof c.stats === 'string' ? JSON.parse(c.stats) : c.stats
+            const isExpanded = expandedId === c.id
+            const segFilter = c.segment_filter ? (typeof c.segment_filter === 'string' ? JSON.parse(c.segment_filter) : c.segment_filter) : null
+            const audience = segFilter?.type === 'list' ? 'Mailing list' : segFilter?.type === 'tag' ? `Tag: ${segFilter.tag}` : 'All contacts'
             return (
-              <div key={c.id} className="flex items-center gap-4 px-5 py-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{c.name}</p>
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusColors[c.status] || ''}`}>{c.status}</span>
+              <div key={c.id}>
+                <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-muted/30 transition" onClick={() => setExpandedId(isExpanded ? null : c.id)}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{c.name}</p>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusColors[c.status] || ''}`}>{c.status}</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{c.subject}</p>
+                  {c.status === 'sent' && stats && (
+                    <div className="flex gap-4 text-xs text-muted-foreground tabular-nums shrink-0">
+                      <span>{stats.sent || 0} sent</span>
+                      <span>{stats.opened || 0} opened</span>
+                      <span>{stats.clicked || 0} clicked</span>
+                    </div>
+                  )}
+                  {c.status === 'draft' && (
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => openEdit(c)}>
+                        <Pencil className="size-3 mr-1" /> Edit
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={async () => {
+                        setTesting(c.id)
+                        try {
+                          const res = await fetch(`/api/campaigns/${c.id}/test`, { method: 'POST', credentials: 'include' })
+                          const data = await res.json()
+                          if (data.ok) alert(`Test email sent to ${data.sentTo}`)
+                          else alert(data.error || 'Failed to send test')
+                        } catch { alert('Failed to send test') }
+                        setTesting(null)
+                      }} disabled={testing === c.id}>
+                        {testing === c.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <FlaskConical className="size-3 mr-1" />} Test
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => sendCampaign(c.id)} disabled={sending === c.id}>
+                        {sending === c.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <Send className="size-3 mr-1" />} Send
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                    <IconButton type="button" variant="ghost" size="sm" onClick={() => deleteCampaign(c.id)} aria-label="Delete">
+                      <Trash2 className="size-3.5 text-red-500" />
+                    </IconButton>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{new Date(c.created_at).toLocaleDateString()}</span>
                 </div>
-                {c.status === 'sent' && stats && (
-                  <div className="flex gap-4 text-xs text-muted-foreground tabular-nums shrink-0">
-                    <span>{stats.sent || 0} sent</span>
-                    <span>{stats.opened || 0} opened</span>
-                    <span>{stats.clicked || 0} clicked</span>
+                {isExpanded && (
+                  <div className="px-5 pb-4 space-y-3 bg-muted/10">
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <p className="text-muted-foreground mb-0.5">Audience</p>
+                        <p className="font-medium">{audience}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground mb-0.5">Subject</p>
+                        <p className="font-medium">{c.subject}</p>
+                      </div>
+                    </div>
+                    {c.body_html && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Body</p>
+                        <iframe
+                          srcDoc={c.body_html}
+                          className="w-full h-[200px] rounded border bg-white"
+                          sandbox=""
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
-                {c.status === 'draft' && (
-                  <div className="flex gap-1">
-                    <Button type="button" variant="outline" size="sm" onClick={async () => {
-                      setTesting(c.id)
-                      try {
-                        const res = await fetch(`/api/campaigns/${c.id}/test`, { method: 'POST', credentials: 'include' })
-                        const data = await res.json()
-                        if (data.ok) alert(`Test email sent to ${data.sentTo}`)
-                        else alert(data.error || 'Failed to send test')
-                      } catch { alert('Failed') }
-                      setTesting(null)
-                    }} disabled={testing === c.id}>
-                      {testing === c.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <FlaskConical className="size-3 mr-1" />} Test
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => sendCampaign(c.id)} disabled={sending === c.id}>
-                      {sending === c.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <Send className="size-3 mr-1" />} Send
-                    </Button>
-                  </div>
-                )}
-                <span className="text-xs text-muted-foreground shrink-0">{new Date(c.created_at).toLocaleDateString()}</span>
               </div>
             )
           })}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { trackEngagement } from '@/app/api/engagement/score'
+import { dispatchWebhook } from '@/app/api/webhooks/dispatch'
 
 export const metadata = { GET: { requireAuth: false } }
 
@@ -29,6 +30,12 @@ export async function GET(req: Request, { params }: { params: { trackingId: stri
           opened_at: now,
         }).catch(() => {})
       }
+      dispatchWebhook(knex, msg.organization_id, 'email.opened', {
+        emailId: msg.id,
+        contactEmail: msg.to_address,
+        contactId: msg.contact_id,
+        trackingId: params.trackingId,
+      }).catch(() => {})
     }
   } catch (error) {
     console.error('[email.track.open] failed', error)

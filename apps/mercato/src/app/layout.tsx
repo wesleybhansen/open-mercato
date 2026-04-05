@@ -20,11 +20,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'CRM',
-  description: 'Simple CRM for entrepreneurs',
+  title: 'LaunchOS',
+  description: 'The all-in-one operating system for your business',
   icons: {
-    icon: '/open-mercato.svg',
+    icon: '/launchos-logo.png',
   },
+  manifest: '/manifest.webmanifest',
 }
 
 export default async function RootLayout({

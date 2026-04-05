@@ -7,10 +7,10 @@
   "onboarding.email.body": "Musimy tylko potwierdzić Twój adres email, aby dokończyć konfigurację organizacji {organizationName}.",
   "onboarding.email.cta": "Potwierdź email i aktywuj obszar roboczy",
   "onboarding.email.expiry": "Link wygaśnie za 24 godziny. Jeśli nie składałeś(-aś) tego wniosku, możesz bezpiecznie zignorować tę wiadomość.",
-  "onboarding.email.footer": "Open Mercato · Usługa onboardingu tenantów",
+  "onboarding.email.footer": "LaunchOS · Usługa onboardingu tenantów",
   "onboarding.email.greeting": "Witaj {firstName},",
-  "onboarding.email.heading": "Witamy w Open Mercato",
-  "onboarding.email.preview": "Potwierdź swój email, aby aktywować obszar roboczy Open Mercato",
+  "onboarding.email.heading": "Witamy w LaunchOS",
+  "onboarding.email.preview": "Potwierdź swój email, aby aktywować obszar roboczy LaunchOS",
   "onboarding.email.subject": "Potwierdź swój email, aby dokończyć onboarding",
   "onboarding.errors.emailExists": "Mamy już konto z tym adresem email. Spróbuj się zalogować lub zresetować hasło.",
   "onboarding.errors.emailInvalid": "Podaj prawidłowy służbowy adres email.",
@@ -44,5 +44,5 @@
   "onboarding.password.requirements.special": "Jeden znak specjalny",
   "onboarding.password.requirements.uppercase": "Jedna wielka litera",
   "onboarding.subtitle": "Opowiedz nam trochę o sobie, a my wszystko skonfigurujemy.",
-  "onboarding.title": "Utwórz swój obszar roboczy Open Mercato"
+  "onboarding.title": "Utwórz swój obszar roboczy LaunchOS"
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Plus, Zap, Trash2, Mail, CheckSquare, UserCog, Bell, X, Loader2 } from 'lucide-react'
+import { Plus, Zap, Trash2, Mail, CheckSquare, UserCog, Bell, X, Loader2, ClipboardList } from 'lucide-react'
 
 type Automation = {
   id: string; trigger_stage: string; action_type: string
@@ -13,6 +13,7 @@ type Automation = {
 
 const actionTypes = [
   { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send an automated email to the contact' },
+  { id: 'send_survey', label: 'Send Survey', icon: ClipboardList, description: 'Email a survey link to the contact' },
   { id: 'create_task', label: 'Create Task', icon: CheckSquare, description: 'Create a follow-up task' },
   { id: 'update_contact', label: 'Update Contact', icon: UserCog, description: 'Change contact lifecycle stage or status' },
   { id: 'notify', label: 'Log Activity', icon: Bell, description: 'Log an activity note on the contact' },
@@ -36,6 +37,10 @@ export default function AutomationsPage() {
   const [contactField, setContactField] = useState('lifecycle_stage')
   const [contactValue, setContactValue] = useState('customer')
   const [notifyMessage, setNotifyMessage] = useState('')
+  const [surveyId, setSurveyId] = useState('')
+  const [surveyMessage, setSurveyMessage] = useState('')
+  const [availableSurveys, setAvailableSurveys] = useState<Array<{ id: string; title: string }>>([])
+  const [surveysLoaded, setSurveysLoaded] = useState(false)
 
   useEffect(() => {
     loadAutomations()
@@ -79,6 +84,7 @@ export default function AutomationsPage() {
     let actionConfig: any = {}
     switch (actionType) {
       case 'send_email': actionConfig = { subject: emailSubject, body: emailBody }; break
+      case 'send_survey': actionConfig = { surveyId, message: surveyMessage }; break
       case 'create_task': actionConfig = { taskTitle, dueDays: parseInt(taskDueDays) || 3 }; break
       case 'update_contact': actionConfig = { field: contactField, value: contactValue }; break
       case 'notify': actionConfig = { message: notifyMessage }; break
@@ -101,8 +107,16 @@ export default function AutomationsPage() {
     loadAutomations()
   }
 
-  const actionIcons: Record<string, any> = { send_email: Mail, create_task: CheckSquare, update_contact: UserCog, notify: Bell }
-  const actionLabels: Record<string, string> = { send_email: 'Send Email', create_task: 'Create Task', update_contact: 'Update Contact', notify: 'Log Activity' }
+  const actionIcons: Record<string, any> = { send_email: Mail, send_survey: ClipboardList, create_task: CheckSquare, update_contact: UserCog, notify: Bell }
+  const actionLabels: Record<string, string> = { send_email: 'Send Email', send_survey: 'Send Survey', create_task: 'Create Task', update_contact: 'Update Contact', notify: 'Log Activity' }
+
+  // Load surveys when send_survey is selected
+  if (actionType === 'send_survey' && !surveysLoaded) {
+    setSurveysLoaded(true)
+    fetch('/api/surveys', { credentials: 'include' }).then(r => r.json()).then(d => {
+      if (d.ok) setAvailableSurveys((d.data || []).filter((s: any) => s.is_active).map((s: any) => ({ id: s.id, title: s.title })))
+    }).catch(() => {})
+  }
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -155,6 +169,23 @@ export default function AutomationsPage() {
               <Input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="Email subject" className="h-9 text-sm" />
               <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder="Email body (HTML supported)"
                 className="w-full rounded-md border bg-card px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring h-20" />
+            </div>
+          )}
+          {actionType === 'send_survey' && (
+            <div className="space-y-3 pt-2 border-t">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Select Survey</label>
+                <select value={surveyId} onChange={e => setSurveyId(e.target.value)}
+                  className="w-full h-9 rounded-lg border bg-background px-3 text-sm">
+                  <option value="">Choose a survey...</option>
+                  {availableSurveys.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Email Message (optional)</label>
+                <Input value={surveyMessage} onChange={e => setSurveyMessage(e.target.value)}
+                  placeholder="We'd love to hear your thoughts..." className="h-9 text-sm" />
+              </div>
             </div>
           )}
           {actionType === 'create_task' && (

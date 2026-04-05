@@ -5,7 +5,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Plus, Globe, Eye, FileText, Trash2, ExternalLink, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Globe, Eye, FileText, Trash2, ExternalLink, ToggleLeft, ToggleRight, Pencil, Download } from 'lucide-react'
 
 type LandingPage = {
   id: string
@@ -28,7 +28,7 @@ export default function LandingPagesListPage() {
   const [loading, setLoading] = useState(true)
 
   const loadPages = useCallback(() => {
-    fetch('/api/landing_pages/pages')
+    fetch('/api/pages')
       .then((r) => r.json())
       .then((d) => { if (d.ok) setPages(d.data); setLoading(false) })
       .catch(() => setLoading(false))
@@ -40,7 +40,7 @@ export default function LandingPagesListPage() {
     e.stopPropagation()
     const newStatus = page.status === 'published' ? 'draft' : 'published'
     try {
-      const res = await fetch(`/api/landing_pages/pages/${page.id}`, {
+      const res = await fetch(`/api/pages/${page.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -55,7 +55,7 @@ export default function LandingPagesListPage() {
     e.stopPropagation()
     if (!confirm(`Delete "${page.title}"?`)) return
     try {
-      await fetch(`/api/landing_pages/pages/${page.id}`, { method: 'DELETE' })
+      await fetch(`/api/pages/${page.id}`, { method: 'DELETE' })
       loadPages()
     } catch { alert('Failed to delete') }
   }
@@ -94,7 +94,6 @@ export default function LandingPagesListPage() {
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Title</th>
-                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">URL</th>
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Status</th>
                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Views</th>
                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Leads</th>
@@ -108,7 +107,6 @@ export default function LandingPagesListPage() {
                 return (
                   <tr key={page.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium text-sm">{page.title}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">/p/{page.slug}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColors[page.status] || ''}`}>
                         {page.status === 'published' && <Globe className="size-3 mr-1" />}
@@ -129,15 +127,51 @@ export default function LandingPagesListPage() {
                         >
                           {page.status === 'published' ? <ToggleRight className="size-4 text-emerald-600" /> : <ToggleLeft className="size-4" />}
                         </IconButton>
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          aria-label="Edit page"
+                          onClick={() => window.location.href = `/backend/landing-pages/edit?id=${page.id}`}
+                        >
+                          <Pencil className="size-4" />
+                        </IconButton>
                         {page.status === 'published' && (
                           <IconButton
                             variant="ghost"
                             size="sm"
                             type="button"
                             aria-label="View live page"
-                            onClick={(e) => { e.stopPropagation(); window.open(`/api/landing_pages/public/${page.slug}`, '_blank') }}
+                            onClick={(e) => { e.stopPropagation(); window.open(`/api/landing-pages/public/${page.slug}`, '_blank') }}
                           >
                             <ExternalLink className="size-4" />
+                          </IconButton>
+                        )}
+                        {page.status === 'published' && (
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            type="button"
+                            aria-label="Download HTML"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              try {
+                                const res = await fetch(`/api/landing-pages/public/${page.slug}`)
+                                if (!res.ok) { alert('Page not available for download'); return }
+                                const html = await res.text()
+                                const blob = new Blob([html], { type: 'text/html' })
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = page.slug + '.html'
+                                document.body.appendChild(a)
+                                a.click()
+                                document.body.removeChild(a)
+                                URL.revokeObjectURL(url)
+                              } catch { alert('Download failed') }
+                            }}
+                          >
+                            <Download className="size-4" />
                           </IconButton>
                         )}
                         <IconButton

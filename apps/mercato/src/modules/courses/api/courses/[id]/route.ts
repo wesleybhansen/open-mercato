@@ -6,6 +6,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['courses.view'] },
   PUT: { requireAuth: true, requireFeatures: ['courses.manage'] },
+  DELETE: { requireAuth: true, requireFeatures: ['courses.manage'] },
 }
 
 export async function GET(req: Request, ctx: any) {
@@ -47,6 +48,10 @@ export async function PUT(req: Request, ctx: any) {
     if (body.price !== undefined) update.price = body.price
     if (body.isFree !== undefined) update.is_free = body.isFree
     if (body.isPublished !== undefined) update.is_published = body.isPublished
+    if (body.slug !== undefined) update.slug = body.slug
+    if (body.termsText !== undefined) update.terms_text = body.termsText
+    if (body.landingCopy !== undefined) update.landing_copy = JSON.stringify(body.landingCopy)
+    if (body.landingStyle !== undefined) update.landing_style = body.landingStyle
 
     // Add/update modules and lessons
     if (body.modules && Array.isArray(body.modules)) {
@@ -65,14 +70,22 @@ export async function PUT(req: Request, ctx: any) {
             const lesson = mod.lessons[j]
             if (lesson.id) {
               await knex('course_lessons').where('id', lesson.id).update({
-                title: lesson.title, content: lesson.content || null, content_type: lesson.contentType || 'text',
-                video_url: lesson.videoUrl || null, sort_order: j, drip_days: lesson.dripDays || null,
+                title: lesson.title, description: lesson.description || null,
+                content: lesson.content || null, content_type: lesson.contentType || 'text',
+                video_url: lesson.videoUrl || null, file_url: lesson.fileUrl || null, sort_order: j,
+                drip_days: lesson.dripDays ? Number(lesson.dripDays) : null,
+                is_free_preview: lesson.isFreePreview || false,
+                duration_minutes: lesson.durationMinutes ? Number(lesson.durationMinutes) : null,
               })
             } else {
               await knex('course_lessons').insert({
                 id: require('crypto').randomUUID(), module_id: mod.id,
-                title: lesson.title, content: lesson.content || null, content_type: lesson.contentType || 'text',
-                video_url: lesson.videoUrl || null, sort_order: j, drip_days: lesson.dripDays || null,
+                title: lesson.title, description: lesson.description || null,
+                content: lesson.content || null, content_type: lesson.contentType || 'text',
+                video_url: lesson.videoUrl || null, file_url: lesson.fileUrl || null, sort_order: j,
+                drip_days: lesson.dripDays ? Number(lesson.dripDays) : null,
+                is_free_preview: lesson.isFreePreview || false,
+                duration_minutes: lesson.durationMinutes ? Number(lesson.durationMinutes) : null,
               })
             }
           }
@@ -88,7 +101,27 @@ export async function PUT(req: Request, ctx: any) {
   }
 }
 
+export async function DELETE(req: Request, ctx: any) {
+  const auth = ctx?.auth
+  if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  try {
+    const container = await createRequestContainer()
+    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const id = ctx.params?.id
+
+    await knex('courses').where('id', id).where('organization_id', auth.orgId).update({ deleted_at: new Date(), updated_at: new Date() })
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[courses.delete]', error)
+    return NextResponse.json({ ok: false, error: 'Failed' }, { status: 500 })
+  }
+}
+
 export const openApi: OpenApiRouteDoc = {
   tag: 'Courses', summary: 'Course detail',
-  methods: { GET: { summary: 'Get course with modules/lessons', tags: ['Courses'] }, PUT: { summary: 'Update course', tags: ['Courses'] } },
+  methods: {
+    GET: { summary: 'Get course with modules/lessons', tags: ['Courses'] },
+    PUT: { summary: 'Update course', tags: ['Courses'] },
+    DELETE: { summary: 'Delete course (soft delete)', tags: ['Courses'] },
+  },
 }

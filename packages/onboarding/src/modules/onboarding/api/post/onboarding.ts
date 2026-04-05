@@ -130,8 +130,8 @@ export async function POST(req: Request) {
     const firstName = request.firstName || parsed.data.firstName
     const subject = translate('onboarding.email.subject', 'Confirm your email to finish onboarding')
     const emailCopy = {
-      preview: translate('onboarding.email.preview', 'Confirm your email to activate your Open Mercato workspace'),
-      heading: translate('onboarding.email.heading', 'Welcome to Open Mercato'),
+      preview: translate('onboarding.email.preview', 'Confirm your email to activate your LaunchOS workspace'),
+      heading: translate('onboarding.email.heading', 'Welcome to LaunchOS'),
       greeting: translate('onboarding.email.greeting', 'Hi {firstName},', { firstName }),
       body: translate(
         'onboarding.email.body',
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         'onboarding.email.expiry',
         "The link will expire in 24 hours. If you didn't request this, you can safely ignore this message.",
       ),
-      footer: translate('onboarding.email.footer', 'Open Mercato · Tenant onboarding service'),
+      footer: translate('onboarding.email.footer', 'LaunchOS · Tenant onboarding service'),
     }
     const emailReact = VerificationEmail({ verifyUrl, copy: emailCopy })
 

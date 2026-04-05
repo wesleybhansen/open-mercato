@@ -12,6 +12,8 @@ const VALID_EVENTS = [
   'deal.stage_changed',
   'deal.won',
   'deal.lost',
+  'email.opened',
+  'email.bounced',
   'invoice.paid',
   'form.submitted',
   'booking.created',

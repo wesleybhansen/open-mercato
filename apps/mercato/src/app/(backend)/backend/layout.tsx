@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers'
 import Script from 'next/script'
 import { createElement, type ReactNode } from 'react'
-import { Users, Kanban, FileText, Mail, Inbox, LayoutDashboard, CreditCard, Settings, CalendarDays, BookOpen, GitBranch, GitMerge, Zap, ClipboardList, MessageCircle, Share2 } from 'lucide-react'
+import { Users, Kanban, FileText, Mail, Inbox, LayoutDashboard, CreditCard, Settings, CalendarDays, BookOpen, GitBranch, GitMerge, Zap, ClipboardList, MessageCircle, Share2, CheckSquare, CalendarCheck, BarChart3, Wrench, Sparkles } from 'lucide-react'
 import { modules } from '@/.mercato/generated/modules.generated'
 import { findBackendMatch } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
@@ -42,6 +42,8 @@ import { AiAssistantIntegration, AiChatHeaderButton } from '@open-mercato/ai-ass
 import { CustomEntity } from '@open-mercato/core/modules/entities/data/entities'
 import { ComponentOverridesBootstrap } from '@/components/ComponentOverridesBootstrap'
 import { AiAssistantWidget } from '@/components/AiAssistantWidget'
+import { FloatingAssistantButton } from '@/components/FloatingAssistantButton'
+import { BackgroundJobs } from '@/components/BackgroundJobs'
 
 type NavItem = {
   href: string
@@ -329,19 +331,47 @@ export default async function BackendLayout({ children, params }: { children: Re
   // Interface mode and onboarding status: read from database only
   let interfaceMode = 'simple'
   let onboardingComplete = false
+  let aiPersonaName = 'AI Assistant'
   try {
-    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const modeContainer = await ensureContainer()
+    const knex = (modeContainer.resolve('em') as EntityManager).getKnex()
     const profile = await knex('business_profiles').where('organization_id', auth.orgId).first()
     if (profile) {
       interfaceMode = profile.interface_mode || 'simple'
       onboardingComplete = !!profile.onboarding_complete
+      aiPersonaName = profile.ai_persona_name || 'AI Assistant'
     }
   } catch {}
 
 
-  const groups: NavGroup[] = interfaceMode === 'simple'
-    ? filterForSimpleMode(allGroups, translate)
-    : allGroups
+  const hiddenSidebarRaw = cookieStore.get('crm_hidden_sidebar')?.value || ''
+  // In advanced mode, filter out irrelevant framework pages
+  const advancedGroups = allGroups.map(g => ({
+    ...g,
+    items: g.items.filter(item => {
+      const irrelevantPaths = ['/backend/dictionaries', '/backend/currencies', '/backend/query-indexes', '/backend/config/attachments']
+      return !irrelevantPaths.some(p => item.href.startsWith(p))
+    }),
+  })).filter(g => g.items.length > 0)
+
+  let groups: NavGroup[] = interfaceMode === 'simple'
+    ? filterForSimpleMode(allGroups, translate, hiddenSidebarRaw, aiPersonaName)
+    : advancedGroups
+
+  // Add admin link for wesley.b.hansen@gmail.com only — append to the last group (Tools)
+  const platformAdminEmails = ['wesley.b.hansen@gmail.com']
+  const isPlatformAdmin = platformAdminEmails.includes(auth?.email || '')
+  if (isPlatformAdmin && groups.length > 0) {
+    const iconClass = 'size-4'
+    const lastGroup = groups[groups.length - 1]
+    lastGroup.items = [...lastGroup.items, {
+      href: '/backend/admin',
+      title: 'Admin Panel',
+      defaultTitle: 'Admin Panel',
+      enabled: true,
+      icon: createElement(Settings, { className: iconClass }),
+    }]
+  }
 
   type NavEntry = NavItem & { group: string }
   const allEntries: NavEntry[] = groups.flatMap((group) =>
@@ -382,18 +412,18 @@ export default async function BackendLayout({ children, params }: { children: Re
       <div className="hidden lg:contents">
         <OrganizationSwitcher />
       </div>
-      {showIntegrationsButton ? <IntegrationsButton /> : null}
-      <SettingsButton />
+      {interfaceMode !== 'simple' && showIntegrationsButton ? <IntegrationsButton /> : null}
+      {interfaceMode !== 'simple' && <SettingsButton />}
       <ProfileDropdown email={auth?.email} />
       <NotificationBellWrapper />
-      <MessagesIcon />
+      {interfaceMode !== 'simple' && <MessagesIcon />}
     </>
   )
 
   const mobileSidebarContent = <OrganizationSwitcher compact />
 
   const deployEnv = process.env.DEPLOY_ENV
-  const baseProductName = translate('appShell.productName', 'Open Mercato')
+  const baseProductName = 'LaunchOS'
   const productName = deployEnv && deployEnv !== 'local'
     ? `${baseProductName} (${deployEnv.charAt(0).toUpperCase() + deployEnv.slice(1)})`
     : baseProductName
@@ -405,8 +435,19 @@ export default async function BackendLayout({ children, params }: { children: Re
   }
 
   return (
-    <>
+    <div className={interfaceMode === 'simple' ? 'simple-mode' : 'advanced-mode'}>
       <Script async src="https://w.appzi.io/w.js?token=TtIV6" strategy="afterInteractive" />
+      {interfaceMode === 'simple' && (
+        <Script id="hide-customize-sidebar" strategy="afterInteractive">{`
+          (function hide(){
+            var btns=document.querySelectorAll('button');
+            btns.forEach(function(b){
+              if(b.textContent&&b.textContent.trim().indexOf('Customize sidebar')!==-1){b.style.display='none'}
+            });
+            setTimeout(hide,2000);
+          })();
+        `}</Script>
+      )}
       <I18nProvider locale={locale} dict={dict}>
         <ComponentOverridesBootstrap>
           <AiAssistantIntegration
@@ -415,7 +456,7 @@ export default async function BackendLayout({ children, params }: { children: Re
           >
             <AppShell
               key={path}
-              productName={productName}
+              productName='LaunchOS'
               email={auth?.email}
               groups={groups}
               currentTitle={currentTitle}
@@ -425,8 +466,10 @@ export default async function BackendLayout({ children, params }: { children: Re
               mobileSidebarSlot={mobileSidebarContent}
               adminNavApi={interfaceMode === 'simple' ? undefined : "/api/auth/admin/nav"}
               version={APP_VERSION}
-              settingsPathPrefixes={settingsPathPrefixes}
-              settingsSections={filteredSettingsSections}
+              settingsPathPrefixes={interfaceMode === 'simple' ? [] : settingsPathPrefixes}
+              settingsSections={interfaceMode === 'simple' ? [] : filteredSettingsSections}
+              hideSettingsFooter={interfaceMode === 'simple'}
+              hideCustomizeSidebar={interfaceMode === 'simple'}
               settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
               profileSections={profileSections}
               profileSectionTitle={translate('profile.page.title', 'Profile')}
@@ -435,12 +478,13 @@ export default async function BackendLayout({ children, params }: { children: Re
               <PageInjectionBoundary path={path} context={injectionContext}>
                 {children}
               </PageInjectionBoundary>
-              <AiAssistantWidget />
             </AppShell>
           </AiAssistantIntegration>
         </ComponentOverridesBootstrap>
       </I18nProvider>
-    </>
+      <FloatingAssistantButton />
+      <BackgroundJobs />
+    </div>
   )
 }
 export const dynamic = 'force-dynamic'
@@ -465,7 +509,7 @@ function adoptSidebarDefaults(groups: NavGroup[]): NavGroup[] {
  * Shows only the essential nav items for solopreneurs and small teams.
  * All modules stay active — just hidden from the sidebar.
  */
-function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallback: string) => string): NavGroup[] {
+function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallback: string) => string, hiddenSidebarCookie?: string, personaName?: string): NavGroup[] {
   // Allowed hrefs in simple mode
   const allowedPaths = new Set([
     '/backend/dashboards',
@@ -486,19 +530,28 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
 
   const iconClass = 'size-4'
 
-  // Dashboard
+  // Dashboard + AI Assistant (no group header — direct links)
   const dashboardItem = allItems.find(i => i.href === '/backend/dashboards')
   simpleGroups.push({
     id: 'simple-main',
     name: '',
     defaultName: '',
-    items: [{
-      href: '/backend/dashboards',
-      title: translate('nav.dashboard', 'Dashboard'),
-      defaultTitle: 'Dashboard',
-      enabled: true,
-      icon: createElement(LayoutDashboard, { className: iconClass }),
-    }],
+    items: [
+      {
+        href: '/backend/dashboards',
+        title: translate('nav.dashboard', 'Dashboard'),
+        defaultTitle: 'Dashboard',
+        enabled: true,
+        icon: createElement(LayoutDashboard, { className: iconClass }),
+      },
+      {
+        href: '/backend/assistant',
+        title: personaName || 'AI Assistant',
+        defaultTitle: 'AI Assistant',
+        enabled: true,
+        icon: createElement(Sparkles, { className: iconClass }),
+      },
+    ],
     weight: 0,
   })
 
@@ -537,25 +590,25 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         icon: createElement(CalendarDays, { className: iconClass }),
       },
       {
-        href: '/backend/automation-rules',
+        href: '/backend/automations-v2',
         title: translate('nav.automations', 'Automations'),
         defaultTitle: 'Automations',
         enabled: true,
         icon: createElement(Zap, { className: iconClass }),
       },
       {
-        href: '/backend/chat',
-        title: translate('nav.chat', 'Chat'),
-        defaultTitle: 'Chat',
+        href: '/backend/inbox',
+        title: translate('nav.inbox', 'Inbox'),
+        defaultTitle: 'Inbox',
         enabled: true,
-        icon: createElement(MessageCircle, { className: iconClass }),
+        icon: createElement(Inbox, { className: iconClass }),
       },
       {
-        href: '/backend/affiliates',
-        title: translate('nav.affiliates', 'Affiliates'),
-        defaultTitle: 'Affiliates',
+        href: '/backend/reports',
+        title: translate('nav.reports', 'Reports'),
+        defaultTitle: 'Reports',
         enabled: true,
-        icon: createElement(Share2, { className: iconClass }),
+        icon: createElement(BarChart3, { className: iconClass }),
       },
     ],
     weight: 10,
@@ -582,11 +635,11 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         icon: createElement(GitMerge, { className: iconClass }),
       },
       {
-        href: '/backend/inbox',
-        title: translate('nav.inbox', 'Inbox'),
-        defaultTitle: 'Inbox',
+        href: '/backend/email-marketing',
+        title: translate('nav.emailMarketing', 'Email Marketing'),
+        defaultTitle: 'Email Marketing',
         enabled: true,
-        icon: createElement(Inbox, { className: iconClass }),
+        icon: createElement(Mail, { className: iconClass }),
       },
       {
         href: '/backend/courses',
@@ -596,11 +649,35 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         icon: createElement(BookOpen, { className: iconClass }),
       },
       {
-        href: '/backend/sequences',
-        title: translate('nav.sequences', 'Sequences'),
-        defaultTitle: 'Sequences',
+        href: '/backend/my-events',
+        title: translate('nav.myEvents', 'Events'),
+        defaultTitle: 'Events',
         enabled: true,
-        icon: createElement(GitBranch, { className: iconClass }),
+        icon: createElement(CalendarCheck, { className: iconClass }),
+      },
+    ],
+    weight: 20,
+  })
+
+  // Tools group
+  simpleGroups.push({
+    id: 'simple-tools',
+    name: translate('nav.group.tools', 'Tools'),
+    defaultName: 'Tools',
+    items: [
+      {
+        href: '/backend/chat',
+        title: translate('nav.chatWidgets', 'Chat Widgets'),
+        defaultTitle: 'Chat Widgets',
+        enabled: true,
+        icon: createElement(MessageCircle, { className: iconClass }),
+      },
+      {
+        href: '/backend/affiliates',
+        title: translate('nav.affiliates', 'Affiliates'),
+        defaultTitle: 'Affiliates',
+        enabled: true,
+        icon: createElement(Share2, { className: iconClass }),
       },
       {
         href: '/backend/surveys',
@@ -609,25 +686,31 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         enabled: true,
         icon: createElement(ClipboardList, { className: iconClass }),
       },
+      {
+        href: '/backend/forms',
+        title: translate('nav.forms', 'Forms'),
+        defaultTitle: 'Forms',
+        enabled: true,
+        icon: createElement(FileText, { className: iconClass }),
+      },
     ],
-    weight: 20,
+    weight: 30,
   })
 
-  // Settings
-  simpleGroups.push({
-    id: 'simple-settings',
-    name: '',
-    defaultName: '',
-    items: [{
-      href: '/backend/settings-simple',
-      title: translate('nav.settings', 'Settings'),
-      defaultTitle: 'Settings',
-      enabled: true,
-      icon: createElement(Settings, { className: iconClass }),
-      pageContext: 'settings' as const,
-    }],
-    weight: 100,
-  })
+  // Settings — handled by the AppShell's built-in settings cog link
+  // which redirects to /backend/settings → /backend/settings-simple
+
+  // Filter out hidden sidebar items
+  let hiddenItems: string[] = []
+  try {
+    if (hiddenSidebarCookie) hiddenItems = JSON.parse(hiddenSidebarCookie)
+  } catch {}
+
+  if (hiddenItems.length > 0) {
+    for (const group of simpleGroups) {
+      group.items = group.items.filter((item: any) => !hiddenItems.includes(item.href))
+    }
+  }
 
   return simpleGroups
 }

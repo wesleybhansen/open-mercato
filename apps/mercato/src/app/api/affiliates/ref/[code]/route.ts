@@ -1,4 +1,3 @@
-import { bootstrap } from '@/bootstrap'
 import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -8,13 +7,15 @@ export const metadata = {
   GET: { requireAuth: false },
 }
 
-export async function GET(req: Request, { params }: { params: { code: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
   try {
+    await (await import('@/bootstrap')).bootstrap()
+    const { code } = await params
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     const affiliate = await knex('affiliates')
-      .where('affiliate_code', params.code)
+      .where('affiliate_code', code)
       .where('status', 'active')
       .first()
 
@@ -28,18 +29,21 @@ export async function GET(req: Request, { params }: { params: { code: string } }
       .increment('total_referrals', 1)
       .update({ updated_at: new Date() })
 
-    // Determine redirect URL — use org's main page or root
-    const redirectUrl = '/'
+    // Determine redirect URL
+    const redirectUrl = process.env.AFFILIATE_REDIRECT_URL || process.env.APP_URL || '/'
 
     const response = NextResponse.redirect(new URL(redirectUrl, req.url))
 
-    // Set affiliate referral cookie with 30-day expiry
-    response.cookies.set('affiliate_ref', params.code, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      httpOnly: false,
-      sameSite: 'lax',
-    })
+    // Determine cookie duration from campaign or default to 30 days
+    let cookieDays = 30
+    if (affiliate.campaign_id) {
+      const campaign = await knex('affiliate_campaigns').where('id', affiliate.campaign_id).first()
+      if (campaign?.cookie_duration_days) cookieDays = campaign.cookie_duration_days
+    }
+
+    const maxAge = 60 * 60 * 24 * cookieDays
+    response.cookies.set('affiliate_ref', code, { path: '/', maxAge, httpOnly: false, sameSite: 'lax' })
+    response.cookies.set('affiliate_id', affiliate.id, { path: '/', maxAge, httpOnly: false, sameSite: 'lax' })
 
     return response
   } catch (error) {
@@ -51,7 +55,5 @@ export async function GET(req: Request, { params }: { params: { code: string } }
 export const openApi: OpenApiRouteDoc = {
   tag: 'Affiliates',
   summary: 'Affiliate referral link',
-  methods: {
-    GET: { summary: 'Track affiliate referral and redirect', tags: ['Affiliates'] },
-  },
+  methods: { GET: { summary: 'Track affiliate referral and redirect', tags: ['Affiliates'] } },
 }

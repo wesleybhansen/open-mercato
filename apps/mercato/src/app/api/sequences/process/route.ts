@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { sendEmailByPurpose } from '@/app/api/email/email-router'
 
 export const metadata = {
   POST: { requireAuth: false },
@@ -161,14 +162,13 @@ export async function POST(req: Request) {
             .replace(/\{\{email\}\}/g, email)
 
           const trackingId = require('crypto').randomUUID()
-          const fromAddress = process.env.EMAIL_FROM || 'noreply@localhost'
 
           await knex('email_messages').insert({
             id: require('crypto').randomUUID(),
             tenant_id: execution.tenant_id,
             organization_id: execution.organization_id,
             direction: 'outbound',
-            from_address: fromAddress,
+            from_address: 'pending@router',
             to_address: email,
             subject,
             body_html: bodyHtml,
@@ -178,27 +178,18 @@ export async function POST(req: Request) {
             created_at: now,
           })
 
-          const apiKey = process.env.RESEND_API_KEY
-          if (apiKey) {
-            try {
-              await fetch('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${apiKey}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  from: fromAddress,
-                  to: [email],
-                  subject,
-                  html: bodyHtml,
-                }),
-              })
-            } catch (sendErr) {
-              console.error(`[sequences.process] Failed to send email to ${email}:`, sendErr)
+          try {
+            const result = await sendEmailByPurpose(knex, execution.organization_id, execution.tenant_id, 'marketing', {
+              to: email,
+              subject,
+              htmlBody: bodyHtml,
+              contactId: execution.contact_id,
+            })
+            if (!result.ok) {
+              console.error(`[sequences.process] Failed to send email to ${email}:`, result.error)
             }
-          } else {
-            console.log(`[sequences.process] DEV: would send email to ${email} — subject: ${subject}`)
+          } catch (sendErr) {
+            console.error(`[sequences.process] Failed to send email to ${email}:`, sendErr)
           }
 
           await knex('sequence_step_executions').where('id', execution.execution_id).update({

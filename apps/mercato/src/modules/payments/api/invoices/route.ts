@@ -6,6 +6,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['payments.view'] },
   POST: { requireAuth: true, requireFeatures: ['payments.create'] },
+  PUT: { requireAuth: true, requireFeatures: ['payments.manage'] },
+  DELETE: { requireAuth: true, requireFeatures: ['payments.manage'] },
 }
 
 export async function GET(req: Request, ctx: any) {
@@ -19,12 +21,18 @@ export async function GET(req: Request, ctx: any) {
     const status = url.searchParams.get('status')
 
     let query = knex('invoices')
-      .where('tenant_id', auth.tenantId)
-      .where('organization_id', auth.orgId)
-      .whereNull('deleted_at')
-      .orderBy('created_at', 'desc')
+      .leftJoin('customer_entities', 'customer_entities.id', 'invoices.contact_id')
+      .where('invoices.tenant_id', auth.tenantId)
+      .where('invoices.organization_id', auth.orgId)
+      .whereNull('invoices.deleted_at')
+      .orderBy('invoices.created_at', 'desc')
+      .select(
+        'invoices.*',
+        'customer_entities.display_name as contact_name',
+        'customer_entities.primary_email as contact_email',
+      )
 
-    if (status) query = query.where('status', status)
+    if (status) query = query.where('invoices.status', status)
 
     const invoices = await query.limit(50)
     return NextResponse.json({ ok: true, data: invoices })
@@ -43,7 +51,7 @@ export async function POST(req: Request, ctx: any) {
     const knex = em.getKnex()
     const body = await req.json()
 
-    const { contactId, dealId, lineItems, notes, dueDate, currency } = body
+    const { contactId, dealId, lineItems, notes, dueDate, currency, termsUrl } = body
     if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
       return NextResponse.json({ ok: false, error: 'At least one line item required' }, { status: 400 })
     }
@@ -73,6 +81,7 @@ export async function POST(req: Request, ctx: any) {
       currency: currency || 'USD',
       due_date: dueDate || null,
       notes: notes || null,
+      terms_url: termsUrl || null,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -85,10 +94,82 @@ export async function POST(req: Request, ctx: any) {
   }
 }
 
+export async function PUT(req: Request, ctx: any) {
+  const auth = ctx?.auth
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  try {
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const knex = em.getKnex()
+    const body = await req.json()
+    const { id, status } = body
+    if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 })
+
+    const validStatuses = ['draft', 'sent', 'paid']
+    const update: Record<string, any> = { updated_at: new Date() }
+    if (status && validStatuses.includes(status)) {
+      update.status = status
+      if (status === 'paid') {
+        update.paid_at = new Date()
+      } else {
+        update.paid_at = null
+      }
+      if (status === 'draft') {
+        update.sent_at = null
+      }
+    }
+
+    await knex('invoices')
+      .where('id', id)
+      .where('organization_id', auth.orgId)
+      .update(update)
+
+    const invoice = await knex('invoices').where('id', id).first()
+    return NextResponse.json({ ok: true, data: invoice })
+  } catch (error) {
+    console.error('[payments.invoices.update]', error)
+    return NextResponse.json({ ok: false, error: 'Failed' }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request, ctx: any) {
+  const auth = ctx?.auth
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  try {
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const knex = em.getKnex()
+    const body = await req.json()
+    const { id } = body
+    if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 })
+
+    // Only allow deleting draft invoices
+    const invoice = await knex('invoices')
+      .where('id', id)
+      .where('organization_id', auth.orgId)
+      .whereNull('deleted_at')
+      .first()
+
+    if (!invoice) return NextResponse.json({ ok: false, error: 'Invoice not found' }, { status: 404 })
+
+    await knex('invoices')
+      .where('id', id)
+      .where('organization_id', auth.orgId)
+      .update({ deleted_at: new Date(), updated_at: new Date() })
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[payments.invoices.delete]', error)
+    return NextResponse.json({ ok: false, error: 'Failed' }, { status: 500 })
+  }
+}
+
 export const openApi: OpenApiRouteDoc = {
   tag: 'Payments', summary: 'Invoices',
   methods: {
     GET: { summary: 'List invoices', tags: ['Payments'] },
     POST: { summary: 'Create invoice', tags: ['Payments'] },
+    PUT: { summary: 'Update invoice (mark as paid)', tags: ['Payments'] },
+    DELETE: { summary: 'Delete draft invoice (soft)', tags: ['Payments'] },
   },
 }

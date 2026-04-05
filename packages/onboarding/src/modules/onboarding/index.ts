@@ -5,7 +5,7 @@ export const metadata: ModuleInfo = {
   title: 'Onboarding',
   version: '0.1.0',
   description: 'Self-service tenant and organization onboarding flow.',
-  author: 'Open Mercato Team',
+  author: 'LaunchOS',
   license: 'Proprietary',
 }
 

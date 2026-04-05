@@ -6,6 +6,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {

@@ -73,6 +73,93 @@ export async function GET() {
       }
     } catch {}
 
+    // 0c. Unread inbox messages
+    try {
+      const [unread] = await knex('email_messages')
+        .where('organization_id', auth.orgId)
+        .where('direction', 'inbound')
+        .where('is_read', false)
+        .count('* as count')
+
+      const unreadCount = Number(unread?.count || 0)
+      if (unreadCount > 0) {
+        actionItems.push({
+          type: 'email',
+          title: `${unreadCount} unread message${unreadCount > 1 ? 's' : ''} in your inbox`,
+          description: unreadCount === 1 ? 'You have a message waiting for a reply.' : 'You have messages waiting for replies.',
+          href: '/backend/inbox',
+          priority: 0,
+        })
+      }
+    } catch {}
+
+    // 0d. Unanswered chat messages
+    try {
+      const [unreadChats] = await knex('chat_messages')
+        .where('organization_id', auth.orgId)
+        .where('sender_type', 'visitor')
+        .where('is_read', false)
+        .count('* as count')
+
+      const chatCount = Number(unreadChats?.count || 0)
+      if (chatCount > 0) {
+        actionItems.push({
+          type: 'email',
+          title: `${chatCount} unanswered chat message${chatCount > 1 ? 's' : ''}`,
+          description: 'Website visitors are waiting for a response.',
+          href: '/backend/chat',
+          priority: 0,
+        })
+      }
+    } catch {}
+
+    // 0e. Upcoming calendar events (next 24 hours)
+    try {
+      const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      const upcomingEvents = await knex('calendar_events')
+        .where('organization_id', auth.orgId)
+        .whereBetween('start_time', [now, next24h])
+        .select('id', 'title', 'start_time')
+        .orderBy('start_time', 'asc')
+        .limit(3)
+
+      for (const event of upcomingEvents) {
+        const time = new Date(event.start_time)
+        const timeStr = time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        actionItems.push({
+          type: 'task',
+          title: event.title,
+          description: `Today at ${timeStr}`,
+          href: '/backend/calendar',
+          priority: 0,
+        })
+      }
+    } catch {}
+
+    // 0f. Upcoming bookings (next 24 hours)
+    try {
+      const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      const upcomingBookings = await knex('bookings')
+        .where('organization_id', auth.orgId)
+        .where('status', 'confirmed')
+        .whereBetween('start_time', [now, next24h])
+        .select('id', 'guest_name', 'start_time')
+        .orderBy('start_time', 'asc')
+        .limit(3)
+
+      for (const booking of upcomingBookings) {
+        const time = new Date(booking.start_time)
+        const timeStr = time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        actionItems.push({
+          type: 'task',
+          title: `Meeting with ${booking.guest_name}`,
+          description: `Today at ${timeStr}`,
+          href: '/backend/calendar',
+          priority: 0,
+        })
+      }
+    } catch {}
+
     // 1. Stale deals (not updated in 5+ days)
     try {
       const staleDeals = await knex('customer_deals')
@@ -183,6 +270,17 @@ export async function GET() {
       )
       stats.deals = { open: Number(ds?.open_deals || 0), pipelineValue: Number(ds?.pipeline_value || 0), wonThisWeek: Number(ds?.won_7 || 0) }
     } catch { stats.deals = { open: 0, pipelineValue: 0, wonThisWeek: 0 } }
+
+    try {
+      const [inbox] = await knex('email_messages')
+        .where('organization_id', auth.orgId)
+        .where('direction', 'inbound')
+        .select(
+          knex.raw('count(*) filter (where is_read = false) as unread'),
+          knex.raw('count(*) filter (where created_at >= ?) as last_7', [sevenDaysAgo]),
+        )
+      stats.inbox = { unread: Number(inbox?.unread || 0), last7Days: Number(inbox?.last_7 || 0) }
+    } catch { stats.inbox = { unread: 0, last7Days: 0 } }
 
     try {
       const [lp] = await knex('landing_pages').where(w).whereNull('deleted_at').select(

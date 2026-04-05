@@ -374,7 +374,7 @@ export default async function BackendLayout({ children, params }: { children: Re
   const mobileSidebarContent = <OrganizationSwitcher compact />
 
   const deployEnv = process.env.DEPLOY_ENV
-  const baseProductName = translate('appShell.productName', 'Open Mercato')
+  const baseProductName = 'LaunchOS'
   const productName = deployEnv && deployEnv !== 'local'
     ? `${baseProductName} (${deployEnv.charAt(0).toUpperCase() + deployEnv.slice(1)})`
     : baseProductName

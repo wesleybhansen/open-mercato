@@ -1,0 +1,16 @@
+{
+  "name": "LaunchOS",
+  "short_name": "LaunchOS",
+  "description": "AI-powered CRM for solopreneurs",
+  "start_url": "/backend/dashboards",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0000CC",
+  "icons": [
+    {
+      "src": "/launchos-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

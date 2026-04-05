@@ -56,11 +56,22 @@ export async function checkAIAccess(): Promise<AICallResult> {
       usage = { call_count: 0 }
     }
 
-    // Get cap
-    const capSetting = await knex('ai_settings')
+    // Get cap — check org-specific override first, then global platform setting, then default
+    const orgCap = await knex('ai_settings')
       .where('setting_key', 'monthly_ai_cap')
+      .where('organization_id', auth.orgId)
       .first()
-    const cap = capSetting ? parseInt(capSetting.setting_value) : 500
+    let cap = 500
+    if (orgCap) {
+      cap = parseInt(orgCap.setting_value)
+    } else {
+      try {
+        const globalCap = await knex('platform_settings')
+          .where('setting_key', 'global_ai_monthly_cap')
+          .first()
+        if (globalCap) cap = parseInt(globalCap.setting_value)
+      } catch {} // table may not exist yet
+    }
 
     // Check if under cap
     if (usage.call_count < cap) {

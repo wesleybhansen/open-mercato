@@ -51,6 +51,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'integrations_api', from: '@app' },
   { id: 'billing', from: '@app' },
   { id: 'sequences', from: '@app' },
+  { id: 'forms', from: '@app' },
 
   // ── Disabled: e-commerce / ERP (not needed for CRM) ──
   // { id: 'catalog', from: '@open-mercato/core' },

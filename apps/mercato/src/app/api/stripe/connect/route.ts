@@ -7,6 +7,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 // Generate a Stripe Checkout Session for a product/invoice
 // Uses the org's connected Stripe account via Stripe Connect
 export async function POST(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
@@ -80,27 +81,68 @@ export async function POST(req: Request) {
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(stripeKey)
 
+    // Resolve terms URL: body override → product/invoice terms_url → business profile fallback
+    const profile = await knex('business_profiles').where('organization_id', auth.orgId).first()
+    let termsUrl: string | null = null
+    if (body.termsUrl) {
+      termsUrl = body.termsUrl
+    } else if (type === 'product' && productId) {
+      const productRow = await knex('products').where('id', productId).where('organization_id', auth.orgId).first()
+      termsUrl = productRow?.terms_url || null
+    } else if (type === 'invoice' && invoiceId) {
+      const invoiceRow = await knex('invoices').where('id', invoiceId).where('organization_id', auth.orgId).first()
+      termsUrl = invoiceRow?.terms_url || null
+    }
+    if (!termsUrl) {
+      termsUrl = profile?.terms_url || null
+    }
+
+    const isSubscription = lineItems.some((li: any) => li.price_data.recurring)
+
+    const sessionParams: any = {
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      mode: isSubscription ? 'subscription' : 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata,
+      customer_email: body.customerEmail || undefined,
+    }
+
+    // Add free trial period for subscription products
+    if (isSubscription && type === 'product' && productId) {
+      const prod = await knex('products').where('id', productId).where('organization_id', auth.orgId).first()
+      if (prod?.trial_days && prod.trial_days > 0) {
+        sessionParams.subscription_data = {
+          trial_period_days: prod.trial_days,
+          metadata,
+        }
+      }
+    }
+
+    // Add terms of service consent if a terms URL is available
+    if (termsUrl) {
+      sessionParams.consent_collection = {
+        terms_of_service: 'required',
+      }
+      sessionParams.custom_text = {
+        terms_of_service_acceptance: {
+          message: `I agree to the [Terms of Service](${termsUrl})`,
+        },
+      }
+    }
+
     const session = await stripe.checkout.sessions.create(
-      {
-        payment_method_types: ['card'],
-        line_items: lineItems,
-        mode: lineItems.some(li => li.price_data.recurring) ? 'subscription' : 'payment',
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        metadata,
-        customer_email: body.customerEmail || undefined,
-      },
+      sessionParams,
       {
         stripeAccount: stripeConnection.stripe_account_id,
       },
     )
 
-    // Store the checkout session reference
+    // Store the payment link on the invoice (don't change status — that happens when user sends email)
     if (invoiceId) {
       await knex('invoices').where('id', invoiceId).update({
         stripe_payment_link: session.url,
-        status: 'sent',
-        sent_at: new Date(),
         updated_at: new Date(),
       })
     }

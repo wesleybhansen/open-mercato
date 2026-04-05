@@ -5,6 +5,8 @@ import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
+bootstrap()
+
 const VALID_PROVIDERS = ['resend', 'sendgrid', 'ses', 'mailgun'] as const
 
 // GET: Return the org's ESP connection (hide API key)
@@ -21,7 +23,7 @@ export async function GET() {
     const connection = await knex('esp_connections')
       .where('organization_id', auth.orgId)
       .where('is_active', true)
-      .select('id', 'provider', 'sending_domain', 'is_active', 'created_at')
+      .select('id', 'provider', 'sending_domain', 'default_sender_email', 'default_sender_name', 'is_active', 'created_at')
       .first()
 
     return NextResponse.json({ ok: true, data: connection || null })
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { provider, apiKey, sendingDomain } = body
+    const { provider, apiKey, sendingDomain, defaultSenderEmail, defaultSenderName } = body
 
     if (!provider || !apiKey) {
       return NextResponse.json(
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
+
 
     if (!VALID_PROVIDERS.includes(provider)) {
       return NextResponse.json(
@@ -68,30 +71,58 @@ export async function POST(req: Request) {
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
-    // Deactivate any existing ESP connection for this org
-    await knex('esp_connections')
+    // Upsert: update existing row for this org+provider, or insert new one
+    const existing = await knex('esp_connections')
       .where('organization_id', auth.orgId)
-      .where('is_active', true)
-      .update({ is_active: false, updated_at: new Date() })
+      .where('provider', provider)
+      .first()
 
-    // Insert new connection
-    await knex('esp_connections').insert({
-      id: require('crypto').randomUUID(),
-      tenant_id: auth.tenantId,
-      organization_id: auth.orgId,
-      created_by: auth.sub,
-      provider,
-      api_key: apiKey,
-      sending_domain: sendingDomain || null,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
+    if (existing) {
+      // Deactivate all other providers for this org
+      await knex('esp_connections')
+        .where('organization_id', auth.orgId)
+        .whereNot('provider', provider)
+        .update({ is_active: false, updated_at: new Date() })
+
+      // Update the existing row
+      await knex('esp_connections')
+        .where('id', existing.id)
+        .update({
+          api_key: apiKey,
+          sending_domain: sendingDomain || null,
+          default_sender_email: defaultSenderEmail || null,
+          default_sender_name: defaultSenderName || null,
+          is_active: true,
+          updated_at: new Date(),
+        })
+    } else {
+      // Deactivate any existing ESP connections for this org
+      await knex('esp_connections')
+        .where('organization_id', auth.orgId)
+        .where('is_active', true)
+        .update({ is_active: false, updated_at: new Date() })
+
+      // Insert new connection
+      await knex('esp_connections').insert({
+        id: require('crypto').randomUUID(),
+        tenant_id: auth.tenantId,
+        organization_id: auth.orgId,
+        provider,
+        api_key: apiKey,
+        sending_domain: sendingDomain || null,
+        default_sender_email: defaultSenderEmail || null,
+        default_sender_name: defaultSenderName || null,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('[email.esp.save]', error)
-    return NextResponse.json({ ok: false, error: 'Failed to save ESP configuration' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Failed to save ESP configuration'
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }
 

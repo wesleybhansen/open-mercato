@@ -7,6 +7,7 @@ import crypto from 'crypto'
 export const metadata = { POST: { requireAuth: false } }
 
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
+  await bootstrap()
   try {
     const { slug } = await params
     const container = await createRequestContainer()
@@ -65,6 +66,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
     // Increment response count
     await knex('surveys').where('id', survey.id).increment('response_count', 1).update({ updated_at: new Date() })
+
+    // Log to contact timeline
+    if (contactId) {
+      const { logTimelineEvent } = await import('@/lib/timeline')
+      await logTimelineEvent(knex, {
+        tenantId: survey.tenant_id, organizationId: survey.organization_id, contactId,
+        eventType: 'survey_response', title: `Completed survey: ${survey.title}`,
+        metadata: { surveyId: survey.id },
+      })
+    }
 
     return NextResponse.json({ ok: true, thankYouMessage: survey.thank_you_message })
   } catch {

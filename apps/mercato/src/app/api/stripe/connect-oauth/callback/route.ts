@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   const stateParam = url.searchParams.get('state')
   const error = url.searchParams.get('error')
   const baseUrl = process.env.APP_URL || 'http://localhost:3000'
-  const settingsUrl = `${baseUrl}/backend/settings-simple`
+  const paymentsUrl = `${baseUrl}/backend/payments`
+  const settingsUrl = paymentsUrl
 
   if (error) {
     console.error('[stripe.connect-oauth] Authorization denied:', error)

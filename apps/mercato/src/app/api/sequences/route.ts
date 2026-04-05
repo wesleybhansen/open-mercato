@@ -5,7 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
-const VALID_TRIGGER_TYPES = ['form_submit', 'tag_added', 'deal_stage_changed', 'manual', 'booking_created', 'invoice_paid'] as const
+const VALID_TRIGGER_TYPES = ['form_submit', 'tag_added', 'deal_stage_changed', 'manual', 'booking_created', 'invoice_paid', 'event_registered', 'course_enrolled', 'contact_created', 'deal_won', 'product_purchased'] as const
 const VALID_STEP_TYPES = ['email', 'sms', 'wait', 'condition', 'branch', 'goal'] as const
 
 export async function GET(req: Request) {

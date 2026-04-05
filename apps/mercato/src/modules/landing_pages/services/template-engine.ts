@@ -1,3 +1,9 @@
+/**
+ * @deprecated Legacy template engine — renders pages from HTML template files.
+ * New pages (wizardVersion 2) use the section-renderer + page-assembler at
+ * src/lib/landing-page-wizard/ instead. Kept for backward compatibility
+ * with pages created before the wizard redesign.
+ */
 import * as fs from 'fs'
 import * as path from 'path'
 

@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
+    await bootstrap()
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
     const url = new URL(req.url)
@@ -39,6 +40,10 @@ export async function GET(req: Request) {
         'cc.status',
         'cc.created_at',
         'cc.updated_at',
+        'cc.visitor_typing',
+        'cc.agent_typing',
+        'cc.visitor_typing_at',
+        'cc.agent_typing_at',
         'cw.name as widget_name',
       )
       .select(
@@ -85,10 +90,46 @@ export async function GET(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  const auth = await getAuthFromCookies()
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  try {
+    await bootstrap()
+    const container = await createRequestContainer()
+    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const body = await req.json()
+    const { conversationId, status } = body
+
+    if (!conversationId || !status) {
+      return NextResponse.json({ ok: false, error: 'conversationId and status are required' }, { status: 400 })
+    }
+
+    const allowedStatuses = ['open', 'closed']
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ ok: false, error: `Invalid status. Allowed: ${allowedStatuses.join(', ')}` }, { status: 400 })
+    }
+
+    const updated = await knex('chat_conversations')
+      .where('id', conversationId)
+      .andWhere('organization_id', auth.orgId)
+      .update({ status, updated_at: new Date() })
+
+    if (!updated) {
+      return NextResponse.json({ ok: false, error: 'Conversation not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[chat.conversations.update]', error)
+    return NextResponse.json({ ok: false, error: 'Failed to update conversation' }, { status: 500 })
+  }
+}
+
 export const openApi: OpenApiRouteDoc = {
   tag: 'Chat',
   summary: 'List chat conversations or get messages for a conversation',
   methods: {
     GET: { summary: 'List conversations with last message preview', tags: ['Chat'] },
+    PUT: { summary: 'Update conversation status (open/closed)', tags: ['Chat'] },
   },
 }

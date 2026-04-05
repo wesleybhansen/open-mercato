@@ -74,6 +74,33 @@ export async function PUT(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
+    // Save OpenAI key
+    if (body.openaiKey !== undefined) {
+      const existing = await knex('ai_settings')
+        .where('setting_key', 'user_openai_key')
+        .where('user_id', auth.sub).first()
+
+      if (existing) {
+        await knex('ai_settings').where('id', existing.id).update({
+          setting_value: body.openaiKey || '',
+          updated_at: new Date(),
+        })
+      } else if (body.openaiKey) {
+        await knex('ai_settings').insert({
+          id: require('crypto').randomUUID(),
+          tenant_id: auth.tenantId,
+          organization_id: auth.orgId,
+          user_id: auth.sub,
+          setting_key: 'user_openai_key',
+          setting_value: body.openaiKey,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+      }
+
+      return NextResponse.json({ ok: true })
+    }
+
     // Admin: update cap
     if (body.cap !== undefined) {
       const existing = await knex('ai_settings').where('setting_key', 'monthly_ai_cap').first()

@@ -8,13 +8,15 @@ export const metadata = {
   GET: { requireAuth: false },
 }
 
-export async function GET(req: Request, { params }: { params: { code: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
   try {
+    await bootstrap()
+    const { code } = await params
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     const affiliate = await knex('affiliates')
-      .where('affiliate_code', params.code)
+      .where('affiliate_code', code)
       .first()
 
     if (!affiliate) {

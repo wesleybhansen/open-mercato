@@ -55,12 +55,40 @@ export async function POST(req: Request) {
   } else {
     const users = await auth.findUsersByEmail(parsed.data.email)
     if (users.length > 1) {
-      return NextResponse.json({
-        ok: false,
-        error: translate('auth.login.errors.tenantRequired', 'Use the login link provided with your tenant activation to continue.'),
-      }, { status: 400 })
+      // Multiple accounts — verify password against each and return org picker
+      const validUsers: Array<{ tenantId: string; orgId: string; orgName: string }> = []
+      for (const u of users) {
+        if (!u.passwordHash) continue
+        const match = await auth.verifyPassword(u, parsed.data.password)
+        if (match) {
+          const orgName = u.organizationId
+            ? await (async () => {
+                try {
+                  const knex = (container.resolve('em') as any).getKnex()
+                  const org = await knex('organizations').where('id', String(u.organizationId)).first()
+                  return org?.name || 'Workspace'
+                } catch { return 'Workspace' }
+              })()
+            : 'Workspace'
+          validUsers.push({
+            tenantId: String(u.tenantId),
+            orgId: u.organizationId ? String(u.organizationId) : '',
+            orgName,
+          })
+        }
+      }
+      if (validUsers.length === 0) {
+        return NextResponse.json({ ok: false, error: translate('auth.login.errors.invalidCredentials', 'Invalid email or password') }, { status: 401 })
+      }
+      if (validUsers.length === 1) {
+        // Only one password match — log in directly
+        user = users.find(u => String(u.tenantId) === validUsers[0].tenantId) ?? null
+      } else {
+        return NextResponse.json({ ok: false, needsOrgPicker: true, orgs: validUsers }, { status: 200 })
+      }
+    } else {
+      user = users[0] ?? null
     }
-    user = users[0] ?? null
   }
   if (!user || !user.passwordHash) {
     void emitAuthEvent('auth.login.failed', { email: parsed.data.email, reason: 'invalid_credentials' }).catch(() => undefined)

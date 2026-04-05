@@ -10,6 +10,7 @@ export async function POST(req: Request) {
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
+    await bootstrap()
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
     const body = await req.json()
@@ -36,6 +37,18 @@ export async function POST(req: Request) {
     await knex('chat_conversations')
       .where('id', conversationId)
       .update({ updated_at: new Date() })
+
+    // Update unified inbox
+    const { upsertInboxConversation } = await import('@/lib/inbox-conversation')
+    upsertInboxConversation(knex, auth.orgId, auth.tenantId, {
+      contactId: conversation.contact_id || null,
+      chatConversationId: conversationId,
+      channel: 'chat',
+      preview: message.trim(),
+      direction: 'outbound',
+      displayName: conversation.visitor_name || conversation.visitor_email || 'Visitor',
+      avatarEmail: conversation.visitor_email,
+    }).catch(() => {})
 
     const msg = await knex('chat_messages').where('id', id).first()
     return NextResponse.json({ ok: true, data: msg }, { status: 201 })

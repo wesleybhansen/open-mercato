@@ -362,3 +362,20 @@ TODO: Fix that latter to have reference by the package names
 .dark .selected-card-icon {
   color: #60A5FA !important;
 }
+
+/* Hide the Appzi feedback widget in simple mode */
+.simple-mode #appzi-widget-container {
+  display: none !important;
+}
+
+/* Hide the "Customize sidebar" button in simple mode — targets the text content */
+.simple-mode aside button[aria-label*="ustomize"],
+.simple-mode aside button[aria-label*="sidebar"],
+.simple-mode nav + * > button:last-of-type {
+  display: none !important;
+}
+
+/* Hide the Last Operation / Undo banner */
+.border-amber-200\/80.bg-amber-50\/95 {
+  display: none !important;
+}

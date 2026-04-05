@@ -27,6 +27,24 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
   const [showCompose, setShowCompose] = useState(false)
+  const [composeTo, setComposeTo] = useState('')
+  const [composeSubject, setComposeSubject] = useState('')
+  const [composeContactId, setComposeContactId] = useState('')
+  const [composeName, setComposeName] = useState('')
+
+  useEffect(() => {
+    // Check for compose query params (from "Follow up" button, etc.)
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('compose') === 'true') {
+      setComposeTo(params.get('to') || '')
+      setComposeSubject(params.get('subject') || '')
+      setComposeContactId(params.get('contactId') || '')
+      setComposeName(params.get('name') || '')
+      setShowCompose(true)
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   useEffect(() => {
     const params = filter !== 'all' ? `?direction=${filter}` : ''
@@ -117,10 +135,12 @@ export default function EmailPage() {
 
       {showCompose && (
         <EmailComposeModal
-          contactName=""
-          contactEmail=""
-          onClose={() => setShowCompose(false)}
-          onSent={() => { setShowCompose(false); loadMessages() }}
+          contactName={composeName}
+          contactEmail={composeTo}
+          contactId={composeContactId || undefined}
+          initialSubject={composeSubject}
+          onClose={() => { setShowCompose(false); setComposeTo(''); setComposeSubject(''); setComposeContactId(''); setComposeName('') }}
+          onSent={() => { setShowCompose(false); setComposeTo(''); setComposeSubject(''); setComposeContactId(''); setComposeName(''); loadMessages() }}
         />
       )}
     </div>

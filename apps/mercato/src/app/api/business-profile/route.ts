@@ -52,6 +52,7 @@ export async function PUT(req: Request) {
     if (body.emailIntakeMode !== undefined) data.email_intake_mode = body.emailIntakeMode
     if (body.interfaceMode !== undefined) data.interface_mode = body.interfaceMode
     if (body.onboardingComplete !== undefined) data.onboarding_complete = body.onboardingComplete
+    if (body.termsUrl !== undefined) data.terms_url = body.termsUrl
 
     if (existing) {
       await knex('business_profiles').where('id', existing.id).update(data)

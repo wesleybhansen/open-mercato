@@ -5,6 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 
 export async function GET(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -33,6 +35,12 @@ export async function POST(req: Request) {
     const { to, message, contactId } = body
 
     if (!to || !message) return NextResponse.json({ ok: false, error: 'to and message required' }, { status: 400 })
+
+    // Normalize phone number — ensure +1 prefix for US numbers
+    let normalizedTo = to.replace(/[\s\-\(\)\.]/g, '') // strip formatting
+    if (normalizedTo.match(/^\d{10}$/)) normalizedTo = `+1${normalizedTo}` // 10 digits → +1
+    else if (normalizedTo.match(/^1\d{10}$/)) normalizedTo = `+${normalizedTo}` // 11 digits starting with 1 → +1
+    else if (!normalizedTo.startsWith('+')) normalizedTo = `+${normalizedTo}` // ensure + prefix
 
     // Look up the org's Twilio connection
     const twilioConnection = await knex('twilio_connections')
@@ -63,7 +71,7 @@ export async function POST(req: Request) {
             'Content-Type': 'application/x-www-form-urlencoded',
             Authorization: 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
           },
-          body: new URLSearchParams({ To: to, From: fromNumber, Body: message }),
+          body: new URLSearchParams({ To: normalizedTo, From: fromNumber, Body: message }),
         },
       )
       const twilioData = await twilioRes.json()
@@ -82,10 +90,34 @@ export async function POST(req: Request) {
     await knex('sms_messages').insert({
       id, tenant_id: auth.tenantId, organization_id: auth.orgId,
       contact_id: contactId || null,
-      direction: 'outbound', from_number: fromNumber, to_number: to,
+      direction: 'outbound', from_number: fromNumber, to_number: normalizedTo,
       body: message, status, twilio_sid: twilioSid,
       created_at: new Date(),
     })
+
+    // Update unified inbox — always create/update even without contactId
+    {
+      const { upsertInboxConversation } = await import('@/lib/inbox-conversation')
+      let resolvedContactId = contactId || null
+      let displayName = to
+      let avatarEmail: string | null = null
+      if (!resolvedContactId) {
+        const contact = await knex('customer_entities').where('primary_phone', to).where('organization_id', auth.orgId).whereNull('deleted_at').first()
+        if (contact) { resolvedContactId = contact.id; displayName = contact.display_name; avatarEmail = contact.primary_email }
+      } else {
+        const contact = await knex('customer_entities').where('id', contactId).first()
+        if (contact) { displayName = contact.display_name; avatarEmail = contact.primary_email }
+      }
+      upsertInboxConversation(knex, auth.orgId, auth.tenantId, {
+        contactId: resolvedContactId,
+        channel: 'sms',
+        preview: message,
+        direction: 'outbound',
+        displayName,
+        avatarEmail,
+        avatarPhone: to,
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ ok: true, data: { id, status } })
   } catch {

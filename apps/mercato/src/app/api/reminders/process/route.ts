@@ -83,28 +83,25 @@ export async function POST(req: Request) {
           </div>
         `
 
-        const apiKey = process.env.RESEND_API_KEY
+        // Try ESP from DB first, then RESEND_API_KEY env fallback
+        const espConn = await knex('esp_connections')
+          .where('organization_id', reminder.organization_id).where('is_active', true).first()
+        const apiKey = espConn?.api_key || process.env.RESEND_API_KEY
+        const fromAddress = espConn?.default_sender_email || process.env.EMAIL_FROM || 'noreply@localhost'
+
         if (apiKey) {
-          const fromAddress = process.env.EMAIL_FROM || 'noreply@localhost'
           try {
-            await fetch('https://api.resend.com/emails', {
+            const espRes = await fetch('https://api.resend.com/emails', {
               method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: fromAddress,
-                to: [user.email],
-                subject,
-                html: bodyHtml,
-              }),
+              headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ from: fromAddress, to: [user.email], subject, html: bodyHtml }),
             })
+            if (!espRes.ok) console.error(`[reminders.process] ESP error:`, await espRes.text().catch(() => ''))
           } catch (sendErr) {
-            console.error(`[reminders.process] Failed to send email to ${user.email}:`, sendErr)
+            console.error(`[reminders.process] Failed to send to ${user.email}:`, sendErr)
           }
         } else {
-          console.log(`[reminders.process] DEV: would send reminder email to ${user.email} — subject: ${subject}`)
+          console.log(`[reminders.process] No ESP configured. Reminder for ${user.email}: ${subject}`)
         }
 
         await knex('reminders').where('id', reminder.id).update({

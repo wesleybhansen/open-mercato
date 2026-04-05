@@ -7,7 +7,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import {
-  Plus, Trash2, ArrowRight, Globe, Copy, Check,
+  Plus, Trash2, ArrowRight, Globe, Copy, Check, X, Loader2, LayoutTemplate,
   ChevronUp, ChevronDown, GitMerge, ExternalLink,
   ToggleLeft, ToggleRight, BarChart3, ArrowLeft,
 } from 'lucide-react'
@@ -19,12 +19,23 @@ type LandingPage = {
   status: string
 }
 
+type Product = {
+  id: string
+  name: string
+  price: number
+  currency: string
+}
+
 type FunnelStep = {
   id?: string
   stepOrder: number
-  stepType: 'page' | 'checkout' | 'thank_you'
+  stepType: 'page' | 'lead_capture' | 'checkout' | 'upsell' | 'downsell' | 'thank_you'
   pageId: string | null
-  config: Record<string, string>
+  productId: string | null
+  name: string
+  onAcceptStepId: string | null
+  onDeclineStepId: string | null
+  config: Record<string, any>
 }
 
 type StepAnalytics = {
@@ -42,10 +53,15 @@ type Funnel = {
   is_published: boolean
   step_count: number
   total_visits: number
+  total_sessions: number
+  completed_sessions: number
+  abandoned_sessions: number
+  total_revenue: number
+  conversion_rate: number
   created_at: string
 }
 
-type View = 'list' | 'create' | 'edit'
+type View = 'list' | 'choose-template' | 'create' | 'edit'
 
 export default function FunnelsPage() {
   const t = useT()
@@ -53,7 +69,12 @@ export default function FunnelsPage() {
 
   const [view, setView] = useState<View>('list')
   const [funnels, setFunnels] = useState<Funnel[]>([])
+  const [funnelSearch, setFunnelSearch] = useState('')
+  const [funnelFilter, setFunnelFilter] = useState<'all' | 'published' | 'draft'>('all')
+  const [funnelTemplates, setFunnelTemplates] = useState<Array<{ id: string; name: string; description: string; category: string; steps: any[] }>>([])
+  const [installingTemplate, setInstallingTemplate] = useState<string | null>(null)
   const [landingPages, setLandingPages] = useState<LandingPage[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -81,14 +102,25 @@ export default function FunnelsPage() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => { loadFunnels(); loadLandingPages() }, [loadFunnels, loadLandingPages])
+  const loadProducts = useCallback(() => {
+    fetch('/api/payments/products', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setProducts((d.data || []).map((p: any) => ({ id: p.id, name: p.name, price: Number(p.price), currency: p.currency || 'USD' }))) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    loadFunnels(); loadLandingPages(); loadProducts()
+    fetch('/api/funnels/templates', { credentials: 'include' }).then(r => r.json())
+      .then(d => { if (d.ok) setFunnelTemplates(d.data || []) }).catch(() => {})
+  }, [loadFunnels, loadLandingPages, loadProducts])
 
   function resetForm() {
     setEditId(null)
     setName('')
     setSteps([
-      { stepOrder: 1, stepType: 'page', pageId: null, config: {} },
-      { stepOrder: 2, stepType: 'thank_you', pageId: null, config: { message: 'Thank you for signing up!' } },
+      { stepOrder: 1, stepType: 'page', pageId: null, productId: null, name: 'Landing Page', onAcceptStepId: null, onDeclineStepId: null, config: {} },
+      { stepOrder: 2, stepType: 'thank_you', pageId: null, productId: null, name: 'Thank You', onAcceptStepId: null, onDeclineStepId: null, config: { message: 'Thank you for signing up!' } },
     ])
     setAnalytics([])
   }
@@ -112,6 +144,10 @@ export default function FunnelsPage() {
           stepOrder: s.step_order,
           stepType: s.step_type,
           pageId: s.page_id || null,
+          productId: s.product_id || null,
+          name: s.name || '',
+          onAcceptStepId: s.on_accept_step_id || null,
+          onDeclineStepId: s.on_decline_step_id || null,
           config: typeof s.config === 'string' ? JSON.parse(s.config as string) : (s.config || {}),
         })))
       }
@@ -161,16 +197,46 @@ export default function FunnelsPage() {
       }
     } else if (field === 'pageId') {
       updated[index] = { ...updated[index], pageId: value }
+    } else if (field === 'productId') {
+      updated[index] = { ...updated[index], productId: value }
+    } else if (field === 'name') {
+      updated[index] = { ...updated[index], name: value || '' }
+    } else if (field === 'onAcceptStepId') {
+      updated[index] = { ...updated[index], onAcceptStepId: value }
+    } else if (field === 'onDeclineStepId') {
+      updated[index] = { ...updated[index], onDeclineStepId: value }
     } else if (field.startsWith('config.')) {
       const configKey = field.replace('config.', '')
-      updated[index] = { ...updated[index], config: { ...updated[index].config, [configKey]: value || '' } }
+      let configValue: any = value || ''
+      // Parse JSON for array/object config values
+      if (configKey === 'order_bumps' && typeof value === 'string') {
+        try { configValue = JSON.parse(value) } catch { configValue = [] }
+      }
+      updated[index] = { ...updated[index], config: { ...updated[index].config, [configKey]: configValue } }
     }
     setSteps(updated)
   }
 
+  function validateFunnel(): string[] {
+    const issues: string[] = []
+    if (!name.trim()) issues.push('Funnel name is required')
+    if (steps.length === 0) issues.push('At least one step is required')
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i]
+      const label = `Step ${i + 1} (${stepTypeLabels[s.stepType] || s.stepType})`
+      if ((s.stepType === 'page' || s.stepType === 'lead_capture') && !s.pageId) issues.push(`${label}: No landing page selected`)
+      if (s.stepType === 'checkout' && !s.productId) {
+        const hasProductBefore = steps.some((ps, pi) => pi < i && ps.productId)
+        if (!hasProductBefore) issues.push(`${label}: No product selected and no products in earlier steps`)
+      }
+      if ((s.stepType === 'upsell' || s.stepType === 'downsell') && !s.productId && !s.config.price) issues.push(`${label}: No product or price configured`)
+    }
+    return issues
+  }
+
   async function saveFunnel() {
-    if (!name.trim()) return alert('Name is required')
-    if (steps.length === 0) return alert('At least one step is required')
+    const issues = validateFunnel()
+    if (issues.length > 0) return alert('Please fix these issues:\n\n' + issues.join('\n'))
 
     setSaving(true)
     try {
@@ -180,6 +246,10 @@ export default function FunnelsPage() {
           stepOrder: s.stepOrder,
           stepType: s.stepType,
           pageId: s.pageId,
+          productId: s.productId,
+          name: s.name,
+          onAcceptStepId: s.onAcceptStepId,
+          onDeclineStepId: s.onDeclineStepId,
           config: s.config,
         })),
       }
@@ -208,6 +278,18 @@ export default function FunnelsPage() {
 
   async function togglePublish(funnel: Funnel, e: React.MouseEvent) {
     e.stopPropagation()
+
+    // Pre-publish validation: check if funnel has steps with missing config
+    if (!funnel.is_published) {
+      try {
+        const stepsRes = await fetch(`/api/funnels/${funnel.id}/analytics`, { credentials: 'include' })
+        const stepsData = await stepsRes.json()
+        if (!stepsData.ok) {
+          // Can't validate — proceed anyway
+        }
+      } catch {}
+    }
+
     try {
       const res = await fetch(`/api/funnels?id=${funnel.id}`, {
         method: 'PUT',
@@ -220,9 +302,25 @@ export default function FunnelsPage() {
     } catch { alert('Failed to update') }
   }
 
+  async function duplicateFunnel(funnel: Funnel, e: React.MouseEvent) {
+    e.stopPropagation()
+    try {
+      const res = await fetch(`/api/funnels?action=duplicate&id=${funnel.id}`, { method: 'PATCH', credentials: 'include' })
+      const data = await res.json()
+      if (data.ok) loadFunnels()
+      else alert(data.error || 'Failed to duplicate')
+    } catch { alert('Failed to duplicate') }
+  }
+
   async function deleteFunnel(funnel: Funnel, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(`Delete "${funnel.name}"?`)) return
+    const impact = [
+      funnel.total_visits > 0 ? `${funnel.total_visits} visits` : null,
+      funnel.total_revenue > 0 ? `$${funnel.total_revenue.toFixed(2)} revenue` : null,
+      funnel.completed_sessions > 0 ? `${funnel.completed_sessions} completions` : null,
+    ].filter(Boolean).join(', ')
+    const msg = `Delete "${funnel.name}"?${impact ? `\n\nThis funnel has: ${impact}` : ''}\n\nThis cannot be undone.`
+    if (!confirm(msg)) return
     try {
       await fetch(`/api/funnels?id=${funnel.id}`, { method: 'DELETE' })
       loadFunnels()
@@ -231,21 +329,27 @@ export default function FunnelsPage() {
 
   function copyFunnelUrl(funnel: Funnel, e: React.MouseEvent) {
     e.stopPropagation()
-    const funnelUrl = `${window.location.origin}/api/funnels/public/${funnel.slug}`
+    const funnelUrl = `${window.location.origin}/f/${funnel.slug}`
     navigator.clipboard.writeText(funnelUrl)
     setCopiedId(funnel.id)
     setTimeout(() => setCopiedId(null), 2000)
   }
 
   const stepTypeLabels: Record<string, string> = {
-    page: 'Landing Page',
+    lead_capture: 'Lead Capture',
+    page: 'Sales Page',
     checkout: 'Checkout',
+    upsell: 'Upsell',
+    downsell: 'Downsell',
     thank_you: 'Thank You',
   }
 
   const stepTypeColors: Record<string, string> = {
+    lead_capture: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
     page: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
     checkout: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    upsell: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    downsell: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
     thank_you: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
   }
 
@@ -260,10 +364,31 @@ export default function FunnelsPage() {
               {translate('funnels.subtitle', 'Chain landing pages into multi-step conversion funnels')}
             </p>
           </div>
-          <Button type="button" onClick={() => { resetForm(); setView('create') }}>
+          <Button type="button" onClick={() => setView('choose-template')}>
             <Plus className="size-4 mr-2" /> {translate('funnels.actions.create', 'New Funnel')}
           </Button>
         </div>
+
+
+        {funnels.length > 0 && (
+          <div className="flex items-center gap-3 mb-4">
+            <Input
+              value={funnelSearch}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFunnelSearch(e.target.value)}
+              placeholder="Search funnels..."
+              className="max-w-xs h-8 text-sm"
+            />
+            <select
+              value={funnelFilter}
+              onChange={(e) => setFunnelFilter(e.target.value as 'all' | 'published' | 'draft')}
+              className="rounded-md border bg-background px-3 py-1.5 text-sm h-8"
+            >
+              <option value="all">All</option>
+              <option value="published">Published</option>
+              <option value="draft">Drafts</option>
+            </select>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-muted-foreground text-sm">Loading...</div>
@@ -284,11 +409,18 @@ export default function FunnelsPage() {
                   <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Steps</th>
                   <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Status</th>
                   <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Visits</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Conv.</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Revenue</th>
                   <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {funnels.map((funnel) => (
+                {funnels.filter(f => {
+                  if (funnelSearch && !f.name.toLowerCase().includes(funnelSearch.toLowerCase())) return false
+                  if (funnelFilter === 'published' && !f.is_published) return false
+                  if (funnelFilter === 'draft' && f.is_published) return false
+                  return true
+                }).map((funnel) => (
                   <tr
                     key={funnel.id}
                     className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
@@ -307,6 +439,8 @@ export default function FunnelsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-right tabular-nums">{funnel.total_visits}</td>
+                    <td className="px-4 py-3 text-sm text-right tabular-nums">{funnel.conversion_rate}%</td>
+                    <td className="px-4 py-3 text-sm text-right tabular-nums font-medium">{funnel.total_revenue > 0 ? `$${funnel.total_revenue.toFixed(2)}` : '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <IconButton variant="ghost" size="sm" type="button" aria-label="Copy URL" onClick={(e) => copyFunnelUrl(funnel, e)}>
@@ -319,14 +453,16 @@ export default function FunnelsPage() {
                         >
                           {funnel.is_published ? <ToggleRight className="size-4 text-emerald-600" /> : <ToggleLeft className="size-4" />}
                         </IconButton>
-                        {funnel.is_published && (
-                          <IconButton
-                            variant="ghost" size="sm" type="button" aria-label="View live"
-                            onClick={(e) => { e.stopPropagation(); window.open(`/api/funnels/public/${funnel.slug}`, '_blank') }}
-                          >
-                            <ExternalLink className="size-4" />
-                          </IconButton>
-                        )}
+                        <IconButton
+                          variant="ghost" size="sm" type="button"
+                          aria-label={funnel.is_published ? 'View live' : 'Preview'}
+                          onClick={(e) => { e.stopPropagation(); window.open(`/api/funnels/public/${funnel.slug}${funnel.is_published ? '' : '?preview=1'}`, '_blank') }}
+                        >
+                          <ExternalLink className="size-4" />
+                        </IconButton>
+                        <IconButton variant="ghost" size="sm" type="button" aria-label="Duplicate" onClick={(e) => duplicateFunnel(funnel, e)}>
+                          <Copy className="size-4" />
+                        </IconButton>
                         <IconButton variant="ghost" size="sm" type="button" aria-label="Delete" onClick={(e) => deleteFunnel(funnel, e)}>
                           <Trash2 className="size-4" />
                         </IconButton>
@@ -338,6 +474,95 @@ export default function FunnelsPage() {
             </table>
           </div>
         )}
+      </div>
+    )
+  }
+
+  // CHOOSE TEMPLATE VIEW
+  if (view === 'choose-template') {
+    return (
+      <div className="p-6 max-w-4xl">
+        <div className="flex items-center gap-3 mb-6">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setView('list')}>
+            <ArrowLeft className="size-4 mr-1" /> Back
+          </Button>
+        </div>
+        <div className="mb-8">
+          <h1 className="text-xl font-semibold">Create a Funnel</h1>
+          <p className="text-sm text-muted-foreground mt-1">Start with a template or build from scratch</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Start from scratch */}
+          <div className="rounded-xl border-2 border-dashed border-border p-5 hover:border-foreground/30 transition flex flex-col">
+            <div className="size-10 rounded-lg bg-muted flex items-center justify-center mb-3">
+              <Plus className="size-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-semibold">Start from Scratch</p>
+            <p className="text-xs text-muted-foreground mt-1 flex-1">Build a custom funnel step by step. Full control over every detail.</p>
+            <Button type="button" variant="outline" size="sm" className="w-full mt-4"
+              onClick={() => { resetForm(); setView('create') }}>
+              Blank Funnel
+            </Button>
+          </div>
+          {/* Templates */}
+          {funnelTemplates.map(tmpl => (
+            <div key={tmpl.id} className="rounded-xl border p-5 hover:border-foreground/30 hover:shadow-sm transition flex flex-col">
+              <div className="size-10 rounded-lg bg-accent/10 flex items-center justify-center mb-3">
+                <GitMerge className="size-5 text-accent" />
+              </div>
+              <p className="text-sm font-semibold">{tmpl.name}</p>
+              <p className="text-xs text-muted-foreground mt-1 flex-1">{tmpl.description}</p>
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{tmpl.steps.length} steps</span>
+                <span className="text-[10px] text-muted-foreground">{tmpl.category}</span>
+              </div>
+              <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground flex-wrap">
+                {tmpl.steps.map((s: any, i: number) => (
+                  <span key={i} className="flex items-center gap-0.5">
+                    {i > 0 && <ArrowRight className="size-2.5" />}
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+              <Button type="button" size="sm" className="w-full mt-4" disabled={!!installingTemplate}
+                onClick={async () => {
+                  setInstallingTemplate(tmpl.id)
+                  try {
+                    const res = await fetch('/api/funnels/templates', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                      body: JSON.stringify({ templateId: tmpl.id }),
+                    })
+                    const data = await res.json()
+                    if (data.ok && data.data) {
+                      loadFunnels()
+                      // Open the newly created funnel for editing
+                      const funnel = data.data
+                      setEditId(funnel.id)
+                      setName(funnel.name)
+                      setAnalytics([])
+                      if (Array.isArray(funnel.steps)) {
+                        setSteps(funnel.steps.map((s: any) => ({
+                          id: s.id,
+                          stepOrder: s.step_order,
+                          stepType: s.step_type,
+                          pageId: s.page_id || null,
+                          productId: s.product_id || null,
+                          name: s.name || '',
+                          onAcceptStepId: s.on_accept_step_id || null,
+                          onDeclineStepId: s.on_decline_step_id || null,
+                          config: typeof s.config === 'string' ? JSON.parse(s.config) : (s.config || {}),
+                        })))
+                      }
+                      setView('edit')
+                    } else alert(data.error || 'Failed')
+                  } catch { alert('Failed') }
+                  setInstallingTemplate(null)
+                }}>
+                {installingTemplate === tmpl.id ? <><Loader2 className="size-3 animate-spin mr-1" /> Installing...</> : 'Use This Template'}
+              </Button>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -399,17 +624,19 @@ export default function FunnelsPage() {
                         onChange={(e) => updateStep(index, 'stepType', e.target.value)}
                         className="rounded-md border bg-background px-3 py-1.5 text-sm"
                       >
-                        <option value="page">Landing Page</option>
-                        <option value="checkout">Checkout (Stripe)</option>
-                        <option value="thank_you">Thank You Page</option>
+                        <option value="lead_capture">Lead Capture — collect name &amp; email (free offer)</option>
+                        <option value="page">Sales Page — present a paid offer</option>
+                        <option value="upsell">Upsell — add-on offer (adds to cart)</option>
+                        <option value="downsell">Downsell — alternative offer if upsell declined</option>
+                        <option value="checkout">Checkout — pay for all items in cart</option>
+                        <option value="thank_you">Thank You — confirmation + order summary</option>
                       </select>
-
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${stepTypeColors[step.stepType] || ''}`}>
                         {stepTypeLabels[step.stepType]}
                       </span>
                     </div>
 
-                    {step.stepType === 'page' && (
+                    {(step.stepType === 'page' || step.stepType === 'lead_capture') && (
                       <div>
                         <label className="block text-xs text-muted-foreground mb-1">Landing Page</label>
                         <select
@@ -419,37 +646,193 @@ export default function FunnelsPage() {
                         >
                           <option value="">Select a page...</option>
                           {landingPages.map((page) => (
-                            <option key={page.id} value={page.id}>{page.title}</option>
+                            <option key={page.id} value={page.id}>{page.title}{page.status !== 'published' ? ' (draft)' : ''}</option>
                           ))}
                         </select>
                       </div>
                     )}
 
-                    {step.stepType === 'checkout' && (
+                    {(step.stepType === 'upsell' || step.stepType === 'downsell') && (
                       <div>
-                        <label className="block text-xs text-muted-foreground mb-1">Stripe Checkout URL</label>
-                        <Input
-                          value={step.config.checkoutUrl || ''}
-                          onChange={(e) => updateStep(index, 'config.checkoutUrl', e.target.value)}
-                          placeholder="https://checkout.stripe.com/..."
-                          className="max-w-lg"
-                        />
+                        <label className="block text-xs text-muted-foreground mb-1">Custom Page <span className="text-muted-foreground/60">(optional)</span></label>
+                        <select
+                          value={step.pageId || ''}
+                          onChange={(e) => updateStep(index, 'pageId', e.target.value || null)}
+                          className="rounded-md border bg-background px-3 py-1.5 text-sm w-full max-w-sm"
+                        >
+                          <option value="">Use default offer page</option>
+                          {landingPages.map((page) => (
+                            <option key={page.id} value={page.id}>{page.title}{page.status !== 'published' ? ' (draft)' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {(step.stepType === 'page' || step.stepType === 'checkout' || step.stepType === 'upsell' || step.stepType === 'downsell') && (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">
+                            Product{step.stepType === 'page' ? ' (added to cart when visitor continues)' : ''}
+                          </label>
+                          <select
+                            value={step.productId || ''}
+                            onChange={(e) => updateStep(index, 'productId', e.target.value || null)}
+                            className="rounded-md border bg-background px-3 py-1.5 text-sm w-full max-w-sm"
+                          >
+                            <option value="">Select a product...</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name} — ${p.price.toFixed(2)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {step.stepType === 'checkout' && (
+                          <div>
+                            <label className="block text-xs text-muted-foreground mb-1">Order Bumps</label>
+                            {(step.config.order_bumps || []).map((bump: any, bi: number) => (
+                              <div key={bi} className="flex items-center gap-2 mb-1.5">
+                                <select
+                                  value={bump.product_id || ''}
+                                  onChange={(e) => {
+                                    const bumps = [...(step.config.order_bumps || [])]
+                                    const prod = products.find(p => p.id === e.target.value)
+                                    bumps[bi] = { ...bumps[bi], product_id: e.target.value, headline: prod?.name || '', price: prod?.price || 0 }
+                                    updateStep(index, 'config.order_bumps', JSON.stringify(bumps))
+                                  }}
+                                  className="rounded-md border bg-background px-2 py-1 text-xs flex-1"
+                                >
+                                  <option value="">Select product...</option>
+                                  {products.filter(p => p.id !== step.productId).map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name} — ${p.price.toFixed(2)}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => {
+                                    const bumps = (step.config.order_bumps || []).filter((_: any, i: number) => i !== bi)
+                                    updateStep(index, 'config.order_bumps', JSON.stringify(bumps))
+                                  }}
+                                  className="p-1 rounded hover:bg-muted text-destructive"
+                                >
+                                  <Trash2 className="size-3" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => {
+                                const bumps = [...(step.config.order_bumps || []), { product_id: '', headline: '', price: 0 }]
+                                updateStep(index, 'config.order_bumps', JSON.stringify(bumps))
+                              }}
+                              className="text-xs text-accent hover:underline flex items-center gap-1 mt-1"
+                            >
+                              <Plus className="size-3" /> Add bump
+                            </button>
+                          </div>
+                        )}
+                        {(step.stepType === 'upsell' || step.stepType === 'downsell') && !step.pageId && (
+                          <div className="space-y-2 max-w-sm">
+                            <div>
+                              <label className="block text-xs text-muted-foreground mb-1">Headline</label>
+                              <Input value={step.config.headline || ''} onChange={(e) => updateStep(index, 'config.headline', e.target.value)} placeholder={step.stepType === 'downsell' ? 'Wait — special offer' : 'Exclusive upgrade'} className="text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-muted-foreground mb-1">Description</label>
+                              <textarea value={step.config.description || ''} onChange={(e) => updateStep(index, 'config.description', e.target.value)} placeholder="Describe what they get with this offer..." rows={2} className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs text-muted-foreground mb-1">Accept Button</label>
+                                <Input value={step.config.accept_button_text || ''} onChange={(e) => updateStep(index, 'config.accept_button_text', e.target.value)} placeholder="Yes! Add this" className="text-xs" />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-muted-foreground mb-1">Decline Button</label>
+                                <Input value={step.config.decline_button_text || ''} onChange={(e) => updateStep(index, 'config.decline_button_text', e.target.value)} placeholder="No thanks" className="text-xs" />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-muted-foreground mb-1">Guarantee <span className="text-muted-foreground/60">(optional)</span></label>
+                              <Input value={step.config.guarantee || ''} onChange={(e) => updateStep(index, 'config.guarantee', e.target.value)} placeholder="30-day money-back guarantee" className="text-sm" />
+                            </div>
+                          </div>
+                        )}
+                        {(step.stepType === 'upsell' || step.stepType === 'downsell') && (
+                          <div className="grid grid-cols-2 gap-2 max-w-sm">
+                            <div>
+                              <label className="block text-xs text-muted-foreground mb-1">If accepted →</label>
+                              <select value={step.onAcceptStepId || ''} onChange={(e) => updateStep(index, 'onAcceptStepId', e.target.value || null)}
+                                className="rounded-md border bg-background px-2 py-1.5 text-xs w-full">
+                                <option value="">Next step</option>
+                                {steps.filter((s, i) => i !== index).map((s) => (
+                                  <option key={s.id || s.stepOrder} value={s.id || ''}>{s.name || stepTypeLabels[s.stepType]} (#{s.stepOrder})</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-muted-foreground mb-1">If declined →</label>
+                              <select value={step.onDeclineStepId || ''} onChange={(e) => updateStep(index, 'onDeclineStepId', e.target.value || null)}
+                                className="rounded-md border bg-background px-2 py-1.5 text-xs w-full">
+                                <option value="">Next step</option>
+                                {steps.filter((s, i) => i !== index).map((s) => (
+                                  <option key={s.id || s.stepOrder} value={s.id || ''}>{s.name || stepTypeLabels[s.stepType]} (#{s.stepOrder})</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {step.stepType === 'thank_you' && (
-                      <div>
-                        <label className="block text-xs text-muted-foreground mb-1">Thank You Message</label>
-                        <Input
-                          value={step.config.message || ''}
-                          onChange={(e) => updateStep(index, 'config.message', e.target.value)}
-                          placeholder="Thank you for your purchase!"
-                          className="max-w-lg"
-                        />
+                      <div className="space-y-2 max-w-lg">
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Custom Page <span className="text-muted-foreground/60">(optional — overrides default thank-you)</span></label>
+                          <select
+                            value={step.pageId || ''}
+                            onChange={(e) => updateStep(index, 'pageId', e.target.value || null)}
+                            className="rounded-md border bg-background px-3 py-1.5 text-sm w-full max-w-sm"
+                          >
+                            <option value="">Use default thank-you page</option>
+                            {landingPages.map((page) => (
+                              <option key={page.id} value={page.id}>{page.title}{page.status !== 'published' ? ' (draft)' : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Thank You Message</label>
+                          <Input
+                            value={step.config.message || ''}
+                            onChange={(e) => updateStep(index, 'config.message', e.target.value)}
+                            placeholder="Thank you for your purchase!"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Download Link <span className="text-muted-foreground/60">(optional)</span></label>
+                          <Input
+                            value={step.config.downloadUrl || ''}
+                            onChange={(e) => updateStep(index, 'config.downloadUrl', e.target.value)}
+                            placeholder="https://example.com/your-file.pdf"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Next Step CTA <span className="text-muted-foreground/60">(optional)</span></label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              value={step.config.ctaText || ''}
+                              onChange={(e) => updateStep(index, 'config.ctaText', e.target.value)}
+                              placeholder="Button text"
+                              className="text-sm"
+                            />
+                            <Input
+                              value={step.config.ctaUrl || ''}
+                              onChange={(e) => updateStep(index, 'config.ctaUrl', e.target.value)}
+                              placeholder="https://..."
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
 
-                    {analytics.length > 0 && (() => {
+                    {false && analytics.length > 0 && (() => {
                       const stepAnalytics = analytics.find((a) => a.stepOrder === step.stepOrder)
                       if (!stepAnalytics) return null
                       return (
@@ -517,8 +900,8 @@ export default function FunnelsPage() {
         </div>
       </div>
 
-      {/* Conversion chart */}
-      {analytics.length > 0 && (
+      {/* Conversion chart — shown on list page, not here */}
+      {false && analytics.length > 0 && (
         <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Conversion Funnel</label>
           <div className="rounded-lg border bg-card p-4">

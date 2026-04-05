@@ -74,12 +74,13 @@ export async function POST(req: Request, ctx: any) {
     }
 
     const id = require('crypto').randomUUID()
+    const extName = displayName || email
     await knex('customer_entities').insert({
       id,
       tenant_id: scope.tenantId,
       organization_id: scope.orgId,
       kind: 'person',
-      display_name: displayName || email,
+      display_name: extName,
       primary_email: email || null,
       primary_phone: phone || null,
       source: source || 'api',
@@ -88,6 +89,12 @@ export async function POST(req: Request, ctx: any) {
       created_at: new Date(),
       updated_at: new Date(),
     })
+    const extParts = (extName || '').split(' ')
+    await knex('customer_people').insert({
+      id: require('crypto').randomUUID(), tenant_id: scope.tenantId, organization_id: scope.orgId,
+      entity_id: id, first_name: extParts[0] || '', last_name: extParts.slice(1).join(' ') || '',
+      created_at: new Date(), updated_at: new Date(),
+    }).catch(() => {})
 
     const contact = await knex('customer_entities').where('id', id).first()
     return NextResponse.json({ ok: true, data: contact, existed: false }, { status: 201 })

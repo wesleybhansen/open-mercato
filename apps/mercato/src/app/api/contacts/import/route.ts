@@ -68,6 +68,14 @@ export async function POST(req: Request) {
           }).catch(() => {})
         }
 
+        // Fire automation triggers
+        try {
+          const { executeAutomationRules } = await import('@/app/api/automation-rules/execute')
+          executeAutomationRules(knex, auth.orgId, auth.tenantId, 'contact_created', {
+            contactId: id, contactEmail: email, contactName: name,
+          }).catch(() => {})
+        } catch {}
+
         imported++
       } catch (err) {
         errors.push(`Failed to import ${name || email}: ${err instanceof Error ? err.message : 'unknown'}`)

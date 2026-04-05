@@ -25,27 +25,40 @@ export async function sendViaGmail(
   subject: string,
   htmlBody: string,
   textBody?: string,
+  cc?: string,
+  bcc?: string,
 ): Promise<GmailSendResult> {
+  console.log('[gmail] sendViaGmail called — from:', from, 'to:', to, 'subject:', subject)
   const boundary = `boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`
+
+  const textContent = Buffer.from(textBody || htmlBody.replace(/<[^>]+>/g, '')).toString('base64')
+  const htmlContent = Buffer.from(htmlBody).toString('base64')
+
+  // Encode subject for UTF-8 support (RFC 2047)
+  const encodedSubject = /[^\x20-\x7E]/.test(subject)
+    ? `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`
+    : subject
 
   const mimeLines = [
     `From: ${from}`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
+    ...(bcc ? [`Bcc: ${bcc}`] : []),
+    `Subject: ${encodedSubject}`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
     '',
     `--${boundary}`,
     `Content-Type: text/plain; charset="UTF-8"`,
-    `Content-Transfer-Encoding: 7bit`,
+    `Content-Transfer-Encoding: base64`,
     '',
-    textBody || htmlBody.replace(/<[^>]+>/g, ''),
+    textContent,
     '',
     `--${boundary}`,
     `Content-Type: text/html; charset="UTF-8"`,
-    `Content-Transfer-Encoding: 7bit`,
+    `Content-Transfer-Encoding: base64`,
     '',
-    htmlBody,
+    htmlContent,
     '',
     `--${boundary}--`,
   ]
@@ -74,6 +87,23 @@ export async function sendViaGmail(
   }
 
   const data = await res.json()
+
+  // Remove INBOX label from sent messages so they don't appear in sender's inbox
+  if (data.id && data.labelIds?.includes('INBOX')) {
+    try {
+      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${data.id}/modify`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ removeLabelIds: ['INBOX', 'UNREAD'] }),
+      })
+    } catch {
+      // Non-critical — email was sent successfully
+    }
+  }
+
   return {
     messageId: data.id || '',
     threadId: data.threadId || '',
@@ -113,7 +143,12 @@ export async function refreshGmailToken(
   const tokens = await res.json()
 
   if (!tokens.access_token) {
-    throw new Error(`Token refresh failed: ${tokens.error_description || tokens.error || 'unknown'}`)
+    const errorDesc = tokens.error_description || tokens.error || 'unknown'
+    // If the refresh token is revoked/expired, throw a specific error
+    if (tokens.error === 'invalid_grant') {
+      throw new Error(`Gmail refresh token expired or revoked. Please reconnect Gmail in Settings. (${errorDesc})`)
+    }
+    throw new Error(`Token refresh failed: ${errorDesc}`)
   }
 
   return {
@@ -153,20 +188,33 @@ export async function getGmailToken(
 
   // Token expired or about to expire — refresh it
   if (!connection.refresh_token) {
-    throw new Error('Gmail token expired and no refresh token available. Please reconnect Gmail.')
+    throw new Error('Gmail token expired and no refresh token available. Please reconnect Gmail in Settings.')
   }
 
-  const refreshed = await refreshGmailToken(connection.refresh_token)
-  const newExpiry = new Date(Date.now() + refreshed.expiresIn * 1000)
+  try {
+    const refreshed = await refreshGmailToken(connection.refresh_token)
+    const newExpiry = new Date(Date.now() + refreshed.expiresIn * 1000)
 
-  await knex('email_connections').where('id', connection.id).update({
-    access_token: refreshed.accessToken,
-    token_expiry: newExpiry,
-    updated_at: new Date(),
-  })
+    await knex('email_connections').where('id', connection.id).update({
+      access_token: refreshed.accessToken,
+      token_expiry: newExpiry,
+      updated_at: new Date(),
+    })
 
-  return {
-    accessToken: refreshed.accessToken,
-    emailAddress: connection.email_address,
+    return {
+      accessToken: refreshed.accessToken,
+      emailAddress: connection.email_address,
+    }
+  } catch (refreshErr) {
+    // If refresh token is revoked, deactivate the connection so we don't keep trying
+    const msg = refreshErr instanceof Error ? refreshErr.message : ''
+    if (msg.includes('expired or revoked') || msg.includes('invalid_grant')) {
+      console.error('[gmail] Refresh token revoked — deactivating connection:', connection.id)
+      await knex('email_connections').where('id', connection.id).update({
+        is_active: false,
+        updated_at: new Date(),
+      })
+    }
+    throw refreshErr
   }
 }

@@ -315,6 +315,7 @@ const updateDealCommand: CommandHandler<DealUpdateInput, { dealId: string }> = {
     ensureOrganizationScope(ctx, record.organizationId)
 
     const previousStatus = record.status
+    const previousPipelineStageId = record.pipelineStageId
 
     if (parsed.title !== undefined) record.title = parsed.title
     if (parsed.description !== undefined) record.description = parsed.description ?? null
@@ -361,6 +362,26 @@ const updateDealCommand: CommandHandler<DealUpdateInput, { dealId: string }> = {
       indexer: dealCrudIndexer,
       events: dealCrudEvents,
     })
+
+    // Emit stage_changed event for webhook subscribers
+    if (previousPipelineStageId !== record.pipelineStageId) {
+      try {
+        const bus = ctx.container.resolve('eventBus') as any
+        if (bus?.emitEvent) {
+          await bus.emitEvent('customers.deal.stage_changed', {
+            id: record.id,
+            organizationId: record.organizationId,
+            tenantId: record.tenantId,
+            title: record.title,
+            stage: record.pipelineStage,
+            previousStage: null,
+            status: record.status,
+          })
+        }
+      } catch {
+        // non-critical
+      }
+    }
 
     // Send notifications for deal won/lost status changes
     const newStatus = record.status

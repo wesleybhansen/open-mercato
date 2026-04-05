@@ -1,82 +1,60 @@
-import { bootstrap } from '@/bootstrap'
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import type { EntityManager } from '@mikro-orm/postgresql'
-import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { query, queryOne } from '@/app/api/funnels/db'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+
   try {
     const { id } = await params
-    const container = await createRequestContainer()
-    const knex = (container.resolve('em') as EntityManager).getKnex()
 
-    const funnel = await knex('funnels').where('id', id).where('organization_id', auth.orgId).first()
+    const funnel = await queryOne('SELECT * FROM funnels WHERE id = $1 AND organization_id = $2', [id, auth.orgId])
     if (!funnel) return NextResponse.json({ ok: false, error: 'Funnel not found' }, { status: 404 })
 
-    const steps = await knex('funnel_steps')
-      .select('funnel_steps.*')
-      .where('funnel_steps.funnel_id', id)
-      .orderBy('funnel_steps.step_order', 'asc')
+    const steps = await query('SELECT * FROM funnel_steps WHERE funnel_id = $1 ORDER BY step_order', [id])
 
-    const visitCounts = await knex('funnel_visits')
-      .select('step_id')
-      .count('* as visits')
-      .where('funnel_id', id)
-      .groupBy('step_id')
+    const analytics = []
+    let prevVisits = 0
 
-    const visitMap = new Map<string, number>()
-    for (const row of visitCounts) {
-      visitMap.set(row.step_id, parseInt(String(row.visits), 10))
-    }
+    for (const step of steps) {
+      const visitResult = await queryOne(
+        'SELECT count(*)::int as count FROM funnel_visits WHERE step_id = $1',
+        [step.id]
+      )
+      const visits = visitResult?.count || 0
 
-    // Fetch page titles for page-type steps
-    const pageIds = steps
-      .filter((s: { step_type: string; page_id: string | null }) => s.step_type === 'page' && s.page_id)
-      .map((s: { page_id: string }) => s.page_id)
-    const pageTitleMap = new Map<string, string>()
-    if (pageIds.length > 0) {
-      const pages = await knex('landing_pages').select('id', 'title').whereIn('id', pageIds)
-      for (const page of pages) {
-        pageTitleMap.set(page.id, page.title)
-      }
-    }
-
-    let previousVisits = 0
-    const analytics = steps.map((step: { id: string; step_order: number; step_type: string; page_id: string | null }, index: number) => {
-      const visits = visitMap.get(step.id) || 0
-      let pageTitle: string | null = null
-      if (step.step_type === 'page' && step.page_id) {
-        pageTitle = pageTitleMap.get(step.page_id) || null
+      // Get page title if it's a page step
+      let pageTitle = null
+      if (step.page_id) {
+        const page = await queryOne('SELECT title FROM landing_pages WHERE id = $1', [step.page_id])
+        pageTitle = page?.title || null
       }
 
-      let dropOffRate = 0
-      if (index > 0 && previousVisits > 0) {
-        dropOffRate = Math.round(((previousVisits - visits) / previousVisits) * 100 * 10) / 10
-      }
+      const dropOff = prevVisits > 0 ? ((prevVisits - visits) / prevVisits * 100).toFixed(1) : '0.0'
 
-      previousVisits = visits
-
-      return {
+      analytics.push({
+        stepId: step.id,
         stepOrder: step.step_order,
         stepType: step.step_type,
+        stepName: step.name || step.step_type,
         pageTitle,
         visits,
-        dropOffRate,
-      }
-    })
+        dropOff: Number(dropOff),
+      })
 
-    return NextResponse.json({ ok: true, data: analytics })
-  } catch {
+      prevVisits = visits
+    }
+
+    // Abandoned sessions (active for >24 hours without completion)
+    const abandonedResult = await query(
+      "SELECT fs.email, fs.started_at, fs.updated_at, fst.name as last_step_name, fst.step_type as last_step_type FROM funnel_sessions fs LEFT JOIN funnel_steps fst ON fst.id = fs.current_step_id WHERE fs.funnel_id = $1 AND fs.status = 'active' AND fs.updated_at < NOW() - INTERVAL '24 hours' ORDER BY fs.updated_at DESC LIMIT 20",
+      [id]
+    )
+
+    return NextResponse.json({ ok: true, data: analytics, abandoned: abandonedResult })
+  } catch (error) {
+    console.error('[funnels.analytics]', error)
     return NextResponse.json({ ok: false, error: 'Failed to load analytics' }, { status: 500 })
   }
-}
-
-export const openApi: OpenApiRouteDoc = {
-  tag: 'Funnels', summary: 'Funnel analytics',
-  methods: {
-    GET: { summary: 'Get per-step conversion analytics for a funnel', tags: ['Funnels'] },
-  },
 }

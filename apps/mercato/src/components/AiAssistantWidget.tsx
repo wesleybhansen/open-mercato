@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Send, Loader2, Sparkles, Check, XCircle } from 'lucide-react'
+import { X, Send, Loader2, Sparkles, Check, XCircle, Trash2, Maximize2, Minimize2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 type CrmAction = {
   type: string
@@ -50,6 +51,10 @@ function getActionLabel(action: CrmAction): string {
       return `Send email to ${action.data.to || 'Unknown'}: ${action.data.subject || 'No subject'}`
     case 'move_deal_stage':
       return `Move deal to stage: ${action.data.stage || 'Unknown'}`
+    case 'create_invoice':
+      return `Create invoice${action.data.contactName ? ` for ${action.data.contactName}` : ''}: ${action.data.items?.length || 0} item(s)`
+    case 'create_product':
+      return `Create product: ${action.data.name || 'Untitled'} ($${action.data.price || 0})`
     default:
       return `Action: ${action.type}`
   }
@@ -60,130 +65,168 @@ async function executeCrmAction(action: CrmAction): Promise<{ success: boolean; 
     switch (action.type) {
       case 'create_contact': {
         const res = await fetch('/api/contacts/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            contacts: [{
-              display_name: action.data.name,
-              primary_email: action.data.email,
-              primary_phone: action.data.phone || null,
-              source: action.data.source || 'ai_assistant',
-            }],
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ contacts: [{ display_name: action.data.name, primary_email: action.data.email, primary_phone: action.data.phone || null, source: action.data.source || 'ai_assistant' }] }),
         })
         const data = await res.json()
-        if (data.ok) return { success: true, message: `Contact "${action.data.name}" created successfully!` }
+        if (data.ok) return { success: true, message: `Contact "${action.data.name}" created!` }
         return { success: false, message: data.error || 'Failed to create contact' }
       }
-
       case 'create_task': {
-        const res = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            title: action.data.title,
-            contactId: action.data.contactId || null,
-            dueDate: action.data.dueDate || null,
-          }),
+        const res = await fetch('/api/crm-tasks', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ title: action.data.title, contactId: action.data.contactId || null, dueDate: action.data.dueDate || null }),
         })
         const data = await res.json()
         if (data.ok) return { success: true, message: `Task "${action.data.title}" created!` }
         return { success: false, message: data.error || 'Failed to create task' }
       }
-
       case 'add_note': {
         if (!action.data.contactId) return { success: false, message: 'Contact ID required for adding a note' }
         const res = await fetch('/api/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            contactId: action.data.contactId,
-            content: action.data.content,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ contactId: action.data.contactId, content: action.data.content }),
         })
         const data = await res.json()
-        if (data.ok) return { success: true, message: 'Note added successfully!' }
+        if (data.ok) return { success: true, message: 'Note added!' }
         return { success: false, message: data.error || 'Failed to add note' }
       }
-
       case 'add_tag': {
         if (!action.data.contactId) return { success: false, message: 'Contact ID required for adding a tag' }
-        const res = await fetch('/api/contact-tags', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            contactId: action.data.contactId,
-            tagName: action.data.tagName,
-          }),
+        const res = await fetch('/api/crm-contact-tags', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ contactId: action.data.contactId, tagName: action.data.tagName }),
         })
         const data = await res.json()
         if (data.ok) return { success: true, message: `Tag "${action.data.tagName}" added!` }
         return { success: false, message: data.error || 'Failed to add tag' }
       }
-
       case 'create_deal': {
         const res = await fetch('/api/pipeline/journey', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            title: action.data.title,
-            contactId: action.data.contactId || null,
-            value: action.data.value || null,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ title: action.data.title, contactId: action.data.contactId || null, value: action.data.value || null }),
         })
         const data = await res.json()
         if (data.ok) return { success: true, message: `Deal "${action.data.title}" created!` }
         return { success: false, message: data.error || 'Failed to create deal' }
       }
-
       case 'send_email': {
         const res = await fetch('/api/email/smtp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            to: action.data.to,
-            subject: action.data.subject,
-            body: action.data.body,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ to: action.data.to, subject: action.data.subject, body: action.data.body }),
         })
         const data = await res.json()
         if (data.ok) return { success: true, message: `Email sent to ${action.data.to}!` }
         return { success: false, message: data.error || 'Failed to send email' }
       }
-
       case 'move_deal_stage': {
         if (!action.data.dealId) return { success: false, message: 'Deal ID required' }
         const res = await fetch('/api/pipeline/journey', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            contactId: action.data.dealId,
-            stage: action.data.stage,
-          }),
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ contactId: action.data.dealId, stage: action.data.stage }),
         })
         const data = await res.json()
-        if (data.ok) return { success: true, message: `Deal moved to "${action.data.stage}" stage!` }
+        if (data.ok) return { success: true, message: `Deal moved to "${action.data.stage}"!` }
         return { success: false, message: data.error || 'Failed to move deal' }
       }
-
+      case 'create_invoice': {
+        const items = action.data.items || []
+        if (items.length === 0) return { success: false, message: 'At least one line item is required' }
+        const res = await fetch('/api/payments/invoices', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ lineItems: items.map((i: any) => ({ name: i.name, price: Number(i.price), quantity: Number(i.quantity) || 1 })), notes: action.data.notes || undefined, dueDate: action.data.dueDate || undefined }),
+        })
+        const data = await res.json()
+        if (data.ok) return { success: true, message: `Invoice created! (${data.data?.invoice_number || 'New'})` }
+        return { success: false, message: data.error || 'Failed to create invoice' }
+      }
+      case 'create_product': {
+        if (!action.data.name || !action.data.price) return { success: false, message: 'Product name and price are required' }
+        const res = await fetch('/api/payments/products', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ name: action.data.name, description: action.data.description || undefined, price: Number(action.data.price), billingType: action.data.billingType || 'one_time', trialDays: action.data.trialDays ? Number(action.data.trialDays) : undefined }),
+        })
+        const data = await res.json()
+        if (data.ok) return { success: true, message: `Product "${action.data.name}" created!` }
+        return { success: false, message: data.error || 'Failed to create product' }
+      }
       default:
         return { success: false, message: `Unknown action type: ${action.type}` }
     }
-  } catch (err) {
+  } catch {
     return { success: false, message: 'Network error. Please try again.' }
   }
 }
 
+// Render markdown text with bold, italic, links, and lists
+function MarkdownText({ text, onNavigate }: { text: string; onNavigate: (path: string) => void }) {
+  const lines = text.split('\n')
+  return (
+    <>
+      {lines.map((line, i) => {
+        const trimmed = line.trim()
+        if (!trimmed) return <div key={i} className="h-1.5" />
+
+        // Bullet list
+        const isBullet = /^[-*]\s/.test(trimmed)
+        const content = isBullet ? trimmed.replace(/^[-*]\s/, '') : trimmed
+
+        // Process inline markdown: bold, italic, links
+        const parts: Array<{ type: 'text' | 'bold' | 'italic' | 'link'; text: string; href?: string }> = []
+        let remaining = content
+        const inlineRegex = /(\*\*(.+?)\*\*|\*(.+?)\*|\[(.+?)\]\((.+?)\))/
+        while (remaining) {
+          const match = remaining.match(inlineRegex)
+          if (!match || match.index === undefined) {
+            if (remaining) parts.push({ type: 'text', text: remaining })
+            break
+          }
+          if (match.index > 0) parts.push({ type: 'text', text: remaining.substring(0, match.index) })
+          if (match[2]) parts.push({ type: 'bold', text: match[2] })
+          else if (match[3]) parts.push({ type: 'italic', text: match[3] })
+          else if (match[4] && match[5]) parts.push({ type: 'link', text: match[4], href: match[5] })
+          remaining = remaining.substring(match.index + match[0].length)
+        }
+
+        const rendered = parts.map((p, j) => {
+          if (p.type === 'bold') return <strong key={j}>{p.text}</strong>
+          if (p.type === 'italic') return <em key={j}>{p.text}</em>
+          if (p.type === 'link' && p.href) {
+            const isInternal = p.href.startsWith('/')
+            if (isInternal) {
+              return (
+                <button key={j} type="button"
+                  onClick={() => onNavigate(p.href!)}
+                  className="text-accent underline underline-offset-2 hover:text-accent/80 font-medium">
+                  {p.text}
+                </button>
+              )
+            }
+            return <a key={j} href={p.href} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-accent/80">{p.text}</a>
+          }
+          return <span key={j}>{p.text}</span>
+        })
+
+        if (isBullet) {
+          return (
+            <div key={i} className={`flex gap-1.5 ${i > 0 ? 'mt-0.5' : ''}`}>
+              <span className="text-muted-foreground shrink-0 mt-px">&#8226;</span>
+              <span>{rendered}</span>
+            </div>
+          )
+        }
+
+        return <p key={i} className={i > 0 ? 'mt-1' : ''}>{rendered}</p>
+      })}
+    </>
+  )
+}
+
 export function AiAssistantWidget() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [personaName, setPersonaName] = useState('AI Assistant')
+  const [expanded, setExpanded] = useState(false)
+  const [personaName, setPersonaName] = useState('Scout')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -191,28 +234,22 @@ export function AiAssistantWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const personaLoaded = useRef(false)
 
+  function getGreeting(name: string) {
+    return `Hey! I'm ${name}. I can answer questions about your CRM data, help you navigate features, or do things like create contacts, tasks, invoices, and more. What can I help with?`
+  }
+
   useEffect(() => {
     if (personaLoaded.current) return
     personaLoaded.current = true
     fetch('/api/business-profile', { credentials: 'include' })
       .then(r => r.json())
       .then(d => {
-        if (d.ok && d.data?.ai_persona_name) {
-          const name = d.data.ai_persona_name
-          setPersonaName(name)
-          setMessages([
-            { role: 'assistant', content: `Hi! I'm ${name}, your CRM assistant. I can help you navigate the app, create contacts, build landing pages, and more. Try saying "Create a contact for John Smith at john@example.com" and I'll do it for you!` },
-          ])
-        } else {
-          setMessages([
-            { role: 'assistant', content: "Hi! I'm your CRM assistant. I can help you navigate the app, create contacts, manage tasks, and more. Try saying \"Create a task to follow up with the client\" and I'll do it for you!" },
-          ])
-        }
+        const name = d.ok && d.data?.ai_persona_name ? d.data.ai_persona_name : 'Scout'
+        setPersonaName(name)
+        setMessages([{ role: 'assistant', content: getGreeting(name) }])
       })
       .catch(() => {
-        setMessages([
-          { role: 'assistant', content: "Hi! I'm your CRM assistant. I can help you navigate the app, create contacts, build landing pages, and more. What can I help with?" },
-        ])
+        setMessages([{ role: 'assistant', content: getGreeting('Scout') }])
       })
   }, [])
 
@@ -224,29 +261,27 @@ export function AiAssistantWidget() {
     if (open) inputRef.current?.focus()
   }, [open])
 
+  function clearChat() {
+    setMessages([{ role: 'assistant', content: getGreeting(personaName) }])
+  }
+
+  function handleNavigate(path: string) {
+    router.push(path)
+    setOpen(false)
+  }
+
   const handleActionConfirm = useCallback(async (messageIndex: number) => {
     setMessages(prev => {
       const updated = [...prev]
-      if (updated[messageIndex]) {
-        updated[messageIndex] = { ...updated[messageIndex], actionStatus: 'executing' }
-      }
+      if (updated[messageIndex]) updated[messageIndex] = { ...updated[messageIndex], actionStatus: 'executing' }
       return updated
     })
-
     const msg = messages[messageIndex]
     if (!msg?.action) return
-
     const result = await executeCrmAction(msg.action)
-
     setMessages(prev => {
       const updated = [...prev]
-      if (updated[messageIndex]) {
-        updated[messageIndex] = {
-          ...updated[messageIndex],
-          actionStatus: result.success ? 'success' : 'error',
-          actionResult: result.message,
-        }
-      }
+      if (updated[messageIndex]) updated[messageIndex] = { ...updated[messageIndex], actionStatus: result.success ? 'success' : 'error', actionResult: result.message }
       return updated
     })
   }, [messages])
@@ -254,21 +289,14 @@ export function AiAssistantWidget() {
   const handleActionCancel = useCallback((messageIndex: number) => {
     setMessages(prev => {
       const updated = [...prev]
-      if (updated[messageIndex]) {
-        updated[messageIndex] = {
-          ...updated[messageIndex],
-          action: undefined,
-          actionStatus: undefined,
-          actionResult: 'Action cancelled.',
-        }
-      }
+      if (updated[messageIndex]) updated[messageIndex] = { ...updated[messageIndex], action: undefined, actionStatus: undefined, actionResult: 'Action cancelled.' }
       return updated
     })
   }, [])
 
-  async function send() {
-    if (!input.trim() || loading) return
-    const userMsg: Message = { role: 'user', content: input.trim() }
+  async function sendMessage(text: string) {
+    if (!text.trim() || loading) return
+    const userMsg: Message = { role: 'user', content: text.trim() }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
@@ -276,32 +304,15 @@ export function AiAssistantWidget() {
 
     try {
       const res = await fetch('/api/ai/assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          messages: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
-          currentPage: document.title,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ messages: newMessages.slice(-12).map(m => ({ role: m.role, content: m.content })), currentPage: document.title }),
       })
       const data = await res.json()
       const rawMessage = data.message || data.error || 'Something went wrong.'
-
       const { cleanText, action } = parseCrmAction(rawMessage)
-
-      const assistantMsg: Message = {
-        role: 'assistant',
-        content: cleanText,
-        action: action || undefined,
-        actionStatus: action ? 'pending' : undefined,
-      }
-
-      setMessages([...newMessages, assistantMsg])
+      setMessages([...newMessages, { role: 'assistant', content: cleanText, action: action || undefined, actionStatus: action ? 'pending' : undefined }])
     } catch {
-      setMessages([...newMessages, {
-        role: 'assistant',
-        content: 'Connection error. Please try again.',
-      }])
+      setMessages([...newMessages, { role: 'assistant', content: 'Connection error. Please try again.' }])
     } finally {
       setLoading(false)
     }
@@ -310,16 +321,20 @@ export function AiAssistantWidget() {
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      send()
+      sendMessage(input)
     }
   }
 
   const quickActions = [
-    { label: 'How do I add a contact?', icon: '👤' },
+    { label: 'Give me an overview of my CRM', icon: '📊' },
+    { label: 'How do I create an event?', icon: '📅' },
     { label: 'Create a task to follow up this week', icon: '✅' },
-    { label: 'How do I create a deal?', icon: '💰' },
-    { label: 'What can this CRM do?', icon: '✨' },
+    { label: 'What features does this CRM have?', icon: '✨' },
   ]
+
+  const panelSize = expanded
+    ? 'w-[520px] h-[680px]'
+    : 'w-[400px] h-[540px]'
 
   return (
     <>
@@ -338,9 +353,9 @@ export function AiAssistantWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 w-[380px] h-[520px] rounded-2xl border bg-background shadow-2xl flex flex-col overflow-hidden">
+        <div className={`fixed bottom-5 right-5 z-50 ${panelSize} rounded-2xl border bg-background shadow-2xl flex flex-col overflow-hidden transition-all duration-200`}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-card shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
                 <Sparkles className="size-3.5 text-accent" />
@@ -350,24 +365,31 @@ export function AiAssistantWidget() {
                 <p className="text-[10px] text-muted-foreground">Ask me anything or give me a command</p>
               </div>
             </div>
-            <button type="button" onClick={() => setOpen(false)}
-              className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
-              <X className="size-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button type="button" onClick={clearChat} title="Clear chat"
+                className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition">
+                <Trash2 className="size-3.5" />
+              </button>
+              <button type="button" onClick={() => setExpanded(!expanded)} title={expanded ? 'Minimize' : 'Expand'}
+                className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition">
+                {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} title="Close"
+                className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition">
+                <X className="size-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
-                  <div className="max-w-[85%]">
+                  <div className="max-w-[90%]">
                     <p className="text-[10px] text-muted-foreground mb-0.5 ml-1">{personaName}</p>
                     <div className="px-3 py-2 text-[13px] leading-relaxed bg-muted rounded-2xl rounded-bl-sm">
-                      {msg.content.split('\n').map((line, j) => {
-                        const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                        return <p key={j} className={j > 0 ? 'mt-1' : ''} dangerouslySetInnerHTML={{ __html: formatted }} />
-                      })}
+                      <MarkdownText text={msg.content} onNavigate={handleNavigate} />
                     </div>
 
                     {/* CRM Action Card */}
@@ -375,18 +397,12 @@ export function AiAssistantWidget() {
                       <div className="mt-2 border rounded-lg px-3 py-2.5 bg-accent/5">
                         <p className="text-xs font-medium mb-2">{getActionLabel(msg.action)}</p>
                         <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleActionConfirm(i)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent/90 transition"
-                          >
+                          <button type="button" onClick={() => handleActionConfirm(i)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent/90 transition">
                             <Check className="size-3" /> Confirm
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleActionCancel(i)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium hover:bg-muted transition"
-                          >
+                          <button type="button" onClick={() => handleActionCancel(i)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium hover:bg-muted transition">
                             <XCircle className="size-3" /> Cancel
                           </button>
                         </div>
@@ -426,10 +442,7 @@ export function AiAssistantWidget() {
                 )}
                 {msg.role === 'user' && (
                   <div className="max-w-[85%] px-3 py-2 text-[13px] leading-relaxed bg-accent text-white rounded-2xl rounded-br-sm">
-                    {msg.content.split('\n').map((line, j) => {
-                      const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                      return <p key={j} className={j > 0 ? 'mt-1' : ''} dangerouslySetInnerHTML={{ __html: formatted }} />
-                    })}
+                    {msg.content}
                   </div>
                 )}
               </div>
@@ -446,35 +459,12 @@ export function AiAssistantWidget() {
             {/* Quick actions (only show when no user messages yet) */}
             {messages.length <= 1 && (
               <div className="space-y-1.5 pt-2">
-                <p className="text-[11px] text-muted-foreground font-medium">Quick questions:</p>
-                {quickActions.map((action) => (
-                  <button key={action.label} type="button"
-                    onClick={async () => {
-                      const msg: Message = { role: 'user', content: action.label }
-                      const newMsgs = [...messages, msg]
-                      setMessages(newMsgs)
-                      setLoading(true)
-                      try {
-                        const res = await fetch('/api/ai/assistant', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-                          body: JSON.stringify({ messages: newMsgs.slice(-10).map(m => ({ role: m.role, content: m.content })), currentPage: document.title }),
-                        })
-                        const data = await res.json()
-                        const rawMessage = data.message || 'Something went wrong.'
-                        const { cleanText, action: crmAction } = parseCrmAction(rawMessage)
-                        setMessages([...newMsgs, {
-                          role: 'assistant',
-                          content: cleanText,
-                          action: crmAction || undefined,
-                          actionStatus: crmAction ? 'pending' : undefined,
-                        }])
-                      } catch {
-                        setMessages([...newMsgs, { role: 'assistant', content: 'Connection error.' }])
-                      }
-                      setLoading(false)
-                    }}
+                <p className="text-[11px] text-muted-foreground font-medium">Try asking:</p>
+                {quickActions.map((qa) => (
+                  <button key={qa.label} type="button"
+                    onClick={() => sendMessage(qa.label)}
                     className="w-full text-left px-3 py-2 rounded-lg border text-xs hover:bg-muted transition flex items-center gap-2">
-                    <span>{action.icon}</span> {action.label}
+                    <span>{qa.icon}</span> {qa.label}
                   </button>
                 ))}
               </div>
@@ -482,7 +472,7 @@ export function AiAssistantWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t px-3 py-2.5">
+          <div className="border-t px-3 py-2.5 shrink-0">
             <div className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
@@ -494,7 +484,7 @@ export function AiAssistantWidget() {
                 className="flex-1 rounded-lg border bg-card px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-accent min-h-[36px] max-h-[80px]"
                 rows={1}
               />
-              <button type="button" onClick={send} disabled={!input.trim() || loading}
+              <button type="button" onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
                 className="w-8 h-8 rounded-lg bg-accent text-white flex items-center justify-center disabled:opacity-50 shrink-0">
                 <Send className="size-3.5" />
               </button>

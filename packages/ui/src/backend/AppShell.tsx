@@ -447,7 +447,14 @@ export function AppShell({ productName, email, groups, rightHeaderSlot, children
     }
   }, [groups])
 
-  const toggleGroup = (groupId: string) => setOpenGroups((prev) => ({ ...prev, [groupId]: prev[groupId] === false }))
+  const toggleGroup = (groupId: string) => setOpenGroups((prev) => {
+    const wasOpen = prev[groupId] !== false
+    // Accordion: close all others, toggle the clicked one
+    const next: Record<string, boolean> = {}
+    for (const key of Object.keys(prev)) { next[key] = false }
+    next[groupId] = !wasOpen
+    return next
+  })
 
   const updateDraft = React.useCallback((updater: (draft: SidebarCustomizationDraft) => SidebarCustomizationDraft) => {
     setCustomDraft((prev) => {
@@ -873,7 +880,7 @@ export function AppShell({ productName, email, groups, rightHeaderSlot, children
         {!hideHeader && (
           <div className={`flex items-center ${compact ? 'justify-center' : 'justify-between'} mb-2`}>
             <Link href="/backend" className="flex items-center gap-2" aria-label={t('appShell.goToDashboard')}>
-              <Image src="/open-mercato.svg" alt={resolvedProductName} width={32} height={32} className="rounded m-4" />
+              <Image src="/launchos-logo.png" alt={resolvedProductName} width={32} height={32} className="rounded m-4" />
               {!compact && <div className="text-m font-semibold">{resolvedProductName}</div>}
             </Link>
           </div>
@@ -1196,7 +1203,7 @@ export function AppShell({ productName, email, groups, rightHeaderSlot, children
         {!hideHeader && (
           <div className={`flex items-center ${compact ? 'justify-center' : 'justify-between'} mb-2`}>
             <Link href="/backend" className="flex items-center gap-2" aria-label={t('appShell.goToDashboard')}>
-              <Image src="/open-mercato.svg" alt={resolvedProductName} width={32} height={32} className="rounded m-4" />
+              <Image src="/launchos-logo.png" alt={resolvedProductName} width={32} height={32} className="rounded m-4" />
               {!compact && <div className="text-m font-semibold">{resolvedProductName}</div>}
             </Link>
           </div>
@@ -1249,6 +1256,29 @@ export function AppShell({ productName, email, groups, rightHeaderSlot, children
                       const open = openGroups[groupId] !== false
                       const visibleItems = g.items.filter((item) => item.hidden !== true)
                       if (visibleItems.length === 0) return null
+
+                      // Groups with no name render as standalone items (no collapsible header)
+                      if (!g.name) {
+                        return (
+                          <div key={groupId} className={`flex flex-col ${compact ? 'items-center' : ''} gap-1 ${!compact ? 'pl-1' : ''} mb-1`}>
+                            {visibleItems.map((i) => {
+                              const isActive = pathname === i.href || (i.href !== '/backend' && !!pathname?.startsWith(i.href + '/'))
+                              return (
+                                <Link
+                                  key={i.href}
+                                  href={i.href}
+                                  data-menu-item-id={i.href}
+                                  className={`flex items-center gap-2 rounded-md ${compact ? 'px-2 justify-center' : 'px-3'} py-2 text-sm transition ${isActive ? 'bg-background border shadow-sm font-medium' : 'hover:bg-accent hover:text-accent-foreground'}`}
+                                >
+                                  {i.icon}
+                                  {!compact && <span>{i.title}</span>}
+                                </Link>
+                              )
+                            })}
+                          </div>
+                        )
+                      }
+
                       return (
                         <div key={groupId}>
                           <Button
@@ -1567,7 +1597,7 @@ export function AppShell({ productName, email, groups, rightHeaderSlot, children
           <aside className="absolute left-0 top-0 flex h-full w-[260px] flex-col bg-background border-r overflow-hidden">
             <div className="shrink-0 p-3 pb-2 flex items-center justify-between border-b">
               <Link href="/backend" className="flex items-center gap-2 text-sm font-semibold" onClick={() => setMobileOpen(false)} aria-label={t('appShell.goToDashboard')}>
-                <Image src="/open-mercato.svg" alt={resolvedProductName} width={28} height={28} className="rounded" />
+                <Image src="/launchos-logo.png" alt={resolvedProductName} width={28} height={28} className="rounded" />
                 {resolvedProductName}
               </Link>
               <IconButton variant="outline" size="sm" onClick={() => setMobileOpen(false)} aria-label={t('appShell.closeMenu')}>✕</IconButton>

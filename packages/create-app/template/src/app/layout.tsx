@@ -19,10 +19,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Open Mercato',
-  description: 'AI-supportive, modular ERP foundation for product & service companies',
+  title: 'LaunchOS',
+  description: 'The all-in-one operating system for your business',
   icons: {
-    icon: '/open-mercato.svg',
+    icon: '/launchos-logo.png',
   },
 }
 

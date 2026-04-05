@@ -5,7 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { buildPersonaPrompt, getPersonaForOrg } from '../persona'
-import { sendEmailForOrg } from '../../email/email-router'
+import { sendEmailByPurpose } from '../../email/email-router'
 
 export const metadata = {
   POST: { requireAuth: false },
@@ -217,7 +217,7 @@ export async function POST(req: Request) {
       try {
         const days = frequency === 'daily' ? 1 : 7
 
-        // Find a user with an email connection for this org
+        // Find a user with an email to send the digest to
         const emailConnection = await knex('email_connections')
           .where('organization_id', org.organization_id)
           .where('is_active', true)
@@ -239,12 +239,12 @@ export async function POST(req: Request) {
         const periodLabel = frequency === 'daily' ? 'Daily' : 'Weekly'
         const subject = `${periodLabel} Business Review — ${businessName}`
 
-        // Send digest email to the user (sending to themselves)
-        const sendResult = await sendEmailForOrg(
+        // Send digest email to the user
+        const sendResult = await sendEmailByPurpose(
           knex,
           org.organization_id,
           org.tenant_id,
-          emailConnection.user_id,
+          'transactional',
           {
             to: emailConnection.email_address,
             subject,

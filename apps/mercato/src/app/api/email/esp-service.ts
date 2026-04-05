@@ -40,13 +40,22 @@ async function sendViaResend(
   subject: string,
   htmlBody: string,
 ): Promise<EspSendResult> {
+  const cleanTo = to?.trim()
+  if (!cleanTo || !cleanTo.includes('@')) {
+    throw new Error(`Invalid recipient email: "${to}"`)
+  }
+  const cleanFrom = from?.trim()
+  if (!cleanFrom) {
+    throw new Error('Missing sender (from) address')
+  }
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from, to: [to], subject, html: htmlBody }),
+    body: JSON.stringify({ from: cleanFrom, to: [cleanTo], subject, html: htmlBody }),
   })
 
   if (!res.ok) {

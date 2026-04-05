@@ -4,6 +4,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { trackEngagement } from '@/app/api/engagement/score'
+import { dispatchWebhook } from '@/app/api/webhooks/dispatch'
 
 export const metadata = { POST: { requireAuth: false } }
 
@@ -68,6 +69,17 @@ export async function POST(req: Request) {
         await knex('email_messages')
           .where('resend_id', data.email_id)
           .update({ status: 'bounced' })
+      }
+
+      // Dispatch webhook to external subscribers (e.g., AMS)
+      const contacts = await knex('customer_entities').where('primary_email', email).select('organization_id')
+      const orgIds = [...new Set(contacts.map((c: { organization_id: string }) => c.organization_id))]
+      for (const orgId of orgIds) {
+        dispatchWebhook(knex, orgId, 'email.bounced', {
+          emailId: data.email_id || null,
+          contactEmail: email,
+          reason: bounceType || 'unknown',
+        }).catch(() => {})
       }
     }
 

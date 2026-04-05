@@ -10,6 +10,7 @@ export const metadata = {
 
 export async function GET(_req: Request, { params }: { params: Promise<{ widgetId: string }> }) {
   try {
+    await bootstrap()
     const { widgetId } = await params
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
@@ -27,8 +28,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ widgetI
     const position = config.position || 'bottom-right'
     const greeting = (widget.greeting_message || 'Hi there! How can we help you today?').replace(/'/g, "\\'").replace(/\n/g, '\\n')
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-    const apiBase = origin ? `${origin}/api/chat/public` : '/api/chat/public'
+    const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    const apiBase = `${origin}/api/chat/public`
 
     const posRight = position === 'bottom-left' ? 'auto' : '20px'
     const posLeft = position === 'bottom-left' ? '20px' : 'auto'
@@ -74,6 +75,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ widgetI
     #om-chat-send{width:36px;height:36px;border-radius:50%;background:\${PRIMARY};color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end}
     #om-chat-send:disabled{opacity:0.5;cursor:not-allowed}
     #om-chat-send svg{width:18px;height:18px;fill:#fff}
+    #om-chat-typing{display:none;align-items:center;gap:6px;padding:4px 16px;font-size:12px;color:#94a3b8}
+    #om-chat-typing.visible{display:flex}
+    .om-typing-dot{width:6px;height:6px;border-radius:50%;background:#94a3b8;animation:om-pulse 1.4s infinite ease-in-out}
+    .om-typing-dot:nth-child(2){animation-delay:0.2s}
+    .om-typing-dot:nth-child(3){animation-delay:0.4s}
+    @keyframes om-pulse{0%,80%,100%{opacity:0.3;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
     @media(max-width:440px){#om-chat-window{width:calc(100vw - 20px);bottom:80px;left:10px;right:10px;height:calc(100vh - 100px)}}
   \`;
   document.head.appendChild(style);
@@ -94,6 +101,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ widgetI
       <input type="email" id="om-chat-email" placeholder="Your email (optional)">
       <button id="om-chat-start">Start chatting</button>
     </div>
+    <div id="om-chat-typing"><span class="om-typing-dot"></span><span class="om-typing-dot"></span><span class="om-typing-dot"></span><span>Agent is typing...</span></div>
     <div id="om-chat-input-area">
       <input type="text" id="om-chat-input" placeholder="Type a message...">
       <button id="om-chat-send" disabled><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
@@ -152,7 +160,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ widgetI
     addMsg(GREETING,'system');
   };
 
-  chatInput.oninput=function(){sendBtn.disabled=!chatInput.value.trim()};
+  var typingTimer=null;
+  var typingSent=false;
+  var TYPING_API=API.replace('/public','/typing');
+  var typingIndicator=document.getElementById('om-chat-typing');
+
+  function sendTyping(typing){
+    if(!convId)return;
+    fetch(TYPING_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversationId:convId,isTyping:typing,sender:'visitor'})}).catch(function(){});
+  }
+
+  chatInput.oninput=function(){
+    sendBtn.disabled=!chatInput.value.trim();
+    if(!typingSent&&chatInput.value.trim()){typingSent=true;sendTyping(true)}
+    if(typingTimer)clearTimeout(typingTimer);
+    typingTimer=setTimeout(function(){typingSent=false;sendTyping(false)},3000);
+  };
   chatInput.onkeydown=function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend()}};
   sendBtn.onclick=doSend;
 
@@ -162,6 +185,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ widgetI
     chatInput.value='';
     sendBtn.disabled=true;
     addMsg(text,'visitor');
+    if(typingTimer)clearTimeout(typingTimer);
+    typingSent=false;
+    sendTyping(false);
 
     if(!convId){
       var name=document.getElementById('om-chat-name').value.trim()||undefined;
@@ -196,6 +222,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ widgetI
           }
           lastMsgCount=msgs.length;
         }
+        var agentTyping=d.data.agent_typing&&d.data.agent_typing_at&&(Date.now()-new Date(d.data.agent_typing_at).getTime()<5000);
+        if(agentTyping){typingIndicator.classList.add('visible')}else{typingIndicator.classList.remove('visible')}
       }).catch(function(){});
   }
 

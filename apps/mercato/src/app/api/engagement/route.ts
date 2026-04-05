@@ -74,7 +74,58 @@ export async function GET(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  const auth = await getAuthFromCookies()
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const container = await createRequestContainer()
+    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const body = await req.json()
+    const { contactId, score } = body
+
+    if (!contactId || score === undefined) {
+      return NextResponse.json({ ok: false, error: 'contactId and score required' }, { status: 400 })
+    }
+
+    // Verify contact belongs to this org
+    const contact = await knex('customer_entities')
+      .where({ id: contactId, organization_id: auth.orgId })
+      .whereNull('deleted_at')
+      .first()
+    if (!contact) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 })
+
+    const existing = await knex('contact_engagement_scores')
+      .where({ contact_id: contactId, organization_id: auth.orgId })
+      .first()
+
+    if (existing) {
+      await knex('contact_engagement_scores')
+        .where({ contact_id: contactId, organization_id: auth.orgId })
+        .update({ score, last_activity_at: new Date(), updated_at: new Date() })
+    } else {
+      await knex('contact_engagement_scores').insert({
+        id: require('crypto').randomUUID(),
+        tenant_id: auth.tenantId,
+        organization_id: auth.orgId,
+        contact_id: contactId,
+        score,
+        last_activity_at: new Date(),
+        updated_at: new Date(),
+      })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[engagement.PUT]', error)
+    return NextResponse.json({ ok: false, error: 'Failed' }, { status: 500 })
+  }
+}
+
 export const openApi: OpenApiRouteDoc = {
   tag: 'Engagement', summary: 'Engagement scores',
-  methods: { GET: { summary: 'Get contact engagement scores', tags: ['Engagement'] } },
+  methods: {
+    GET: { summary: 'Get contact engagement scores', tags: ['Engagement'] },
+    PUT: { summary: 'Update contact engagement score', tags: ['Engagement'] },
+  },
 }

@@ -60,10 +60,13 @@ export async function POST(req: Request, ctx: any) {
     const knex = em.getKnex()
     const body = await req.json()
 
-    const { to, subject, bodyHtml, bodyText, contactId, dealId, replyTo } = body
+    const { to, cc, bcc, subject, bodyHtml, bodyText, contactId, dealId, replyTo } = body
     if (!to || !subject || !bodyHtml) {
       return NextResponse.json({ ok: false, error: 'to, subject, and bodyHtml are required' }, { status: 400 })
     }
+
+    const ccValue = typeof cc === 'string' && cc.trim() ? cc.trim() : undefined
+    const bccValue = typeof bcc === 'string' && bcc.trim() ? bcc.trim() : undefined
 
     const baseUrl = process.env.APP_URL || 'http://localhost:3000'
     const sender = new EmailSenderService()
@@ -77,6 +80,8 @@ export async function POST(req: Request, ctx: any) {
     // Try sending via user's connected email (Gmail, SMTP, etc.)
     const routerResult = await sendEmailForOrg(knex, scope.orgId, scope.tenantId, scope.userId, {
       to,
+      cc: ccValue,
+      bcc: bccValue,
       subject,
       htmlBody: trackedHtml,
       textBody: bodyText,
@@ -115,6 +120,8 @@ export async function POST(req: Request, ctx: any) {
       direction: 'outbound',
       from_address: fromAddress,
       to_address: to,
+      cc: ccValue || null,
+      bcc: bccValue || null,
       subject,
       body_html: bodyHtml,
       body_text: bodyText || null,
@@ -126,6 +133,21 @@ export async function POST(req: Request, ctx: any) {
       created_at: new Date(),
       sent_at: sentAt,
     })
+
+    // Log to contact timeline
+    if (contactId && status === 'sent') {
+      try {
+        const { logTimelineEvent } = await import('@/lib/timeline')
+        await logTimelineEvent(knex, {
+          tenantId: scope.tenantId,
+          organizationId: scope.orgId,
+          contactId,
+          eventType: 'email_sent',
+          title: `Email sent: ${subject}`,
+          metadata: { to, sentVia: routerResult.sentVia || metadata.provider },
+        })
+      } catch {}
+    }
 
     return NextResponse.json({ ok: true, data: { id, status, sentVia: routerResult.sentVia || metadata.provider } })
   } catch (error) {

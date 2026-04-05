@@ -9,103 +9,145 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ contactId: string }> },
 ) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
-  if (!auth?.tenantId || !auth?.orgId) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { contactId } = await params
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
   try {
+    const { contactId } = await params
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
-    // Verify contact belongs to this org
-    const contact = await knex('customer_entities')
+    // Resolve inbox conversation — try by ID first, then by contact_id
+    let inboxConv = await knex('inbox_conversations')
       .where('id', contactId)
       .where('organization_id', auth.orgId)
-      .whereNull('deleted_at')
       .first()
 
-    if (!contact) {
-      return NextResponse.json({ ok: false, error: 'Contact not found' }, { status: 404 })
+    if (!inboxConv) {
+      inboxConv = await knex('inbox_conversations')
+        .where('contact_id', contactId)
+        .where('organization_id', auth.orgId)
+        .first()
     }
 
-    // Query email messages for this contact
-    const emailMessages = await knex('email_messages')
-      .select(
-        'id',
-        'direction',
-        'subject',
-        'body_html',
-        'body_text',
-        'from_address',
-        'to_address',
-        'status',
-        'opened_at',
-        'clicked_at',
-        'created_at',
-      )
-      .where('contact_id', contactId)
-      .where('organization_id', auth.orgId)
-      .where('tenant_id', auth.tenantId)
+    if (!inboxConv) return NextResponse.json({ ok: false, error: 'Conversation not found' }, { status: 404 })
 
-    // Query sms messages for this contact
-    const smsMessages = await knex('sms_messages')
-      .select(
-        'id',
-        'direction',
-        'body',
-        'from_number',
-        'to_number',
-        'status',
-        'created_at',
-      )
-      .where('contact_id', contactId)
-      .where('organization_id', auth.orgId)
-      .where('tenant_id', auth.tenantId)
+    // Get contact info if available
+    let contact = null
+    if (inboxConv.contact_id) {
+      const entity = await knex('customer_entities')
+        .where('id', inboxConv.contact_id)
+        .where('organization_id', auth.orgId)
+        .whereNull('deleted_at')
+        .first()
+      if (entity) {
+        contact = {
+          id: entity.id,
+          displayName: entity.display_name,
+          email: entity.primary_email,
+          phone: entity.primary_phone,
+          lifecycleStage: entity.lifecycle_stage,
+          source: entity.source,
+        }
+      }
+    }
 
-    // Combine and sort chronologically
-    const messages = [
-      ...emailMessages.map((msg: any) => ({
-        id: msg.id,
-        channel: 'email' as const,
-        direction: msg.direction,
-        subject: msg.subject,
-        body: msg.body_html || msg.body_text || '',
-        bodyText: msg.body_text,
-        fromAddress: msg.from_address,
-        toAddress: msg.to_address,
-        status: msg.status,
-        openedAt: msg.opened_at,
-        clickedAt: msg.clicked_at,
-        createdAt: msg.created_at,
+    // Fetch all message types in parallel for speed
+    const [emailMessages, smsMessages, chatMessages] = await Promise.all([
+      inboxConv.contact_id
+        ? knex('email_messages')
+            .where('contact_id', inboxConv.contact_id)
+            .where('organization_id', auth.orgId)
+            .orderBy('created_at', 'asc')
+            .limit(100)
+        : Promise.resolve([]),
+      inboxConv.contact_id
+        ? knex('sms_messages')
+            .where('contact_id', inboxConv.contact_id)
+            .where('organization_id', auth.orgId)
+            .orderBy('created_at', 'asc')
+            .limit(100)
+        : Promise.resolve([]),
+      inboxConv.chat_conversation_id
+        ? knex('chat_messages')
+            .where('conversation_id', inboxConv.chat_conversation_id)
+            .orderBy('created_at', 'asc')
+            .limit(100)
+        : Promise.resolve([]),
+    ])
+
+    // Normalize all messages into unified format
+    type UnifiedMessage = {
+      id: string; channel: string; direction: string; subject: string | null
+      body: string; bodyText: string | null; fromAddress: string; toAddress: string
+      status: string; openedAt: string | null; clickedAt: string | null
+      createdAt: string; isBot: boolean
+    }
+
+    const messages: UnifiedMessage[] = [
+      ...emailMessages.map((m: any) => ({
+        id: m.id,
+        channel: 'email',
+        direction: m.direction,
+        subject: m.subject,
+        body: m.body_html || m.body_text || '',
+        bodyText: m.body_text,
+        fromAddress: m.from_address || '',
+        toAddress: m.to_address || '',
+        status: m.status,
+        openedAt: m.opened_at,
+        clickedAt: m.clicked_at,
+        createdAt: m.created_at,
+        isBot: false,
       })),
-      ...smsMessages.map((msg: any) => ({
-        id: msg.id,
-        channel: 'sms' as const,
-        direction: msg.direction,
+      ...smsMessages.map((m: any) => ({
+        id: m.id,
+        channel: 'sms',
+        direction: m.direction,
         subject: null,
-        body: msg.body,
-        bodyText: msg.body,
-        fromAddress: msg.from_number,
-        toAddress: msg.to_number,
-        status: msg.status,
+        body: m.body || '',
+        bodyText: m.body,
+        fromAddress: m.from_number || '',
+        toAddress: m.to_number || '',
+        status: m.status,
         openedAt: null,
         clickedAt: null,
-        createdAt: msg.created_at,
+        createdAt: m.created_at,
+        isBot: false,
+      })),
+      ...chatMessages.map((m: any) => ({
+        id: m.id,
+        channel: 'chat',
+        direction: m.sender_type === 'visitor' ? 'inbound' : 'outbound',
+        subject: null,
+        body: m.message || '',
+        bodyText: m.message,
+        fromAddress: m.sender_type === 'visitor' ? (inboxConv.display_name || 'Visitor') : 'You',
+        toAddress: m.sender_type === 'visitor' ? 'You' : (inboxConv.display_name || 'Visitor'),
+        status: 'delivered',
+        openedAt: null,
+        clickedAt: null,
+        createdAt: m.created_at,
+        isBot: m.is_bot || false,
       })),
     ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    // Determine available channels
+    const availableChannels = {
+      email: !!(contact?.email),
+      sms: !!(contact?.phone),
+      chat: !!inboxConv.chat_conversation_id,
+    }
 
     return NextResponse.json({
       ok: true,
       data: {
-        contact: {
-          id: contact.id,
-          displayName: contact.display_name,
-          email: contact.primary_email,
-          phone: contact.primary_phone,
-        },
+        inboxConversationId: inboxConv.id,
+        contact,
+        chatConversationId: inboxConv.chat_conversation_id,
+        availableChannels,
+        status: inboxConv.status,
         messages,
       },
     })
@@ -115,10 +157,56 @@ export async function GET(
   }
 }
 
+// Update conversation status or mark as read
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ contactId: string }> },
+) {
+  await bootstrap()
+  const auth = await getAuthFromCookies()
+  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const { contactId } = await params
+    const container = await createRequestContainer()
+    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const body = await req.json()
+
+    // Find the conversation
+    let inboxConv = await knex('inbox_conversations').where('id', contactId).where('organization_id', auth.orgId).first()
+    if (!inboxConv) {
+      inboxConv = await knex('inbox_conversations').where('contact_id', contactId).where('organization_id', auth.orgId).first()
+    }
+    if (!inboxConv) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 })
+
+    const updates: Record<string, unknown> = { updated_at: new Date() }
+
+    if (body.status) {
+      updates.status = body.status
+      // Also update chat conversation status if linked
+      if (inboxConv.chat_conversation_id) {
+        await knex('chat_conversations').where('id', inboxConv.chat_conversation_id).update({ status: body.status, updated_at: new Date() })
+      }
+    }
+
+    if (body.markRead) {
+      updates.unread_count = 0
+    }
+
+    await knex('inbox_conversations').where('id', inboxConv.id).update(updates)
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[inbox.update]', error)
+    return NextResponse.json({ ok: false, error: 'Failed to update' }, { status: 500 })
+  }
+}
+
 export const openApi: OpenApiRouteDoc = {
   tag: 'Inbox',
-  summary: 'Conversation detail for a contact',
+  summary: 'Unified inbox conversation detail',
   methods: {
-    GET: { summary: 'Get all messages for a specific contact', tags: ['Inbox'] },
+    GET: { summary: 'Get unified conversation with all channel messages', tags: ['Inbox'] },
+    PUT: { summary: 'Update conversation status or mark read', tags: ['Inbox'] },
   },
 }

@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { ArrowRight, ArrowLeft, Sparkles, Check, Loader2, FileText, Users, Kanban, Plus, Trash2, GripVertical, Target, Briefcase, ShoppingBag, Monitor, Wrench, GraduationCap, Heart, Home, Lightbulb, Globe, Megaphone, UserPlus, Search, CalendarDays, Presentation, PenTool, Smile, Minus, Mail, CreditCard, MessageSquare, Link, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Sparkles, Check, Loader2, FileText, Users, Kanban, Plus, Trash2, GripVertical, Target, Briefcase, ShoppingBag, Monitor, Wrench, GraduationCap, Heart, Home, Lightbulb, Globe, Megaphone, UserPlus, Search, CalendarDays, Presentation, PenTool, Smile, Minus, Mail, CreditCard, MessageSquare, Link, CheckCircle2, Mic } from 'lucide-react'
 
-type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 const businessTypes = [
   { id: 'coaching', label: 'Coaching / Consulting', icon: Target },
@@ -84,9 +84,18 @@ export default function WelcomePage() {
   const [stripeConnected, setStripeConnected] = useState(false)
   const [twilioConnected, setTwilioConnected] = useState(false)
   const [emailIntakeMode, setEmailIntakeMode] = useState<'auto' | 'suggest' | 'off'>('suggest')
+  const [voiceAnalyzing, setVoiceAnalyzing] = useState(false)
+  const [voiceDone, setVoiceDone] = useState(false)
 
   const [showIcsGuide, setShowIcsGuide] = useState<'apple' | 'other' | null>(null)
   const [calendarFeedId, setCalendarFeedId] = useState('')
+
+  // Team invite state
+  const [maxSeats, setMaxSeats] = useState(1)
+  const [teamInviteEmails, setTeamInviteEmails] = useState<string[]>([''])
+  const [teamInviteRole, setTeamInviteRole] = useState('member')
+  const [invitingSent, setInvitingSent] = useState(false)
+  const hasTeamPlan = maxSeats > 1
 
   // Save state to sessionStorage before OAuth redirects, restore on return
   const saveState = useCallback(() => {
@@ -180,8 +189,12 @@ export default function WelcomePage() {
         setStep(5)
       }
     }
-    // Also check connections
+    // Also check connections and team plan
     checkConnections()
+    fetch('/api/team', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { if (d.ok && d.data?.seats?.max) setMaxSeats(d.data.seats.max) })
+      .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Twilio inline setup
@@ -303,7 +316,7 @@ export default function WelcomePage() {
                 body: JSON.stringify({ id: existingStages[i].id, name: validStages[i].name, order: i + 1 }),
               }).catch(() => {})
             }
-            // Note: creating new stages via API may need different approach depending on Open Mercato's API
+            // Note: creating new stages via API may need different approach depending on the API
           }
         }
       } catch (err) {
@@ -314,16 +327,19 @@ export default function WelcomePage() {
     setFinishing(false)
   }
 
-  const steps = [
-    { title: 'About Your Business', subtitle: 'Help us set up your CRM the right way.' },
+  const baseSteps = [
+    { title: 'About Your Business', subtitle: 'Help us set up LaunchOS the right way.' },
     { title: 'Your AI Assistant', subtitle: 'Give your AI helper a name and personality.' },
     { title: 'Your Offer & Clients', subtitle: 'So we can tailor everything to your business.' },
     { title: 'How You Get Clients', subtitle: 'This helps us suggest the right tools and workflows.' },
     { title: pipelineMode === 'journey' ? 'Customer Journey' : 'Your Sales Pipeline', subtitle: 'AI will suggest stages to track your progress.' },
-    { title: 'Your CRM is Ready!', subtitle: `${aiPersonaName || 'Scout'} is set up and ready to help you grow.` },
+    { title: 'LaunchOS is Ready!', subtitle: `${aiPersonaName || 'Scout'} is set up and ready to help you grow.` },
     { title: 'Connect Your Accounts', subtitle: 'Optional but recommended for the best experience.' },
+    { title: 'Invite Your Team', subtitle: 'Add team members to your workspace.' },
     { title: 'Get Started', subtitle: 'Take your first actions.' },
   ]
+  // Skip the team step for solo plans
+  const steps = hasTeamPlan ? baseSteps : baseSteps.filter(s => s.title !== 'Invite Your Team')
 
   const canAdvance = [
     businessName.trim() && businessType,
@@ -331,6 +347,7 @@ export default function WelcomePage() {
     mainOffer.trim(),
     true, // sources are optional
     pipelineMode !== '' && pipelineStages.length >= 2,
+    true,
     true,
     true,
     true,
@@ -397,7 +414,7 @@ export default function WelcomePage() {
                 <Input value={websiteUrl} onChange={e => { setWebsiteUrl(e.target.value); setScanComplete(false) }}
                   placeholder="https://yourbusiness.com" className="h-9 text-sm flex-1" />
                 <Button type="button" size="sm" onClick={scanWebsite}
-                  disabled={scanning || !websiteUrl.trim()} className="shrink-0">
+                  disabled={scanning || !websiteUrl.trim()} className="shrink-0 h-9">
                   {scanning ? <><Loader2 className="size-3.5 animate-spin mr-1.5" /> Scanning...</>
                     : <><Search className="size-3.5 mr-1.5" /> Scan My Website</>}
                 </Button>
@@ -641,14 +658,14 @@ export default function WelcomePage() {
           </div>
         )}
 
-        {/* Step 5: Your CRM is Ready */}
+        {/* Step 5: LaunchOS is Ready */}
         {step === 5 && (
           <div className="text-center space-y-6">
             <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto">
               <Check className="size-8 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-xl font-semibold">Your CRM is ready{businessName ? `, ${businessName}` : ''}!</p>
+              <p className="text-xl font-semibold">LaunchOS is ready{businessName ? `, ${businessName}` : ''}!</p>
               <p className="text-sm text-muted-foreground mt-2">{aiPersonaName || 'Scout'} is configured and ready to help you grow your business.</p>
             </div>
 
@@ -704,23 +721,58 @@ export default function WelcomePage() {
                 )}
               </div>
               {emailConnected && (
-                <div className="mt-3 pt-3 border-t">
-                  <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">AI Email Intake</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'auto' as const, label: 'Auto-import', desc: 'Add contacts automatically' },
-                      { id: 'suggest' as const, label: 'Suggest only', desc: 'Review before adding' },
-                      { id: 'off' as const, label: 'Off', desc: 'No inbox scanning' },
-                    ].map(opt => (
-                      <button key={opt.id} type="button" onClick={() => setEmailIntakeMode(opt.id)}
-                        className={`px-3 py-2.5 rounded-lg border text-center transition ${
-                          emailIntakeMode === opt.id ? '' : 'hover:bg-muted/50 text-foreground/70'
-                        }`}
-                        style={emailIntakeMode === opt.id ? SEL.card : undefined}>
-                        <p className="text-xs font-medium" style={emailIntakeMode === opt.id ? SEL.text : undefined}>{opt.label}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
-                      </button>
-                    ))}
+                <div className="mt-3 pt-3 border-t space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">AI Email Intake</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'auto' as const, label: 'Auto-import', desc: 'Add contacts automatically' },
+                        { id: 'suggest' as const, label: 'Suggest only', desc: 'Review before adding' },
+                        { id: 'off' as const, label: 'Off', desc: 'No inbox scanning' },
+                      ].map(opt => (
+                        <button key={opt.id} type="button" onClick={() => setEmailIntakeMode(opt.id)}
+                          className={`px-3 py-2.5 rounded-lg border text-center transition ${
+                            emailIntakeMode === opt.id ? '' : 'hover:bg-muted/50 text-foreground/70'
+                          }`}
+                          style={emailIntakeMode === opt.id ? SEL.card : undefined}>
+                          <p className="text-xs font-medium" style={emailIntakeMode === opt.id ? SEL.text : undefined}>{opt.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">Brand Voice</label>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Mic className="size-4 text-amber-600" />
+                        <div>
+                          <p className="text-xs font-medium">Learn your writing style</p>
+                          <p className="text-[10px] text-muted-foreground">AI analyzes your sent emails so drafts sound like you</p>
+                        </div>
+                      </div>
+                      {voiceDone ? (
+                        <span className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="size-3" /> Learned</span>
+                      ) : (
+                        <Button type="button" variant="outline" size="sm" disabled={voiceAnalyzing}
+                          onClick={async () => {
+                            setVoiceAnalyzing(true)
+                            try {
+                              const res = await fetch('/api/ai/learn-voice', {
+                                method: 'POST', credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ source: 'email' }),
+                              })
+                              const d = await res.json()
+                              if (d.ok) setVoiceDone(true)
+                            } catch {}
+                            setVoiceAnalyzing(false)
+                          }}>
+                          {voiceAnalyzing ? <Loader2 className="size-3 mr-1.5 animate-spin" /> : <Sparkles className="size-3 mr-1.5" />}
+                          {voiceAnalyzing ? 'Analyzing...' : 'Analyze'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -932,8 +984,53 @@ export default function WelcomePage() {
           </div>
         )}
 
-        {/* Step 7: Get Started — First Actions */}
-        {step === 7 && (
+        {/* Step 7: Invite Your Team (only for team plans) */}
+        {step === 7 && hasTeamPlan && (
+          <div className="space-y-4 max-w-sm mx-auto">
+            <p className="text-sm text-muted-foreground text-center">
+              You can add up to {maxSeats - 1} team member{maxSeats > 2 ? 's' : ''}. You can always do this later in Settings.
+            </p>
+            {teamInviteEmails.map((email, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => {
+                    const updated = [...teamInviteEmails]
+                    updated[i] = e.target.value
+                    setTeamInviteEmails(updated)
+                  }}
+                  placeholder="team@example.com"
+                  className="flex-1 h-9 text-sm"
+                />
+                {teamInviteEmails.length > 1 && (
+                  <IconButton type="button" variant="ghost" size="sm" onClick={() => setTeamInviteEmails(prev => prev.filter((_, j) => j !== i))}>
+                    <Trash2 className="size-3.5" />
+                  </IconButton>
+                )}
+              </div>
+            ))}
+            {teamInviteEmails.length < maxSeats - 1 && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setTeamInviteEmails(prev => [...prev, ''])}>
+                <Plus className="size-3.5 mr-1" /> Add another
+              </Button>
+            )}
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">Role for invited members</label>
+              <select value={teamInviteRole} onChange={e => setTeamInviteRole(e.target.value)}
+                className="rounded-md border bg-background px-3 py-1.5 text-sm h-9 w-full">
+                <option value="member">Member — can use the CRM</option>
+                <option value="admin">Admin — can manage team and settings</option>
+              </select>
+            </div>
+            {invitingSent && (
+              <p className="text-xs text-emerald-600 text-center">Invites sent! They&apos;ll receive an email with a link to join.</p>
+            )}
+          </div>
+        )}
+
+        {/* Step 7 for solo plans / Step 8 for team plans: Get Started — First Actions */}
+        {step === (hasTeamPlan ? 8 : 7) && (
           <div className="space-y-6">
             <div className="text-center">
               <p className="text-base font-medium">What would you like to do first?</p>
@@ -1002,8 +1099,8 @@ export default function WelcomePage() {
               <Button type="button" size="sm" onClick={() => { setStep(6); checkConnections() }}>
                 Connect Accounts <ArrowRight className="size-3.5 ml-1" />
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(7)}>
-                Skip for now
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep((hasTeamPlan ? 8 : 7) as Step)}>
+                Skip
               </Button>
             </div>
           )}
@@ -1014,7 +1111,33 @@ export default function WelcomePage() {
             </Button>
           )}
 
-          {step === 7 && (
+          {step === 7 && hasTeamPlan && (
+            <div className="flex gap-2 mx-auto">
+              <Button type="button" size="sm" onClick={async () => {
+                const validEmails = teamInviteEmails.filter(e => e.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim()))
+                if (validEmails.length > 0) {
+                  setInvitingSent(false)
+                  for (const email of validEmails) {
+                    await fetch('/api/team', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                      body: JSON.stringify({ email: email.trim(), role: teamInviteRole }),
+                    }).catch(() => {})
+                  }
+                  setInvitingSent(true)
+                  setTimeout(() => setStep(8), 1500)
+                } else {
+                  setStep(8)
+                }
+              }}>
+                {teamInviteEmails.some(e => e.trim()) ? 'Send Invites' : 'Continue'} <ArrowRight className="size-3.5 ml-1" />
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(8)}>
+                Skip
+              </Button>
+            </div>
+          )}
+
+          {step === (hasTeamPlan ? 8 : 7) && (
             <Button type="button" size="sm" onClick={() => {
               sessionStorage.removeItem('onboarding_state')
               window.location.href = '/backend/dashboards'

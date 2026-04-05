@@ -3,6 +3,18 @@
 -- Run this after initializing Open Mercato: psql -U crm -d crm < setup-tables.sql
 -- ==============================================================================
 
+-- Form Builder (standalone forms)
+CREATE TABLE IF NOT EXISTS forms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
+  name TEXT NOT NULL, slug TEXT NOT NULL, description TEXT, template_id TEXT,
+  fields JSONB NOT NULL DEFAULT '[]', theme JSONB NOT NULL DEFAULT '{}', settings JSONB NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'draft', owner_user_id UUID,
+  view_count INTEGER NOT NULL DEFAULT 0, submission_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  published_at TIMESTAMPTZ, deleted_at TIMESTAMPTZ);
+CREATE INDEX IF NOT EXISTS forms_org_slug_idx ON forms(organization_id, slug);
+CREATE INDEX IF NOT EXISTS forms_org_status_idx ON forms(organization_id, status);
+
 -- Landing Pages
 CREATE TABLE IF NOT EXISTS landing_pages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
@@ -21,7 +33,7 @@ CREATE TABLE IF NOT EXISTS landing_page_forms (
 
 CREATE TABLE IF NOT EXISTS form_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
-  form_id UUID NOT NULL, landing_page_id UUID NOT NULL, data JSONB NOT NULL,
+  form_id UUID NOT NULL, landing_page_id UUID, data JSONB NOT NULL,
   contact_id UUID, source_ip TEXT, user_agent TEXT, referrer TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS form_submissions_org_page_idx ON form_submissions(organization_id, landing_page_id);
@@ -94,6 +106,9 @@ CREATE TABLE IF NOT EXISTS products (
   name TEXT NOT NULL, description TEXT, price NUMERIC(10,2) NOT NULL,
   currency TEXT NOT NULL DEFAULT 'USD', billing_type TEXT NOT NULL DEFAULT 'one_time',
   recurring_interval TEXT, stripe_price_id TEXT, stripe_product_id TEXT,
+  trial_days INTEGER,
+  terms_url TEXT, requires_shipping BOOLEAN NOT NULL DEFAULT false, collect_phone BOOLEAN NOT NULL DEFAULT false,
+  product_type TEXT DEFAULT 'digital', course_ids JSONB DEFAULT '[]',
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), deleted_at TIMESTAMPTZ);
 
@@ -119,7 +134,9 @@ CREATE TABLE IF NOT EXISTS payment_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
   invoice_id UUID, contact_id UUID, amount NUMERIC(10,2) NOT NULL,
   currency TEXT NOT NULL DEFAULT 'USD', status TEXT NOT NULL DEFAULT 'pending',
-  stripe_payment_intent_id TEXT, stripe_checkout_session_id TEXT, metadata JSONB,
+  stripe_payment_intent_id TEXT, stripe_checkout_session_id TEXT,
+  stripe_subscription_id TEXT, refunded_amount NUMERIC(10,2) DEFAULT 0,
+  metadata JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS payment_records_org_idx ON payment_records(organization_id, created_at);
 
@@ -178,8 +195,10 @@ CREATE TABLE IF NOT EXISTS bookings (
   guest_name TEXT NOT NULL, guest_email TEXT NOT NULL, guest_phone TEXT,
   start_time TIMESTAMPTZ NOT NULL, end_time TIMESTAMPTZ NOT NULL,
   status TEXT NOT NULL DEFAULT 'confirmed', notes TEXT,
+  recurrence_rule JSONB, recurrence_parent_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS bookings_org_time_idx ON bookings(organization_id, start_time);
+CREATE INDEX IF NOT EXISTS bookings_recurrence_parent_idx ON bookings(recurrence_parent_id);
 
 -- Google Calendar
 CREATE TABLE IF NOT EXISTS google_calendar_connections (
@@ -204,6 +223,7 @@ CREATE TABLE IF NOT EXISTS courses (
   title TEXT NOT NULL, description TEXT, slug TEXT NOT NULL,
   price NUMERIC(10,2), currency TEXT NOT NULL DEFAULT 'USD',
   is_free BOOLEAN NOT NULL DEFAULT false, is_published BOOLEAN NOT NULL DEFAULT false, image_url TEXT,
+  teaching_style TEXT, target_audience TEXT, generation_status TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), deleted_at TIMESTAMPTZ);
 
 CREATE TABLE IF NOT EXISTS course_modules (
@@ -231,6 +251,19 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
   enrollment_id UUID NOT NULL REFERENCES course_enrollments(id),
   lesson_id UUID NOT NULL REFERENCES course_lessons(id),
   completed_at TIMESTAMPTZ, UNIQUE(enrollment_id, lesson_id));
+
+-- Student auth for course portal
+CREATE TABLE IF NOT EXISTS course_magic_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL,
+  email TEXT NOT NULL, token TEXT NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS magic_tokens_token_idx ON course_magic_tokens(token);
+
+CREATE TABLE IF NOT EXISTS course_student_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL,
+  email TEXT NOT NULL, session_token TEXT NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS student_sessions_token_idx ON course_student_sessions(session_token);
 
 -- Sequences (Drip / Follow-up)
 CREATE TABLE IF NOT EXISTS sequences (
@@ -398,6 +431,40 @@ CREATE TABLE IF NOT EXISTS funnel_visits (
   contact_id UUID, visitor_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS funnel_visits_funnel_idx ON funnel_visits(funnel_id, created_at DESC);
 
+-- Funnel extensions (upsell/downsell support)
+ALTER TABLE funnel_steps ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE funnel_steps ADD COLUMN IF NOT EXISTS product_id UUID;
+ALTER TABLE funnel_steps ADD COLUMN IF NOT EXISTS on_accept_step_id UUID;
+ALTER TABLE funnel_steps ADD COLUMN IF NOT EXISTS on_decline_step_id UUID;
+ALTER TABLE funnel_visits ADD COLUMN IF NOT EXISTS session_id TEXT;
+ALTER TABLE funnel_visits ADD COLUMN IF NOT EXISTS action TEXT;
+CREATE INDEX IF NOT EXISTS funnel_visits_session_idx ON funnel_visits(session_id);
+
+CREATE TABLE IF NOT EXISTS funnel_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  funnel_id UUID NOT NULL REFERENCES funnels(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL,
+  visitor_id TEXT NOT NULL,
+  contact_id UUID, email TEXT,
+  stripe_customer_id TEXT, stripe_payment_method_id TEXT,
+  current_step_id UUID, status TEXT NOT NULL DEFAULT 'active',
+  total_revenue NUMERIC(10,2) DEFAULT 0,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(), completed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS funnel_sessions_funnel_idx ON funnel_sessions(funnel_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS funnel_sessions_visitor_idx ON funnel_sessions(visitor_id);
+
+CREATE TABLE IF NOT EXISTS funnel_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES funnel_sessions(id),
+  funnel_id UUID NOT NULL, step_id UUID NOT NULL, product_id UUID,
+  amount NUMERIC(10,2) NOT NULL, currency TEXT NOT NULL DEFAULT 'USD',
+  order_type TEXT NOT NULL DEFAULT 'checkout',
+  stripe_payment_intent_id TEXT, stripe_checkout_session_id TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS funnel_orders_session_idx ON funnel_orders(session_id);
+
 -- Live Chat
 CREATE TABLE IF NOT EXISTS chat_widgets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
@@ -419,12 +486,28 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS chat_msg_conv_idx ON chat_messages(conversation_id, created_at);
 
+-- Affiliate Campaigns
+CREATE TABLE IF NOT EXISTS affiliate_campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
+  name TEXT NOT NULL, description TEXT, product_ids JSONB NOT NULL DEFAULT '[]',
+  commission_rate NUMERIC(10,2) NOT NULL DEFAULT 10.00, commission_type TEXT NOT NULL DEFAULT 'percentage',
+  customer_discount NUMERIC(10,2) DEFAULT 0, customer_discount_type TEXT DEFAULT 'percentage',
+  cookie_duration_days INTEGER NOT NULL DEFAULT 30, auto_approve BOOLEAN NOT NULL DEFAULT false,
+  stripe_coupon_id TEXT, signup_page_enabled BOOLEAN NOT NULL DEFAULT true,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS affiliate_campaigns_org_idx ON affiliate_campaigns(organization_id, status);
+
 -- Affiliates
 CREATE TABLE IF NOT EXISTS affiliates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
   contact_id UUID, name TEXT NOT NULL, email TEXT NOT NULL, affiliate_code TEXT NOT NULL,
-  commission_rate NUMERIC(5,2) NOT NULL DEFAULT 10.00, commission_type TEXT NOT NULL DEFAULT 'percentage',
-  status TEXT NOT NULL DEFAULT 'active', total_referrals INTEGER NOT NULL DEFAULT 0,
+  commission_rate NUMERIC(10,2) NOT NULL DEFAULT 10.00, commission_type TEXT NOT NULL DEFAULT 'percentage',
+  campaign_id UUID REFERENCES affiliate_campaigns(id),
+  stripe_promo_code_id TEXT, stripe_promo_code TEXT,
+  website TEXT, promotion_method TEXT,
+  status TEXT NOT NULL DEFAULT 'active', approved_at TIMESTAMPTZ,
+  total_referrals INTEGER NOT NULL DEFAULT 0,
   total_conversions INTEGER NOT NULL DEFAULT 0, total_earned NUMERIC(10,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE UNIQUE INDEX IF NOT EXISTS affiliates_org_code_idx ON affiliates(organization_id, affiliate_code);
@@ -434,8 +517,9 @@ CREATE TABLE IF NOT EXISTS affiliate_referrals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), affiliate_id UUID NOT NULL REFERENCES affiliates(id),
   referred_contact_id UUID, referred_email TEXT, referral_source TEXT,
   converted BOOLEAN NOT NULL DEFAULT false, conversion_value NUMERIC(10,2),
-  commission_amount NUMERIC(10,2), referred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  converted_at TIMESTAMPTZ);
+  commission_amount NUMERIC(10,2), campaign_id UUID,
+  stripe_session_id TEXT, stripe_payment_intent_id TEXT,
+  referred_at TIMESTAMPTZ NOT NULL DEFAULT now(), converted_at TIMESTAMPTZ);
 CREATE INDEX IF NOT EXISTS referrals_affiliate_idx ON affiliate_referrals(affiliate_id, referred_at DESC);
 
 CREATE TABLE IF NOT EXISTS affiliate_payouts (
@@ -444,6 +528,34 @@ CREATE TABLE IF NOT EXISTS affiliate_payouts (
   status TEXT NOT NULL DEFAULT 'pending', paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS payouts_affiliate_idx ON affiliate_payouts(affiliate_id, created_at DESC);
+
+-- Unified Inbox
+CREATE TABLE IF NOT EXISTS inbox_conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
+  contact_id UUID, chat_conversation_id UUID,
+  status TEXT NOT NULL DEFAULT 'open', unread_count INTEGER NOT NULL DEFAULT 0,
+  last_message_at TIMESTAMPTZ, last_message_channel TEXT, last_message_preview TEXT, last_message_direction TEXT,
+  display_name TEXT, avatar_email TEXT, avatar_phone TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS inbox_conv_org_status_idx ON inbox_conversations(organization_id, status, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS inbox_conv_contact_idx ON inbox_conversations(contact_id) WHERE contact_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inbox_conv_chat_idx ON inbox_conversations(chat_conversation_id) WHERE chat_conversation_id IS NOT NULL;
+
+-- Inbox internal notes
+CREATE TABLE IF NOT EXISTS inbox_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  inbox_conversation_id UUID NOT NULL REFERENCES inbox_conversations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL, user_name TEXT, content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS inbox_notes_conv_idx ON inbox_notes(inbox_conversation_id, created_at);
+
+-- Inbox AI draft settings
+CREATE TABLE IF NOT EXISTS inbox_ai_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL, organization_id UUID NOT NULL UNIQUE,
+  enabled BOOLEAN NOT NULL DEFAULT false, knowledge_base TEXT, tone TEXT DEFAULT 'professional',
+  instructions TEXT, business_name TEXT, business_description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
 
 -- Sequence branching support
 ALTER TABLE sequence_steps ADD COLUMN IF NOT EXISTS branch_config JSONB;
@@ -464,9 +576,42 @@ CREATE UNIQUE INDEX IF NOT EXISTS email_conn_org_user_provider_idx ON email_conn
 CREATE TABLE IF NOT EXISTS esp_connections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
   provider TEXT NOT NULL, api_key TEXT NOT NULL, sending_domain TEXT,
+  default_sender_email TEXT, default_sender_name TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE UNIQUE INDEX IF NOT EXISTS esp_conn_org_provider_idx ON esp_connections(organization_id, provider);
+
+-- ESP Sender Addresses (multiple from addresses per ESP connection)
+CREATE TABLE IF NOT EXISTS esp_sender_addresses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
+  esp_connection_id UUID NOT NULL, sender_name TEXT, sender_email TEXT NOT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS esp_sender_addr_org_email_idx ON esp_sender_addresses(organization_id, sender_email);
+
+-- Email Lists (mailing lists / contact groups)
+CREATE TABLE IF NOT EXISTS email_lists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
+  name TEXT NOT NULL, description TEXT,
+  source_type TEXT NOT NULL DEFAULT 'manual', source_id UUID,
+  member_count INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ);
+CREATE INDEX IF NOT EXISTS email_lists_org_idx ON email_lists(organization_id);
+
+CREATE TABLE IF NOT EXISTS email_list_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  list_id UUID NOT NULL REFERENCES email_lists(id) ON DELETE CASCADE,
+  contact_id UUID NOT NULL, added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(list_id, contact_id));
+CREATE INDEX IF NOT EXISTS email_list_members_list_idx ON email_list_members(list_id);
+
+-- Email Routing (per-feature provider assignment)
+CREATE TABLE IF NOT EXISTS email_routing (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, organization_id UUID NOT NULL,
+  purpose TEXT NOT NULL, provider_type TEXT NOT NULL, provider_id UUID NOT NULL,
+  from_name TEXT, from_address TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS email_routing_org_purpose_idx ON email_routing(organization_id, purpose);
 
 -- Stripe Connect
 CREATE TABLE IF NOT EXISTS stripe_connections (
@@ -528,6 +673,27 @@ ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS email_intake_mode TEXT DE
 -- Interface mode (simple vs advanced) and onboarding status
 ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS interface_mode TEXT DEFAULT 'simple';
 ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS onboarding_complete BOOLEAN DEFAULT false;
+
+-- Brand Voice Engine
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS brand_voice_profile JSONB;
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS brand_voice_updated_at TIMESTAMPTZ;
+ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS brand_voice_source TEXT;
+
+-- Chat widget enhancements (slug, branding, public page)
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS slug TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS brand_color TEXT DEFAULT '#3B82F6';
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS welcome_message TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS public_page_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_knowledge_base TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_personality TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_instructions TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_guardrails TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_handoff_message TEXT;
+ALTER TABLE chat_widgets ADD COLUMN IF NOT EXISTS bot_max_responses INTEGER DEFAULT 5;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_widgets_org_slug_idx ON chat_widgets(organization_id, slug);
 
 -- Done
 SELECT 'All custom tables created successfully' AS status;

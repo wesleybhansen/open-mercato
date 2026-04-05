@@ -23,7 +23,17 @@ export async function sendViaOutlook(
   to: string,
   subject: string,
   htmlBody: string,
+  cc?: string,
+  bcc?: string,
+  fromName?: string,
 ): Promise<OutlookSendResult> {
+  const ccRecipients = cc
+    ? cc.split(',').map(addr => ({ emailAddress: { address: addr.trim() } })).filter(r => r.emailAddress.address)
+    : []
+  const bccRecipients = bcc
+    ? bcc.split(',').map(addr => ({ emailAddress: { address: addr.trim() } })).filter(r => r.emailAddress.address)
+    : []
+
   const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
     method: 'POST',
     headers: {
@@ -38,11 +48,13 @@ export async function sendViaOutlook(
           content: htmlBody,
         },
         from: {
-          emailAddress: { address: from },
+          emailAddress: { address: from, ...(fromName ? { name: fromName } : {}) },
         },
         toRecipients: [
           { emailAddress: { address: to } },
         ],
+        ...(ccRecipients.length ? { ccRecipients } : {}),
+        ...(bccRecipients.length ? { bccRecipients } : {}),
       },
     }),
   })

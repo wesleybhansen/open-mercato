@@ -7,10 +7,10 @@
   "onboarding.email.body": "Solo necesitamos confirmar su dirección de correo electrónico para terminar de configurar la organización {organizationName}.",
   "onboarding.email.cta": "Confirmar correo y activar espacio de trabajo",
   "onboarding.email.expiry": "El enlace vencerá en 24 horas. Si no solicitó esto, puede ignorar este mensaje.",
-  "onboarding.email.footer": "Open Mercato · Servicio de incorporación de tenants",
+  "onboarding.email.footer": "LaunchOS · Servicio de incorporación de tenants",
   "onboarding.email.greeting": "Hola {firstName},",
-  "onboarding.email.heading": "Bienvenido a Open Mercato",
-  "onboarding.email.preview": "Confirme su correo electrónico para activar su espacio de trabajo en Open Mercato",
+  "onboarding.email.heading": "Bienvenido a LaunchOS",
+  "onboarding.email.preview": "Confirme su correo electrónico para activar su espacio de trabajo en LaunchOS",
   "onboarding.email.subject": "Confirme su correo electrónico para finalizar la incorporación",
   "onboarding.errors.emailExists": "Ya tenemos una cuenta con este correo electrónico. Intente iniciar sesión o restablecer su contraseña.",
   "onboarding.errors.emailInvalid": "Ingrese un correo electrónico de trabajo válido.",
@@ -44,5 +44,5 @@
   "onboarding.password.requirements.special": "Un carácter especial",
   "onboarding.password.requirements.uppercase": "Una letra mayúscula",
   "onboarding.subtitle": "Cuéntenos un poco sobre usted y configuraremos todo.",
-  "onboarding.title": "Cree su espacio de trabajo en Open Mercato"
+  "onboarding.title": "Cree su espacio de trabajo en LaunchOS"
 }

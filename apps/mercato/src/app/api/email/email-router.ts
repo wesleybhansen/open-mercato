@@ -8,9 +8,12 @@ import type { Knex } from 'knex'
 import { sendViaGmail, getGmailToken } from './gmail-service'
 import { sendViaOutlook, getOutlookToken } from './outlook-service'
 import { sendViaESP } from './esp-service'
+import type { EmailPurpose } from './routing-service'
 
 interface SendEmailParams {
   to: string
+  cc?: string
+  bcc?: string
   subject: string
   htmlBody: string
   textBody?: string
@@ -46,7 +49,7 @@ export async function sendEmailForOrg(
   userId: string,
   params: SendEmailParams,
 ): Promise<SendEmailResult> {
-  const { to, subject, htmlBody, textBody, contactId } = params
+  const { to, cc, bcc, subject, htmlBody, textBody, contactId } = params
 
   // Find user's email connection — prefer primary, then any active
   const connection = await knex('email_connections')
@@ -56,6 +59,8 @@ export async function sendEmailForOrg(
     .orderBy('is_primary', 'desc')
     .first()
 
+  console.log('[email-router] Looking up connection for orgId:', orgId, 'userId:', userId, 'found:', connection?.provider || 'NONE', 'active:', connection?.is_active)
+
   if (!connection) {
     return {
       ok: false,
@@ -63,21 +68,36 @@ export async function sendEmailForOrg(
     }
   }
 
+  // Get user's display name for the From header
+  const appUser = await knex('users').where('id', userId).first().catch(() => null)
+  const userDisplayName = appUser?.name || null
+
   try {
     switch (connection.provider) {
       case 'gmail': {
-        const token = await getGmailToken(knex, orgId, userId)
+        let token
+        try {
+          token = await getGmailToken(knex, orgId, userId)
+        } catch (gmailErr) {
+          const msg = gmailErr instanceof Error ? gmailErr.message : 'Gmail token error'
+          console.error('[email-router] Gmail token failed:', msg)
+          return { ok: false, error: `Gmail error: ${msg}. Try reconnecting Gmail in Settings.` }
+        }
         if (!token) {
           return { ok: false, error: 'Gmail token not available. Please reconnect Gmail in Settings.' }
         }
 
+        const gmailFrom = userDisplayName ? `${userDisplayName} <${token.emailAddress}>` : token.emailAddress
+        console.log('[email-router] Sending via Gmail from:', gmailFrom, 'to:', to)
         const result = await sendViaGmail(
           token.accessToken,
-          token.emailAddress,
+          gmailFrom,
           to,
           subject,
           htmlBody,
           textBody,
+          cc,
+          bcc,
         )
 
         if (contactId) {
@@ -104,6 +124,9 @@ export async function sendEmailForOrg(
           to,
           subject,
           htmlBody,
+          cc,
+          bcc,
+          userDisplayName || undefined,
         )
 
         if (contactId) {
@@ -131,9 +154,12 @@ export async function sendEmailForOrg(
             },
           })
 
+          const smtpFrom = userDisplayName ? `${userDisplayName} <${connection.email_address}>` : connection.email_address
           const info = await transporter.sendMail({
-            from: connection.email_address,
+            from: smtpFrom,
             to,
+            cc: cc || undefined,
+            bcc: bcc || undefined,
             subject,
             html: htmlBody,
             text: textBody,
@@ -275,6 +301,93 @@ export async function sendBulkEmailForOrg(
     warning: recipients.length > 50
       ? 'Sending bulk email via personal email account. Consider connecting an ESP (Resend, SendGrid, etc.) for better deliverability and higher rate limits.'
       : undefined,
+  }
+}
+
+/**
+ * Send an email routed by purpose (invoices, marketing, automations, transactional).
+ * Uses the org's configured email routing, with intelligent fallbacks.
+ * This is the preferred function for all non-inbox email sending.
+ */
+export async function sendEmailByPurpose(
+  knex: Knex,
+  orgId: string,
+  tenantId: string,
+  purpose: EmailPurpose,
+  params: SendEmailParams & { fromName?: string },
+): Promise<SendEmailResult> {
+  const { getProviderForPurpose } = await import('./routing-service')
+  const resolved = await getProviderForPurpose(knex, orgId, purpose)
+
+  if (!resolved) {
+    return { ok: false, error: 'No email provider configured. Connect an email account or ESP in Settings.' }
+  }
+
+  const { to, cc, bcc, subject, htmlBody, textBody, contactId } = params
+  const displayName = resolved.fromName || params.fromName || null
+  const fromDisplay = displayName
+    ? `${displayName} <${resolved.fromAddress}>`
+    : resolved.fromAddress
+
+  try {
+    if (resolved.type === 'esp' && resolved.espConnection) {
+      // Send via ESP (Resend, SendGrid, etc.)
+      const result = await sendViaESP(
+        resolved.espConnection.provider,
+        resolved.espConnection.api_key,
+        fromDisplay,
+        to,
+        subject,
+        htmlBody,
+      )
+
+      if (contactId) await trackEngagement(knex, orgId, tenantId, contactId)
+
+      return { ok: true, messageId: result.messageId, sentVia: `esp:${resolved.provider}`, fromAddress: resolved.fromAddress }
+    }
+
+    if (resolved.type === 'connection' && resolved.connection) {
+      const conn = resolved.connection
+
+      switch (conn.provider) {
+        case 'gmail': {
+          const token = await getGmailToken(knex, orgId, conn.user_id)
+          if (!token) return { ok: false, error: 'Gmail token expired. Reconnect Gmail in Settings.' }
+          const result = await sendViaGmail(token.accessToken, token.emailAddress, to, subject, htmlBody, textBody, cc, bcc)
+          if (contactId) await trackEngagement(knex, orgId, tenantId, contactId)
+          return { ok: true, messageId: result.messageId, sentVia: 'gmail', fromAddress: token.emailAddress }
+        }
+        case 'microsoft': {
+          const token = await getOutlookToken(knex, orgId, conn.user_id)
+          if (!token) return { ok: false, error: 'Outlook token expired. Reconnect Outlook in Settings.' }
+          const result = await sendViaOutlook(token.accessToken, token.emailAddress, to, subject, htmlBody, cc, bcc)
+          if (contactId) await trackEngagement(knex, orgId, tenantId, contactId)
+          return { ok: true, messageId: result.messageId, sentVia: 'microsoft', fromAddress: token.emailAddress }
+        }
+        case 'smtp': {
+          const nodemailer = await import('nodemailer')
+          const transporter = nodemailer.createTransport({
+            host: conn.smtp_host, port: conn.smtp_port || 587,
+            secure: conn.smtp_port === 465,
+            auth: { user: conn.smtp_user, pass: conn.smtp_pass },
+          })
+          const info = await transporter.sendMail({
+            from: fromDisplay, to, cc: cc || undefined, bcc: bcc || undefined,
+            subject, html: htmlBody, text: textBody,
+          })
+          if (contactId) await trackEngagement(knex, orgId, tenantId, contactId)
+          return { ok: true, messageId: info.messageId, sentVia: 'smtp', fromAddress: conn.email_address }
+        }
+        default:
+          return { ok: false, error: `Unsupported provider: ${conn.provider}` }
+      }
+    }
+
+    return { ok: false, error: 'Could not resolve email provider' }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to send email'
+    console.error(`[email-router] sendEmailByPurpose(${purpose}) failed:`, message)
+    return { ok: false, error: message }
   }
 }
 

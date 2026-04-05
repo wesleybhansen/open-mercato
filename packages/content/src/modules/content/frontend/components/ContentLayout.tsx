@@ -22,10 +22,10 @@ export function ContentLayout({ title, intro, breadcrumb, children }: ContentLay
     <div className="flex min-h-svh flex-col bg-muted/30">
       <header className="border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex w-full max-w-screen-lg items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3 text-foreground transition hover:text-primary" aria-label="Go to the Open Mercato home page">
+          <Link href="/" className="flex items-center gap-3 text-foreground transition hover:text-primary" aria-label="Go to the LaunchOS home page">
             <Image
-              src="/open-mercato.svg"
-              alt="Open Mercato logo"
+              src="/launchos-logo.png"
+              alt="LaunchOS logo"
               width={32}
               height={32}
               className="dark:invert"
@@ -99,10 +99,10 @@ export function ContentLayout({ title, intro, breadcrumb, children }: ContentLay
           <Link
             href="/"
             className="flex items-center gap-2 text-muted-foreground transition hover:text-foreground"
-            aria-label="Open Mercato"
+            aria-label="LaunchOS"
           >
-            <Image src="/open-mercato.svg" alt="Open Mercato logo" width={28} height={28} className="dark:invert" />
-            <span className="font-medium text-foreground">Open Mercato</span>
+            <Image src="/launchos-logo.png" alt="LaunchOS logo" width={28} height={28} className="dark:invert" />
+            <span className="font-medium text-foreground">LaunchOS</span>
           </Link>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link className="transition hover:text-foreground" href="/">

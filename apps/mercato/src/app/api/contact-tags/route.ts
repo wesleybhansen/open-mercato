@@ -1,4 +1,3 @@
-import { bootstrap } from '@/bootstrap'
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'

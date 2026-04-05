@@ -15,6 +15,7 @@ function slugify(text: string): string {
 }
 
 export async function GET(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -22,7 +23,6 @@ export async function GET(req: Request) {
     const knex = (container.resolve('em') as EntityManager).getKnex()
     const surveys = await knex('surveys')
       .where('organization_id', auth.orgId)
-      .where('is_active', true)
       .orderBy('created_at', 'desc')
       .limit(100)
     return NextResponse.json({ ok: true, data: surveys })
@@ -32,6 +32,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -101,6 +103,8 @@ export async function PUT(req: Request) {
     if (body.fields !== undefined) updates.fields = JSON.stringify(body.fields)
     if (body.thankYouMessage !== undefined) updates.thank_you_message = body.thankYouMessage?.trim() || 'Thank you for your response!'
     if (body.isActive !== undefined) updates.is_active = body.isActive
+    if (body.archived === true) updates.archived_at = new Date()
+    if (body.archived === false) updates.archived_at = null
 
     await knex('surveys').where('id', id).where('organization_id', auth.orgId).update(updates)
     const survey = await knex('surveys').where('id', id).first()
@@ -111,6 +115,7 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  await bootstrap()
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -120,7 +125,9 @@ export async function DELETE(req: Request) {
     const id = url.searchParams.get('id')
     if (!id) return NextResponse.json({ ok: false, error: 'id query param required' }, { status: 400 })
 
-    await knex('surveys').where('id', id).where('organization_id', auth.orgId).update({ is_active: false, updated_at: new Date() })
+    // Delete responses first, then the survey
+    await knex('survey_responses').where('survey_id', id).delete()
+    await knex('surveys').where('id', id).where('organization_id', auth.orgId).delete()
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ ok: false, error: 'Failed to delete survey' }, { status: 500 })

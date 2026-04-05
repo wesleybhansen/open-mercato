@@ -358,6 +358,379 @@ const RECIPES: Recipe[] = [
       },
     ],
   },
+  {
+    id: 'event-warmup',
+    name: 'Event Warm-Up Series',
+    description: 'Build excitement before your event with a 3-email series: anticipation, prep tips, and a day-before reminder.',
+    category: 'Events',
+    triggerType: 'tag_added',
+    triggerConfig: { tagSlug: 'event-registered' },
+    steps: [
+      {
+        stepOrder: 1,
+        stepType: 'email',
+        config: {
+          subject: "You're in! Here's what to expect",
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>You're officially registered -- exciting! Here's a quick preview of what's in store:</p>
+<p>We've designed this event to be packed with value. Whether you're a beginner or experienced, you'll walk away with actionable takeaways you can use right away.</p>
+<p>Keep an eye on your inbox -- we'll send you a prep guide before the event so you can get the most out of it.</p>
+<p><b>See you there!</b></p>`,
+        },
+      },
+      { stepOrder: 2, stepType: 'wait', config: { delay: 3, unit: 'days' } },
+      {
+        stepOrder: 3,
+        stepType: 'email',
+        config: {
+          subject: 'How to prepare for the event',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>The event is coming up and we want to make sure you're set up for success. Here's how to prepare:</p>
+<p><b>1.</b> Write down 2-3 specific questions you'd like answered<br/>
+<b>2.</b> Block off the full time in your calendar (no multitasking!)<br/>
+<b>3.</b> Find a quiet spot with good internet if joining virtually</p>
+<p>The more prepared you are, the more you'll get out of it. Reply to this email if you have any questions beforehand.</p>`,
+        },
+      },
+      { stepOrder: 4, stepType: 'wait', config: { delay: 3, unit: 'days' } },
+      {
+        stepOrder: 5,
+        stepType: 'email',
+        config: {
+          subject: "Tomorrow's the day!",
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p><b>Quick reminder -- the event is tomorrow!</b></p>
+<p>We're really looking forward to having you there. Everything is set and ready to go.</p>
+<p>If you haven't already, save the event link and set a reminder so you don't miss the start. The best stuff happens right at the beginning.</p>
+<p>See you tomorrow!</p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'post-event-conversion',
+    name: 'Post-Event Conversion',
+    description: 'Turn event attendees into customers with a replay, social proof, and a limited-time offer over 7 days.',
+    category: 'Events',
+    triggerType: 'tag_added',
+    triggerConfig: { tagSlug: 'event-attended' },
+    steps: [
+      {
+        stepOrder: 1,
+        stepType: 'email',
+        config: {
+          subject: 'Thanks for attending! Here\'s the replay',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>Thanks for showing up -- it was great having you there!</p>
+<p>As promised, here's the replay and any resources we mentioned during the event. Feel free to share it with anyone who might find it valuable.</p>
+<p>We'd love to hear your biggest takeaway. Just hit reply and let us know!</p>`,
+        },
+      },
+      { stepOrder: 2, stepType: 'wait', config: { delay: 2, unit: 'days' } },
+      {
+        stepOrder: 3,
+        stepType: 'email',
+        config: {
+          subject: 'What attendees are saying',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>We've been getting amazing feedback from the event. Here's what a few attendees had to say:</p>
+<p><i>"This was exactly what I needed. Clear, actionable, and no fluff."</i></p>
+<p><i>"I've already implemented one of the strategies and I'm seeing results."</i></p>
+<p>If you want to take things further, we'd love to help. Reply to this email and let's chat about your next steps.</p>`,
+        },
+      },
+      { stepOrder: 4, stepType: 'wait', config: { delay: 3, unit: 'days' } },
+      {
+        stepOrder: 5,
+        stepType: 'email',
+        config: {
+          subject: 'Special offer for attendees (expires soon)',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>Because you showed up and invested your time, we want to offer you something special.</p>
+<p>For the next 48 hours, you can access our program at an <b>exclusive attendee discount</b>. This is only available to people who were at the event.</p>
+<p>If you've been on the fence, this is your sign. Reply to this email or click below to grab your spot before the offer expires.</p>
+<p><b>Let's keep the momentum going!</b></p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'proposal-follow-up',
+    name: 'Proposal Follow-Up',
+    description: 'Follow up on a sent proposal with a check-in, value reinforcement, and a final nudge.',
+    category: 'Sales',
+    triggerType: 'tag_added',
+    triggerConfig: { tagSlug: 'proposal-sent' },
+    steps: [
+      { stepOrder: 1, stepType: 'wait', config: { delay: 3, unit: 'days' } },
+      {
+        stepOrder: 2,
+        stepType: 'email',
+        config: {
+          subject: 'Quick follow-up on the proposal',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>I wanted to check in on the proposal I sent over. I know things get busy, so no pressure at all.</p>
+<p>If you have any questions or want to adjust anything, I'm happy to hop on a quick call. I want to make sure the scope and pricing feel right for you.</p>
+<p>Just hit reply and let me know what you're thinking!</p>`,
+        },
+      },
+      { stepOrder: 3, stepType: 'wait', config: { delay: 4, unit: 'days' } },
+      {
+        stepOrder: 4,
+        stepType: 'email',
+        config: {
+          subject: 'Why clients choose to work with us',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>While you're reviewing the proposal, I wanted to share a few reasons our clients love working with us:</p>
+<p><b>Clear communication</b> -- you'll always know what's happening and what's next.<br/>
+<b>Results-focused</b> -- everything we do is tied to measurable outcomes.<br/>
+<b>Flexible approach</b> -- we adapt to your needs, not the other way around.</p>
+<p>If this sounds like what you're looking for, I'd love to chat more. Just reply or grab a time on my calendar.</p>`,
+        },
+      },
+      { stepOrder: 5, stepType: 'wait', config: { delay: 5, unit: 'days' } },
+      {
+        stepOrder: 6,
+        stepType: 'email',
+        config: {
+          subject: 'Should I close this out?',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>I haven't heard back on the proposal and I completely understand if the timing isn't right.</p>
+<p>I'm doing some housekeeping on my pipeline -- should I keep this open or close it out for now? Either way is totally fine.</p>
+<p>If you'd like to revisit it later, just let me know and we can pick it back up whenever you're ready. No hard feelings either way.</p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'client-onboarding',
+    name: 'Client Onboarding',
+    description: 'Onboard new clients with a welcome, getting-started guide, and first check-in over 10 days.',
+    category: 'Customer Success',
+    triggerType: 'deal_stage_changed',
+    triggerConfig: { stage: 'Won' },
+    steps: [
+      {
+        stepOrder: 1,
+        stepType: 'email',
+        config: {
+          subject: 'Welcome! Let\'s get you set up',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p><b>Welcome aboard!</b> We're thrilled to officially be working together.</p>
+<p>Here's what happens next:</p>
+<p><b>1.</b> We'll send you a quick onboarding form to gather a few details<br/>
+<b>2.</b> You'll get access to your dashboard and resources<br/>
+<b>3.</b> We'll schedule our kickoff call to align on goals and timeline</p>
+<p>In the meantime, reply to this email if you have any questions. We're here to make this as smooth as possible.</p>`,
+        },
+      },
+      { stepOrder: 2, stepType: 'wait', config: { delay: 3, unit: 'days' } },
+      {
+        stepOrder: 3,
+        stepType: 'email',
+        config: {
+          subject: 'Your getting-started guide',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>We put together a quick guide to help you hit the ground running. Here are the first things to do:</p>
+<p><b>Complete your profile</b> -- this helps us personalize your experience.<br/>
+<b>Explore the dashboard</b> -- poke around and see what's available.<br/>
+<b>Bookmark our help center</b> -- answers to common questions are just a click away.</p>
+<p>If you get stuck on anything, don't hesitate to reach out. We're just an email away.</p>`,
+        },
+      },
+      { stepOrder: 4, stepType: 'wait', config: { delay: 7, unit: 'days' } },
+      {
+        stepOrder: 5,
+        stepType: 'email',
+        config: {
+          subject: 'How\'s your first week going?',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>It's been about a week since we started working together and I wanted to check in.</p>
+<p><b>How's everything going so far?</b> Is there anything that's been confusing or that you wish worked differently? Your honest feedback helps us serve you better.</p>
+<p>I also want to make sure you're getting value from day one. If there's a quick win we can help you with, let's make it happen.</p>
+<p>Just reply to this email -- I read every response.</p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'webinar-replay',
+    name: 'Webinar No-Show Recovery',
+    description: 'Recover webinar no-shows with the replay link, key takeaways, and a conversion offer.',
+    category: 'Events',
+    triggerType: 'tag_added',
+    triggerConfig: { tagSlug: 'webinar-no-show' },
+    steps: [
+      {
+        stepOrder: 1,
+        stepType: 'email',
+        config: {
+          subject: 'You missed it -- but here\'s the replay',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>We noticed you couldn't make it to the webinar -- no worries! Life happens.</p>
+<p>The good news: we recorded the whole thing. <b>Watch the replay at your convenience</b> and you won't miss a thing.</p>
+<p>Fair warning: the replay will only be available for a limited time, so don't wait too long!</p>`,
+        },
+      },
+      { stepOrder: 2, stepType: 'wait', config: { delay: 2, unit: 'days' } },
+      {
+        stepOrder: 3,
+        stepType: 'email',
+        config: {
+          subject: 'Top 3 takeaways from the webinar',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>In case you haven't had a chance to watch the full replay, here are the <b>top 3 takeaways</b>:</p>
+<p><b>1.</b> The single biggest mistake most people make (and the easy fix)<br/>
+<b>2.</b> A framework you can implement this week for immediate results<br/>
+<b>3.</b> The #1 question attendees asked -- and the answer surprised everyone</p>
+<p>Want the full picture? The replay is still available. Watch it before it expires!</p>`,
+        },
+      },
+      { stepOrder: 4, stepType: 'wait', config: { delay: 3, unit: 'days' } },
+      {
+        stepOrder: 5,
+        stepType: 'email',
+        config: {
+          subject: 'Last chance: replay expires tomorrow',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>Just a heads up -- the <b>webinar replay comes down tomorrow</b>.</p>
+<p>If you've been meaning to watch it, now's the time. Attendees told us it was one of the most valuable sessions we've done.</p>
+<p>Plus, we mentioned a special offer during the webinar that's still available for replay viewers. Don't miss out!</p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'testimonial-request',
+    name: 'Testimonial Collection',
+    description: 'Collect testimonials from happy clients with a warm ask, a simple prompt, and a thank-you.',
+    category: 'Growth',
+    triggerType: 'tag_added',
+    triggerConfig: { tagSlug: 'happy-client' },
+    steps: [
+      { stepOrder: 1, stepType: 'wait', config: { delay: 1, unit: 'days' } },
+      {
+        stepOrder: 2,
+        stepType: 'email',
+        config: {
+          subject: 'Would you share your experience?',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>I'm so glad things are going well! Your success is the best part of what we do.</p>
+<p>I have a small favor to ask: <b>would you be willing to share a quick testimonial</b> about your experience? It would mean the world to us and help others who are in the same position you were.</p>
+<p>It doesn't have to be long -- even 2-3 sentences would be amazing. Just reply to this email with your thoughts!</p>`,
+        },
+      },
+      { stepOrder: 3, stepType: 'wait', config: { delay: 4, unit: 'days' } },
+      {
+        stepOrder: 4,
+        stepType: 'email',
+        config: {
+          subject: 'Quick and easy -- just answer these 3 questions',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>I know writing a testimonial from scratch can feel daunting, so here are <b>3 simple questions</b> to make it easy:</p>
+<p><b>1.</b> What was your biggest challenge before working with us?<br/>
+<b>2.</b> What specific result or change have you seen?<br/>
+<b>3.</b> What would you say to someone considering working with us?</p>
+<p>Just reply with your answers -- we'll take care of the rest. Thank you!</p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'abandoned-cart',
+    name: 'Abandoned Cart Recovery',
+    description: 'Recover potential sales when someone starts but doesn\'t complete a purchase. 3-email nudge series.',
+    category: 'Sales',
+    triggerType: 'tag_added',
+    triggerConfig: { tagSlug: 'cart-abandoned' },
+    steps: [
+      { stepOrder: 1, stepType: 'wait', config: { delay: 1, unit: 'hours' } },
+      {
+        stepOrder: 2,
+        stepType: 'email',
+        config: {
+          subject: 'Did you forget something?',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>We noticed you started a purchase but didn't finish. No worries -- your cart is saved and waiting for you.</p>
+<p>If you ran into any issues or have questions, just reply to this email. We're here to help!</p>
+<p><b>Ready to complete your purchase?</b> Click below to pick up where you left off.</p>`,
+        },
+      },
+      { stepOrder: 3, stepType: 'wait', config: { delay: 1, unit: 'days' } },
+      {
+        stepOrder: 4,
+        stepType: 'email',
+        config: {
+          subject: 'Your cart is waiting',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>Just a friendly reminder -- you have items waiting in your cart. Here's what our customers love about it:</p>
+<p><b>Quick setup</b> -- get started in minutes, not hours.<br/>
+<b>Full support</b> -- we're here every step of the way.<br/>
+<b>Risk-free</b> -- satisfaction guaranteed.</p>
+<p>Complete your purchase today and start seeing results right away.</p>`,
+        },
+      },
+      { stepOrder: 5, stepType: 'wait', config: { delay: 2, unit: 'days' } },
+      {
+        stepOrder: 6,
+        stepType: 'email',
+        config: {
+          subject: 'Last call -- special offer inside',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>We don't want you to miss out. To sweeten the deal, here's an <b>exclusive discount</b> just for you.</p>
+<p>This offer expires in 24 hours, so if you've been thinking about it, now's the perfect time to take action.</p>
+<p>If you have any questions at all, hit reply -- we're happy to help you decide.</p>`,
+        },
+      },
+    ],
+  },
+  {
+    id: 'seasonal-promo',
+    name: 'Seasonal Promotion',
+    description: 'Run a time-limited promotion with a teaser, launch announcement, and last-chance urgency email.',
+    category: 'Marketing',
+    triggerType: 'manual',
+    triggerConfig: {},
+    steps: [
+      {
+        stepOrder: 1,
+        stepType: 'email',
+        config: {
+          subject: 'Something exciting is coming...',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>We've been working on something special and you're going to be the first to know about it.</p>
+<p><b>Stay tuned</b> -- in a couple of days, we're launching an exclusive offer that you won't want to miss. We're keeping the details under wraps for now, but trust us, it's going to be good.</p>
+<p>Keep an eye on your inbox!</p>`,
+        },
+      },
+      { stepOrder: 2, stepType: 'wait', config: { delay: 2, unit: 'days' } },
+      {
+        stepOrder: 3,
+        stepType: 'email',
+        config: {
+          subject: "It's here! Our biggest offer of the season",
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p><b>The wait is over!</b> Our special promotion is officially live.</p>
+<p>For a limited time, you can take advantage of our best pricing of the season. This is our way of saying thank you for being part of our community.</p>
+<p>Here's what's included and why now is the perfect time to jump in. Don't wait too long -- this offer has a deadline.</p>
+<p><b>Grab your spot before it fills up!</b></p>`,
+        },
+      },
+      { stepOrder: 4, stepType: 'wait', config: { delay: 4, unit: 'days' } },
+      {
+        stepOrder: 5,
+        stepType: 'email',
+        config: {
+          subject: 'Final hours: offer ends tonight',
+          bodyHtml: `<p>Hi {{firstName}},</p>
+<p>This is it -- our promotion <b>ends tonight at midnight</b>.</p>
+<p>If you've been on the fence, this is your last chance to lock in the special pricing. After tonight, it goes back to regular price.</p>
+<p>We don't do promotions like this often, so we'd hate for you to miss out. Take action now and thank yourself later.</p>
+<p><b>See you on the other side!</b></p>`,
+        },
+      },
+    ],
+  },
 ]
 
 export async function GET() {

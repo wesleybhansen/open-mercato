@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { buildPersonaPrompt, getPersonaForOrg } from '../persona'
+import { buildPersonaPrompt, getPersonaForOrg, buildVoicePromptSection } from '../persona'
 
 export async function POST(req: Request) {
   try {
@@ -34,10 +34,15 @@ export async function POST(req: Request) {
         const knex = em.getKnex()
         const profile = await getPersonaForOrg(knex, auth.orgId)
         if (profile) {
-          const style = profile.ai_persona_style || 'professional'
-          if (style === 'professional') toneInstruction = 'Professional, direct, and efficient tone'
-          else if (style === 'casual') toneInstruction = 'Warm, friendly, and conversational tone'
-          else if (style === 'minimal') toneInstruction = 'Extremely concise and no-nonsense tone'
+          // Brand voice profile takes precedence over generic persona style
+          if (profile.brand_voice_profile?.style_summary) {
+            toneInstruction = buildVoicePromptSection(profile.brand_voice_profile)
+          } else {
+            const style = profile.ai_persona_style || 'professional'
+            if (style === 'professional') toneInstruction = 'Professional, direct, and efficient tone'
+            else if (style === 'casual') toneInstruction = 'Warm, friendly, and conversational tone'
+            else if (style === 'minimal') toneInstruction = 'Extremely concise and no-nonsense tone'
+          }
           if (profile.ai_custom_instructions) {
             toneInstruction += `\nAdditional style rules: ${profile.ai_custom_instructions}`
           }

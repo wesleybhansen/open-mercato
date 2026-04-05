@@ -41,6 +41,7 @@ const TRIGGER_TYPES = [
   { id: 'deal_won', label: 'Deal Won', description: 'When a deal is marked as won' },
   { id: 'deal_lost', label: 'Deal Lost', description: 'When a deal is marked as lost' },
   { id: 'course_enrolled', label: 'Course Enrolled', description: 'When someone enrolls in a course' },
+  { id: 'schedule', label: 'Scheduled Trigger', description: 'Runs on a recurring schedule' },
 ]
 
 const ACTION_TYPES = [

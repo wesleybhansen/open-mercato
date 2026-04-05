@@ -14,7 +14,9 @@ const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
   paused: ['active', 'draft', 'archived'],
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await bootstrap()
+  const { id } = await params
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -22,7 +24,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     const sequence = await knex('sequences')
-      .where('id', params.id)
+      .where('id', id)
       .where('organization_id', auth.orgId)
       .whereNull('deleted_at')
       .first()
@@ -30,11 +32,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!sequence) return NextResponse.json({ ok: false, error: 'Sequence not found' }, { status: 404 })
 
     const steps = await knex('sequence_steps')
-      .where('sequence_id', params.id)
+      .where('sequence_id', id)
       .orderBy('step_order', 'asc')
 
     const [enrollmentStats] = await knex('sequence_enrollments')
-      .where('sequence_id', params.id)
+      .where('sequence_id', id)
       .select(
         knex.raw('COUNT(*) as total'),
         knex.raw("COUNT(*) FILTER (WHERE status = 'active') as active"),
@@ -54,7 +56,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await bootstrap()
+  const { id } = await params
   const auth = await getAuthFromCookies()
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -64,7 +68,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const { name, description, triggerType, triggerConfig, status, steps } = body
 
     const sequence = await knex('sequences')
-      .where('id', params.id)
+      .where('id', id)
       .where('organization_id', auth.orgId)
       .whereNull('deleted_at')
       .first()
@@ -97,7 +101,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (triggerConfig !== undefined) updates.trigger_config = triggerConfig ? JSON.stringify(triggerConfig) : null
     if (status !== undefined) updates.status = status
 
-    await knex('sequences').where('id', params.id).update(updates)
+    await knex('sequences').where('id', id).update(updates)
 
     if (Array.isArray(steps)) {
       for (const step of steps) {
@@ -106,13 +110,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         }
       }
 
-      await knex('sequence_steps').where('sequence_id', params.id).del()
+      await knex('sequence_steps').where('sequence_id', id).del()
 
       const now = new Date()
       for (const step of steps) {
         await knex('sequence_steps').insert({
           id: require('crypto').randomUUID(),
-          sequence_id: params.id,
+          sequence_id: id,
           step_order: step.stepOrder,
           step_type: step.stepType,
           config: step.config ? JSON.stringify(step.config) : null,
@@ -121,8 +125,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     }
 
-    const updated = await knex('sequences').where('id', params.id).first()
-    const updatedSteps = await knex('sequence_steps').where('sequence_id', params.id).orderBy('step_order', 'asc')
+    const updated = await knex('sequences').where('id', id).first()
+    const updatedSteps = await knex('sequence_steps').where('sequence_id', id).orderBy('step_order', 'asc')
     updated.steps = updatedSteps
 
     return NextResponse.json({ ok: true, data: updated })
@@ -131,7 +135,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await bootstrap()
+  const { id } = await params
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   try {
@@ -139,14 +145,14 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     const sequence = await knex('sequences')
-      .where('id', params.id)
+      .where('id', id)
       .where('organization_id', auth.orgId)
       .whereNull('deleted_at')
       .first()
 
     if (!sequence) return NextResponse.json({ ok: false, error: 'Sequence not found' }, { status: 404 })
 
-    await knex('sequences').where('id', params.id).update({ deleted_at: new Date(), updated_at: new Date() })
+    await knex('sequences').where('id', id).update({ deleted_at: new Date(), updated_at: new Date() })
 
     return NextResponse.json({ ok: true })
   } catch {

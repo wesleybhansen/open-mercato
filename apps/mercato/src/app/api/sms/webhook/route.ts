@@ -9,6 +9,7 @@ export const metadata = { POST: { requireAuth: false } }
 // Routes inbound messages to the correct org by looking up the "To" phone number
 export async function POST(req: Request) {
   try {
+    await bootstrap()
     const formData = await req.formData()
     const from = formData.get('From') as string
     const to = formData.get('To') as string
@@ -62,9 +63,21 @@ export async function POST(req: Request) {
       created_at: new Date(),
     })
 
+    // Update unified inbox
+    if (orgId && tenantId) {
+      const { upsertInboxConversation } = await import('@/lib/inbox-conversation')
+      upsertInboxConversation(knex, orgId, tenantId, {
+        contactId: contact?.id || null,
+        channel: 'sms',
+        preview: body,
+        direction: 'inbound',
+        displayName: contact?.display_name || from,
+        avatarPhone: from,
+      }).catch(() => {})
+    }
+
     console.log(`[sms.webhook] Received from ${from} to ${to} (org: ${orgId || 'unknown'}): ${body}`)
 
-    // Return TwiML response (empty -- no auto-reply)
     return new NextResponse('<Response></Response>', { headers: { 'Content-Type': 'text/xml' } })
   } catch (error) {
     console.error('[sms.webhook]', error)

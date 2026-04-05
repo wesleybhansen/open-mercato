@@ -210,6 +210,48 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
       }
     }
 
+    // Check for funnel context — if this form is part of a funnel, advance to next step
+    const funnelSid = data._funnel_sid || data.funnel_sid
+    const funnelStep = data._funnel_step || data.funnel_step
+    const funnelSlug = data._funnel_slug || data.funnel_slug
+
+    if (funnelSid && funnelSlug) {
+      try {
+        const funnelSession = await knex('funnel_sessions').where('id', funnelSid).first()
+        if (funnelSession) {
+          // Update session with captured email
+          const capturedEmail = data.email || data.Email
+          if (capturedEmail) {
+            await knex('funnel_sessions').where('id', funnelSid).update({ email: capturedEmail.trim(), updated_at: new Date() })
+          }
+
+          // Find next funnel step
+          const currentFunnelStep = funnelStep
+            ? await knex('funnel_steps').where('id', funnelStep).first()
+            : await knex('funnel_steps').where('id', funnelSession.current_step_id).first()
+
+          if (currentFunnelStep) {
+            const nextFunnelStep = await knex('funnel_steps')
+              .where('funnel_id', funnelSession.funnel_id)
+              .where('step_order', '>', currentFunnelStep.step_order)
+              .orderBy('step_order').first()
+
+            const baseUrl = process.env.APP_URL || 'http://localhost:3000'
+            if (nextFunnelStep) {
+              await knex('funnel_sessions').where('id', funnelSid).update({ current_step_id: nextFunnelStep.id })
+              return NextResponse.json({
+                ok: true,
+                message: form.success_message || 'Thank you!',
+                redirectUrl: `${baseUrl}/api/landing_pages/funnels/public/${funnelSlug}?step=${nextFunnelStep.id}&sid=${funnelSid}`,
+              })
+            }
+          }
+        }
+      } catch (funnelErr) {
+        console.error('[landing_pages.submit] funnel advance failed:', funnelErr)
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       message: form.success_message || 'Thank you! We\'ll be in touch.',
