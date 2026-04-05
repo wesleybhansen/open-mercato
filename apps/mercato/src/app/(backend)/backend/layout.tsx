@@ -335,7 +335,7 @@ export default async function BackendLayout({ children, params }: { children: Re
   try {
     const modeContainer = await ensureContainer()
     const knex = (modeContainer.resolve('em') as EntityManager).getKnex()
-    const profile = await knex('business_profiles').where('organization_id', auth.orgId).first()
+    const profile = await knex('business_profiles').where('organization_id', auth!.orgId).first()
     if (profile) {
       interfaceMode = profile.interface_mode || 'simple'
       onboardingComplete = !!profile.onboarding_complete
@@ -468,7 +468,6 @@ export default async function BackendLayout({ children, params }: { children: Re
               version={APP_VERSION}
               settingsPathPrefixes={interfaceMode === 'simple' ? [] : settingsPathPrefixes}
               settingsSections={interfaceMode === 'simple' ? [] : filteredSettingsSections}
-              hideSettingsFooter={interfaceMode === 'simple'}
               hideCustomizeSidebar={interfaceMode === 'simple'}
               settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
               profileSections={profileSections}

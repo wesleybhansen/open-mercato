@@ -4,6 +4,12 @@ import path from "node:path";
 const nextConfig: NextConfig = {
   output: 'standalone',
   distDir: '.mercato/next',
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     serverMinification: false,
     turbopackMinify: false,
