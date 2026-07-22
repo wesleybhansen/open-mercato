@@ -244,13 +244,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // Skip orgs over their AI allowance — the digest body is AI-generated.
-      const capGate = await checkCustomersAiAllowance({ orgId: org.organization_id })
-      if (!capGate.allowed) {
-        results.push({ orgId: org.organization_id, status: 'skipped', error: 'Over AI allowance' })
-        continue
-      }
-
       try {
         const days = frequency === 'daily' ? 1 : 7
 
@@ -261,8 +254,17 @@ export async function POST(req: Request) {
           .orderBy('is_primary', 'desc')
           .first()
 
-        if (!emailConnection) {
+        if (!emailConnection?.user_id) {
           results.push({ orgId: org.organization_id, status: 'skipped', error: 'No email connection' })
+          continue
+        }
+
+        const capGate = await checkCustomersAiAllowance({
+          orgId: org.organization_id,
+          userId: emailConnection.user_id,
+        })
+        if (!capGate.allowed) {
+          results.push({ orgId: org.organization_id, status: 'skipped', error: 'Over AI allowance' })
           continue
         }
 

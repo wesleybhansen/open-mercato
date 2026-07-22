@@ -35,6 +35,97 @@ const BATCH_PER_ORG = 25
 
 const VALID_MODES = new Set(['draft', 'auto', 'hybrid'])
 const DEFAULT_HYBRID_THRESHOLD = 0.85
+const LOCAL_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+type InboxConversationRow = {
+  id: string
+  tenant_id?: string | null
+  contact_id?: string | null
+  last_message_channel?: string | null
+  display_name?: string | null
+  avatar_email?: string | null
+  avatar_phone?: string | null
+  owner_user_id?: string | null
+}
+
+type PersonalMailboxOwnerIndex = {
+  byConnectionId: Map<string, string>
+  byAddress: Map<string, string | null>
+}
+
+function normalizeOwnerUserId(value: unknown): string | null {
+  const userId = typeof value === 'string' ? value.trim() : ''
+  return LOCAL_USER_ID.test(userId) ? userId : null
+}
+
+function indexPersonalMailboxOwners(
+  connections: Array<{ id?: string; email_address?: string; user_id?: string }>,
+): PersonalMailboxOwnerIndex {
+  const byConnectionId = new Map<string, string>()
+  const byAddress = new Map<string, string | null>()
+
+  for (const connection of connections) {
+    const userId = normalizeOwnerUserId(connection.user_id)
+    if (!userId) continue
+    if (connection.id) byConnectionId.set(String(connection.id), userId)
+
+    const address = String(connection.email_address || '').trim().toLowerCase()
+    if (!address) continue
+    if (!byAddress.has(address)) byAddress.set(address, userId)
+    else if (byAddress.get(address) !== userId) byAddress.set(address, null)
+  }
+
+  return { byConnectionId, byAddress }
+}
+
+async function resolvePersonalConversationOwner(
+  knex: ReturnType<EntityManager['getKnex']>,
+  conv: InboxConversationRow,
+  orgId: string,
+  tenantId: string,
+  mailboxes: PersonalMailboxOwnerIndex,
+): Promise<string | null> {
+  const conversationOwner = normalizeOwnerUserId(conv.owner_user_id)
+  if (conversationOwner) return conversationOwner
+
+  const channel = conv.last_message_channel || 'email'
+  if (channel === 'sms') {
+    if (!conv.contact_id) return null
+    const contact = await knex('customer_entities')
+      .where('id', conv.contact_id)
+      .where('organization_id', orgId)
+      .where('tenant_id', tenantId)
+      .whereNull('deleted_at')
+      .select('owner_user_id')
+      .first()
+    return normalizeOwnerUserId(contact?.owner_user_id)
+  }
+  if (channel !== 'email') return null
+
+  let inboundQuery = knex('email_messages')
+    .where('organization_id', orgId)
+    .where('tenant_id', tenantId)
+    .where('direction', 'inbound')
+  if (conv.contact_id) {
+    inboundQuery = inboundQuery.where('contact_id', conv.contact_id)
+  } else if (conv.avatar_email) {
+    inboundQuery = inboundQuery.whereRaw('lower(from_address) = ?', [conv.avatar_email.toLowerCase()])
+  } else {
+    return null
+  }
+
+  const inbound = await inboundQuery
+    .orderBy('created_at', 'desc')
+    .select('account_id', 'to_address')
+    .first()
+  const connectionOwner = inbound?.account_id
+    ? mailboxes.byConnectionId.get(String(inbound.account_id))
+    : null
+  if (connectionOwner) return connectionOwner
+
+  const toAddress = String(inbound?.to_address || '').trim().toLowerCase()
+  return toAddress ? mailboxes.byAddress.get(toAddress) ?? null : null
+}
 
 export const openApi: OpenApiRouteDoc = {
   tag: 'Inbox',
@@ -80,33 +171,20 @@ export async function POST(req: Request) {
       // dashboard queue per-user in team orgs (a solo org has one mailbox -> one user).
       const personalConns = await knex('email_connections')
         .where('organization_id', orgId)
+        .where('tenant_id', tenantId)
         .where('is_active', true)
         .whereNull('purpose')
-        .select('email_address', 'user_id')
-      const mailboxOwners = new Map<string, string>(
-        (personalConns as Array<{ email_address?: string; user_id?: string }>)
-          .filter((c) => c.email_address && c.user_id)
-          .map((c) => [String(c.email_address).toLowerCase(), String(c.user_id)]),
+        .select('id', 'email_address', 'user_id')
+      const mailboxOwners = indexPersonalMailboxOwners(
+        personalConns as Array<{ id?: string; email_address?: string; user_id?: string }>,
       )
       let queued = 0
       let autoSent = 0
       let skipped = 0
       let skippedAutomated = 0
+      const ownerGates = new Map<string, ReturnType<typeof checkCustomersAiAllowance>>()
 
       try {
-        // Skip orgs over their AI allowance (don't bill the platform for cron AI).
-        // Over-allowance orgs with a BYO key run on that key.
-        const gate = await checkCustomersAiAllowance({ orgId })
-        if (!gate.allowed) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
-          continue
-        }
-        const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
-        if (!aiKey) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
-          continue
-        }
-
         // New inbound personal-inbox inquiries: open conversations, last message
         // inbound, NOT a support-mailbox row (source_mailbox_purpose IS NULL =
         // personal inbox), and not yet drafted by this engine.
@@ -120,8 +198,36 @@ export async function POST(req: Request) {
           .orderBy('last_message_at', 'desc')
           .limit(BATCH_PER_ORG)
 
-        for (const conv of conversations) {
+        for (const conv of conversations as InboxConversationRow[]) {
           try {
+            const ownerUserId = await resolvePersonalConversationOwner(
+              knex,
+              conv,
+              orgId,
+              tenantId,
+              mailboxOwners,
+            )
+            if (!ownerUserId) {
+              skipped++
+              continue
+            }
+
+            let gatePromise = ownerGates.get(ownerUserId)
+            if (!gatePromise) {
+              gatePromise = checkCustomersAiAllowance({ orgId, userId: ownerUserId })
+              ownerGates.set(ownerUserId, gatePromise)
+            }
+            const gate = await gatePromise
+            if (!gate.allowed) {
+              skipped++
+              continue
+            }
+            const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+            if (!aiKey) {
+              skipped++
+              continue
+            }
+
             // Atomic claim: flip inbox_drafted_at now, guarded on it still being
             // NULL, so an overlapping run (cron overlap, or cron + a manual trigger)
             // can't select and draft the same conversation twice → double-send. Only
@@ -142,6 +248,7 @@ export async function POST(req: Request) {
                 conv, orgId, tenantId, mode, hybridThreshold,
                 signature: settings.signature || null,
                 byoKey: !!gate.byoApiKey,
+                ownerUserId,
                 flagScenarios,
                 drafterScenarios,
                 audiences,
@@ -201,10 +308,6 @@ export async function POST(req: Request) {
               skipped++
               continue
             }
-
-            // The user whose personal mailbox received this message — stamped on the
-            // draft so only they see/approve it in the dashboard queue.
-            const ownerUserId = mailboxOwners.get(String(inbound.to_address || '').toLowerCase()) || null
 
             // Audience-scoped guardrails: a content rule targeting a named audience
             // ('aud:*') applies only when the sender is in it; 'new'/'existing' gate on
@@ -384,6 +487,7 @@ export async function POST(req: Request) {
             // after the proposal is recorded so the queue link resolves to it.
             if (flagged && flagOutcome) {
               await sendFlagAlert(knex, orgId, tenantId, {
+                ownerUserId,
                 contactName: displayName,
                 contactHandle: toEmail,
                 channel: 'email',
@@ -457,6 +561,7 @@ async function handleSmsConversation(
     hybridThreshold: number
     signature: string | null
     byoKey: boolean
+    ownerUserId: string
     flagScenarios: FlagScenario[]
     drafterScenarios: FlagScenarioInput[]
     audiences: Audience[]
@@ -464,7 +569,7 @@ async function handleSmsConversation(
 ): Promise<'queued' | 'sent' | 'skipped'> {
   // drafterScenarios is re-derived per-conversation below (audience-gated), so the
   // pre-built set from the caller is intentionally not destructured here.
-  const { conv, orgId, tenantId, mode, hybridThreshold, byoKey, flagScenarios, audiences } = args
+  const { conv, orgId, tenantId, mode, hybridThreshold, byoKey, ownerUserId, flagScenarios, audiences } = args
 
   // Resolve the customer's phone number: prefer the conversation avatar_phone,
   // else the contact's primary_phone. Needed both to load the transcript and as
@@ -570,6 +675,7 @@ async function handleSmsConversation(
   const fireAlert = async (paused: boolean) => {
     if (flagged && flagOutcome) {
       await sendFlagAlert(knex, orgId, tenantId, {
+        ownerUserId,
         contactName: displayName,
         contactHandle: toPhone || '',
         channel: 'sms',
@@ -589,7 +695,7 @@ async function handleSmsConversation(
     if (sendResult.ok) {
       await createSmsDraftProposal(knex, orgId, tenantId, {
         displayName, toPhone, contactId: contactId || '', conversationId: conv.id,
-        body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'sent', flag: flagMeta,
+        body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'sent', flag: flagMeta, ownerUserId,
       })
       await markDrafted(knex, conv.id, orgId)
       await fireAlert(false)
@@ -600,7 +706,7 @@ async function handleSmsConversation(
     console.error('[inbox.process] SMS auto-send failed, holding instead', { orgId, convId: conv.id, err: sendResult.error })
     await createSmsDraftProposal(knex, orgId, tenantId, {
       displayName, toPhone, contactId: contactId || '', conversationId: conv.id,
-      body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'pending', flag: flagMeta,
+      body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'pending', flag: flagMeta, ownerUserId,
     })
     await markDrafted(knex, conv.id, orgId)
     await fireAlert(true)
@@ -609,7 +715,7 @@ async function handleSmsConversation(
 
   await createSmsDraftProposal(knex, orgId, tenantId, {
     displayName, toPhone, contactId: contactId || '', conversationId: conv.id,
-    body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'pending', flag: flagMeta,
+    body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'pending', flag: flagMeta, ownerUserId,
   })
   await markDrafted(knex, conv.id, orgId)
   await fireAlert(true)
@@ -695,6 +801,7 @@ async function sendFlagAlert(
   orgId: string,
   tenantId: string,
   d: {
+    ownerUserId: string
     contactName: string
     contactHandle: string
     channel?: 'email' | 'sms'
@@ -706,6 +813,8 @@ async function sendFlagAlert(
   try {
     const recipient = await knex('email_connections')
       .where('organization_id', orgId)
+      .where('tenant_id', tenantId)
+      .where('user_id', d.ownerUserId)
       .where('is_active', true)
       .orderBy('is_primary', 'desc')
       .first()
@@ -772,7 +881,7 @@ async function createDraftProposal(
     confidence?: number
     status?: 'pending' | 'sent'
     flag?: { flagged: boolean; flagReasons: Array<{ key: string; label: string }> }
-    ownerUserId?: string | null
+    ownerUserId: string
   },
 ) {
   const now = new Date()
@@ -838,7 +947,7 @@ async function createDraftProposal(
     confidence: conf,
     metadata: JSON.stringify({
       feature_source: 'inbox',
-      owner_user_id: d.ownerUserId || null,
+      owner_user_id: d.ownerUserId,
       auto_sent: isSent,
       channel: 'email',
       flagged: d.flag?.flagged === true,
@@ -868,6 +977,7 @@ async function createSmsDraftProposal(
     confidence?: number
     status?: 'pending' | 'sent'
     flag?: { flagged: boolean; flagReasons: Array<{ key: string; label: string }> }
+    ownerUserId: string
   },
 ) {
   const now = new Date()
@@ -934,6 +1044,7 @@ async function createSmsDraftProposal(
     confidence: conf,
     metadata: JSON.stringify({
       feature_source: 'inbox',
+      owner_user_id: d.ownerUserId,
       auto_sent: isSent,
       channel: 'sms',
       flagged: d.flag?.flagged === true,

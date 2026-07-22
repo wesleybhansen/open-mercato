@@ -93,7 +93,8 @@ export async function POST(req: Request) {
     if (!noliUser?.clerk_user_id) return NextResponse.json({ ok: true, drafted: 0 })
     const { resolveClerkUserToAuthContext } = await import('@open-mercato/shared/lib/auth/clerk')
     const auth = await resolveClerkUserToAuthContext(noliUser.clerk_user_id)
-    if (!auth?.orgId || !auth?.tenantId) return NextResponse.json({ ok: true, drafted: 0 })
+    if (!auth?.userId || !auth?.orgId || !auth?.tenantId) return NextResponse.json({ ok: true, drafted: 0 })
+    const userId = auth.userId as string
     const orgId = auth.orgId as string
     const tenantId = auth.tenantId as string
 
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
     }
 
     // Allowance gate + key resolution (BYO fall-through, platform otherwise).
-    const gate = await checkCustomersAiAllowance({ orgId })
+    const gate = await checkCustomersAiAllowance({ orgId, userId })
     if (!gate.allowed) return NextResponse.json({ ok: true, drafted: 0, reason: 'allowance' })
     const apiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
     if (!apiKey) return NextResponse.json({ ok: true, drafted: 0, reason: 'no key' })

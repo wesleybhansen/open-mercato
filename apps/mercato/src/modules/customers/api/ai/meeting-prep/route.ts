@@ -46,6 +46,8 @@ interface MeetingPrepResult {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function refreshCalendarToken(knex: ReturnType<EntityManager['getKnex']>, connection: Record<string, unknown>): Promise<string> {
+  const connectionId = typeof connection.id === 'string' ? connection.id : null
+  if (!connectionId) throw new Error('Calendar connection id is missing')
   const expiry = new Date(connection.token_expiry as string)
   if (expiry > new Date(Date.now() + 5 * 60 * 1000)) {
     return connection.access_token as string
@@ -75,7 +77,7 @@ async function refreshCalendarToken(knex: ReturnType<EntityManager['getKnex']>, 
     throw new Error('Token refresh failed')
   }
 
-  await knex('google_calendar_connections').where('id', connection.id).update({
+  await knex('google_calendar_connections').where('id', connectionId).update({
     access_token: tokens.access_token,
     token_expiry: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
     updated_at: new Date(),
@@ -524,6 +526,20 @@ export async function POST(req: Request) {
           connection.tenant_id = orgProfile.tenant_id
         }
 
+        if (!connection.user_id) {
+          skipped++
+          continue
+        }
+
+        const capGate = await checkCustomersAiAllowance({
+          orgId: connection.organization_id,
+          userId: connection.user_id,
+        })
+        if (!capGate.allowed) {
+          skipped++
+          continue
+        }
+
         // Get events in the next 24 hours so the daily prep email covers the day.
         const events = await getUpcomingEvents(knex, connection, 24)
         const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000)
@@ -534,13 +550,6 @@ export async function POST(req: Request) {
         })
 
         if (relevantEvents.length === 0) {
-          skipped++
-          continue
-        }
-
-        // Skip orgs over their AI allowance — briefs are AI-generated.
-        const capGate = await checkCustomersAiAllowance({ orgId: connection.organization_id })
-        if (!capGate.allowed) {
           skipped++
           continue
         }

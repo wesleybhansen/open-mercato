@@ -179,7 +179,7 @@ export async function POST(req: Request) {
     }
 
     if (op === 'learn') {
-      const gate = await checkCustomersAiAllowance({ orgId: auth.orgId })
+      const gate = await checkCustomersAiAllowance({ orgId: auth.orgId, userId: auth.userId })
       if (!gate.allowed) return NextResponse.json({ ok: false, error: gate.message || 'AI limit reached' }, { status: 402 })
 
       // Prefer the user's real sent mail; fall back to pasted samples.
