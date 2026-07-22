@@ -1,12 +1,15 @@
 // ORM-SKIP: complex multi-table logic or public/webhook endpoint
 
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import crypto from 'crypto'
 import type { Knex } from 'knex'
-import { checkCustomersAiAllowance } from '@/lib/usage/allowance'
+import {
+  withCustomersAiAllowance,
+  type AllowanceResult,
+} from '@/lib/usage/allowance'
 import { meterCustomersAi } from '@/lib/usage/meter'
 
 export const metadata = { path: '/chat/public',
@@ -22,6 +25,62 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+const BOT_REPLY_CLAIM_SENDER = '__noli_bot_reply_claim__'
+const BOT_REPLY_CLAIM_TTL_MS = 20 * 60 * 1000
+const BOT_QUEUE_DRAIN_LIMIT = 5
+
+type BotReplyClaim = {
+  id: string
+  conversationId: string
+  inboundMessageId: string
+}
+
+type BotReplyClaimResult =
+  | { status: 'acquired'; claim: BotReplyClaim }
+  | { status: 'busy' | 'completed' | 'invalid'; latestInboundMessageId: string | null }
+  | { status: 'superseded'; latestInboundMessageId: string }
+
+type RawRows<T> = { rows?: T[] }
+
+// A stable UUID makes the successful bot message itself the durable completion
+// marker for one inbound visitor message. Retries therefore conflict with the
+// already-published reply instead of creating a second assistant response.
+function botReplyIdForInbound(inboundMessageId: string): string {
+  const bytes = crypto
+    .createHash('sha256')
+    .update(`noli:public-chat:bot-reply:${inboundMessageId}`)
+    .digest()
+    .subarray(0, 16)
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80
+  const hex = bytes.toString('hex')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+function resolveGoogleChatApiKey(gate: AllowanceResult): string | undefined {
+  return gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+}
+
+async function meterPublicChatUsage(
+  organizationId: string,
+  gate: AllowanceResult,
+  result: { usage?: unknown },
+): Promise<void> {
+  const usage = (result.usage || {}) as {
+    promptTokens?: number
+    completionTokens?: number
+    inputTokens?: number
+    outputTokens?: number
+  }
+  await meterCustomersAi({ orgId: organizationId }, {
+    model: 'gemini-3.5-flash',
+    tokensIn: usage.promptTokens ?? usage.inputTokens ?? 0,
+    tokensOut: usage.completionTokens ?? usage.outputTokens ?? 0,
+    feature: 'public-chatbot',
+    byoKey: !!gate.byoApiKey,
+  })
 }
 
 function corsJson(data: any, init?: ResponseInit) {
@@ -60,6 +119,235 @@ function tokensMatch(a: unknown, b: unknown): boolean {
 function visitorAuthorized(conversation: { visitor_token?: string | null }, token: unknown): boolean {
   if (!conversation.visitor_token) return true
   return tokensMatch(conversation.visitor_token, token)
+}
+
+async function acquireBotReplyClaim(
+  knex: Knex,
+  conversationId: string,
+  widgetId: string,
+  organizationId: string,
+  inboundMessageId: string,
+): Promise<BotReplyClaimResult> {
+  const claimId = botReplyIdForInbound(inboundMessageId)
+
+  return knex.transaction(async (trx) => {
+    // Serialize only the admission decision. The row lock is released before
+    // allowance checks or provider I/O, while the inserted claim remains as the
+    // durable in-progress marker seen by later workers.
+    const locked = await trx.raw(
+      `/* public-chat:lock-conversation */
+       SELECT id::text AS id
+       FROM chat_conversations
+       WHERE id = ?::uuid
+         AND widget_id = ?::uuid
+         AND organization_id = ?::uuid
+       FOR UPDATE`,
+      [conversationId, widgetId, organizationId],
+    ) as unknown as RawRows<{ id: string }>
+    if (!locked.rows?.[0]) {
+      return { status: 'invalid', latestInboundMessageId: null }
+    }
+
+    // A terminated worker must not block a conversation forever. Twenty
+    // minutes is comfortably above the registered background task budget while
+    // still allowing a later inbound message to recover an abandoned claim.
+    await trx.raw(
+      `/* public-chat:delete-stale-claims */
+       DELETE FROM chat_messages
+       WHERE conversation_id = ?::uuid
+         AND sender_type = ?
+         AND created_at < ?::timestamptz`,
+      [
+        conversationId,
+        BOT_REPLY_CLAIM_SENDER,
+        new Date(Date.now() - BOT_REPLY_CLAIM_TTL_MS).toISOString(),
+      ],
+    )
+
+    const stateResult = await trx.raw(
+      `/* public-chat:claim-state */
+       SELECT
+         (
+           SELECT id::text
+           FROM chat_messages
+           WHERE id = ?::uuid
+             AND conversation_id = ?::uuid
+             AND sender_type = 'visitor'
+         ) AS target_id,
+         (
+           SELECT id::text
+           FROM chat_messages
+           WHERE conversation_id = ?::uuid
+             AND sender_type = 'visitor'
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1
+         ) AS latest_id,
+         EXISTS (
+           SELECT 1
+           FROM chat_messages
+           WHERE conversation_id = ?::uuid
+             AND sender_type = ?
+         ) AS pending_claim,
+         EXISTS (
+           SELECT 1
+           FROM chat_messages
+           WHERE id = ?::uuid
+             AND conversation_id = ?::uuid
+             AND sender_type <> ?
+         ) AS reply_exists`,
+      [
+        inboundMessageId,
+        conversationId,
+        conversationId,
+        conversationId,
+        BOT_REPLY_CLAIM_SENDER,
+        claimId,
+        conversationId,
+        BOT_REPLY_CLAIM_SENDER,
+      ],
+    ) as unknown as RawRows<{
+      target_id: string | null
+      latest_id: string | null
+      pending_claim: boolean
+      reply_exists: boolean
+    }>
+    const state = stateResult.rows?.[0]
+    const latestInboundMessageId = state?.latest_id ?? null
+    if (!state?.target_id) return { status: 'invalid', latestInboundMessageId }
+    if (state.reply_exists) return { status: 'completed', latestInboundMessageId }
+    if (state.pending_claim) return { status: 'busy', latestInboundMessageId }
+    if (state.target_id !== state.latest_id) {
+      return state.latest_id
+        ? { status: 'superseded', latestInboundMessageId: state.latest_id }
+        : { status: 'invalid', latestInboundMessageId: null }
+    }
+
+    const inserted = await trx.raw(
+      `/* public-chat:insert-claim */
+       INSERT INTO chat_messages (
+         id, conversation_id, sender_type, message, is_bot, created_at
+       ) VALUES (?::uuid, ?::uuid, ?, ?, false, ?::timestamptz)
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id::text AS id`,
+      [
+        claimId,
+        conversationId,
+        BOT_REPLY_CLAIM_SENDER,
+        inboundMessageId,
+        new Date().toISOString(),
+      ],
+    ) as unknown as RawRows<{ id: string }>
+    if (!inserted.rows?.[0]) {
+      return { status: 'completed', latestInboundMessageId }
+    }
+
+    return {
+      status: 'acquired',
+      claim: { id: claimId, conversationId, inboundMessageId },
+    }
+  })
+}
+
+async function abandonBotReplyClaim(knex: Knex, claim: BotReplyClaim): Promise<void> {
+  await knex('chat_messages')
+    .where('id', claim.id)
+    .where('conversation_id', claim.conversationId)
+    .where('sender_type', BOT_REPLY_CLAIM_SENDER)
+    .delete()
+    .catch(() => {})
+}
+
+async function finalizeBotReplyClaim(
+  knex: Knex,
+  claim: BotReplyClaim,
+  message: string,
+): Promise<boolean> {
+  const now = new Date()
+  const updated = await knex('chat_messages')
+    .where('id', claim.id)
+    .where('conversation_id', claim.conversationId)
+    .where('sender_type', BOT_REPLY_CLAIM_SENDER)
+    .update({
+      sender_type: 'business',
+      message,
+      is_bot: true,
+      created_at: now,
+    })
+  if (!updated) return false
+  await knex('chat_conversations')
+    .where('id', claim.conversationId)
+    .update({ updated_at: now, agent_typing: false, agent_typing_at: null })
+    .catch(() => {})
+  return true
+}
+
+async function promoteExistingBotReplyToClaim(
+  knex: Knex,
+  claim: BotReplyClaim,
+  sourceMessageId: string,
+): Promise<boolean> {
+  return knex.transaction(async (trx) => {
+    await trx('chat_conversations')
+      .select('id')
+      .where('id', claim.conversationId)
+      .forUpdate()
+      .first()
+
+    const source = await trx('chat_messages')
+      .where('id', sourceMessageId)
+      .where('conversation_id', claim.conversationId)
+      .where('sender_type', 'business')
+      .where('is_bot', true)
+      .first()
+    if (!source) return false
+
+    const updated = await trx('chat_messages')
+      .where('id', claim.id)
+      .where('conversation_id', claim.conversationId)
+      .where('sender_type', BOT_REPLY_CLAIM_SENDER)
+      .update({
+        sender_type: 'business',
+        message: source.message,
+        is_bot: true,
+        created_at: source.created_at,
+      })
+    if (!updated) return false
+    await trx('chat_messages').where('id', sourceMessageId).delete()
+    return true
+  })
+}
+
+async function findLatestBotMessageId(knex: Knex, conversationId: string): Promise<string | null> {
+  const message = await knex('chat_messages')
+    .where('conversation_id', conversationId)
+    .where('sender_type', 'business')
+    .where('is_bot', true)
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc')
+    .select('id')
+    .first()
+  return typeof message?.id === 'string' ? message.id : null
+}
+
+async function findLatestPendingInboundMessageId(
+  knex: Knex,
+  conversationId: string,
+): Promise<string | null> {
+  const inbound = await knex('chat_messages')
+    .where('conversation_id', conversationId)
+    .where('sender_type', 'visitor')
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc')
+    .select('id')
+    .first()
+  if (typeof inbound?.id !== 'string') return null
+
+  const reply = await knex('chat_messages')
+    .where('id', botReplyIdForInbound(inbound.id))
+    .where('conversation_id', conversationId)
+    .select('sender_type')
+    .first()
+  return reply && reply.sender_type !== BOT_REPLY_CLAIM_SENDER ? null : inbound.id
 }
 
 export async function OPTIONS() {
@@ -107,8 +395,15 @@ export async function POST(req: Request) {
         }).catch(() => {})
       } catch { /* non-blocking */ }
 
-      // Fire-and-forget bot response
-      tryBotResponse(knex, body.conversationId, conversation.widget_id).catch(() => {})
+      // Keep the response asynchronous, but register it with the request
+      // lifecycle so the runtime cannot silently terminate an in-flight model
+      // call after returning the visitor's message.
+      scheduleBotResponse(
+        body.conversationId,
+        conversation.widget_id,
+        conversation.organization_id,
+        msgId,
+      )
 
       return corsJson({ ok: true, data: { id: msgId } }, { status: 201 })
     }
@@ -208,8 +503,8 @@ export async function POST(req: Request) {
       }).catch(() => {})
     } catch { /* non-blocking */ }
 
-    // Fire-and-forget bot response for new conversations
-    tryBotResponse(knex, conversationId, widgetId).catch(() => {})
+    // Background bot response for new conversations.
+    scheduleBotResponse(conversationId, widgetId, widget.organization_id, msgId)
 
     return corsJson({
       ok: true,
@@ -244,6 +539,7 @@ export async function GET(req: Request) {
 
     const messages = await knex('chat_messages')
       .where('conversation_id', conversationId)
+      .whereNot('sender_type', BOT_REPLY_CLAIM_SENDER)
       .orderBy('created_at', 'asc')
       .select('id', 'sender_type', 'message', 'created_at', 'is_bot')
 
@@ -261,10 +557,105 @@ export async function GET(req: Request) {
   }
 }
 
-async function tryBotResponse(knex: Knex, conversationId: string, widgetId: string) {
+function scheduleBotResponse(
+  conversationId: string,
+  widgetId: string,
+  organizationId: string,
+  inboundMessageId: string,
+): void {
+  try {
+    after(() => tryBotResponse(conversationId, widgetId, organizationId, inboundMessageId))
+  } catch (error) {
+    console.error('[chat.bot.schedule]', error)
+  }
+}
+
+async function tryBotResponse(
+  conversationId: string,
+  widgetId: string,
+  organizationId: string,
+  inboundMessageId: string,
+): Promise<void> {
+  try {
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const knex = em.getKnex()
+    let targetInboundMessageId = inboundMessageId
+
+    // A reply can finish while newer visitor messages arrive. Drain the newest
+    // unhandled inbound next so rapid POSTs produce ordered assistant replies,
+    // even when their independently-scheduled workers overlap.
+    for (let attempt = 0; attempt < BOT_QUEUE_DRAIN_LIMIT; attempt += 1) {
+      const claimResult = await acquireBotReplyClaim(
+        knex,
+        conversationId,
+        widgetId,
+        organizationId,
+        targetInboundMessageId,
+      )
+
+      if (claimResult.status === 'superseded') {
+        targetInboundMessageId = claimResult.latestInboundMessageId
+        continue
+      }
+      if (claimResult.status === 'busy' || claimResult.status === 'invalid') return
+      if (claimResult.status === 'completed') {
+        const nextInboundMessageId = await findLatestPendingInboundMessageId(knex, conversationId)
+        if (!nextInboundMessageId || nextInboundMessageId === targetInboundMessageId) return
+        targetInboundMessageId = nextInboundMessageId
+        continue
+      }
+
+      const claim = claimResult.claim
+      let completed = false
+      try {
+        const execution = await withCustomersAiAllowance(
+          em,
+          { orgId: organizationId },
+          'google',
+          (gate) => tryBotResponseWithinLease(
+            knex,
+            conversationId,
+            widgetId,
+            organizationId,
+            targetInboundMessageId,
+            claim,
+            gate,
+          ),
+        )
+        completed = execution.executed && execution.value
+      } finally {
+        if (!completed) {
+          await abandonBotReplyClaim(knex, claim)
+          await knex('chat_conversations').where('id', conversationId).update({
+            agent_typing: false,
+            agent_typing_at: null,
+          }).catch(() => {})
+        }
+      }
+      if (!completed) return
+
+      const nextInboundMessageId = await findLatestPendingInboundMessageId(knex, conversationId)
+      if (!nextInboundMessageId || nextInboundMessageId === targetInboundMessageId) return
+      targetInboundMessageId = nextInboundMessageId
+    }
+  } catch (error) {
+    console.error('[chat.bot.background]', error)
+  }
+}
+
+async function tryBotResponseWithinLease(
+  knex: Knex,
+  conversationId: string,
+  widgetId: string,
+  organizationId: string,
+  inboundMessageId: string,
+  claim: BotReplyClaim,
+  gate: AllowanceResult,
+): Promise<boolean> {
   try {
     const widget = await knex('chat_widgets').where('id', widgetId).first()
-    if (!widget) return
+    if (!widget || widget.organization_id !== organizationId) return false
     // Customer Service is the single owner of website chat. When the org has
     // cs_chat_enabled, the CS drafter (grounded answers + flag-escalate) is the
     // sole brain (handled in the CS branch below). The legacy widget bot only
@@ -275,10 +666,11 @@ async function tryBotResponse(knex: Knex, conversationId: string, widgetId: stri
       .select('cs_chat_enabled')
       .first()
     const csChatEnabled = !!csRow?.cs_chat_enabled
-    if (!csChatEnabled && !widget.bot_enabled) return
+    if (!csChatEnabled && !widget.bot_enabled) return false
 
     const allMessages = await knex('chat_messages')
       .where('conversation_id', conversationId)
+      .whereNot('sender_type', BOT_REPLY_CLAIM_SENDER)
       .orderBy('created_at', 'desc')
       .limit(50)
 
@@ -286,7 +678,7 @@ async function tryBotResponse(knex: Knex, conversationId: string, widgetId: stri
     const lastHandoffMessage = allMessages.find(
       (m: { sender_type: string; message: string }) => m.sender_type === 'business' && m.message.includes('[HANDOFF]'),
     )
-    if (lastHandoffMessage) return
+    if (lastHandoffMessage) return false
 
     // Count existing bot messages in this conversation
     const botMessageCount = allMessages.filter(
@@ -298,19 +690,7 @@ async function tryBotResponse(knex: Knex, conversationId: string, widgetId: stri
 
     // If bot has reached max responses, auto-handoff instead of generating a new response
     if (botMessageCount >= maxResponses) {
-      const handoffMsgId = crypto.randomUUID()
-      await knex('chat_messages').insert({
-        id: handoffMsgId,
-        conversation_id: conversationId,
-        sender_type: 'business',
-        message: handoffMessage,
-        is_bot: true,
-        created_at: new Date(),
-      })
-      await knex('chat_conversations')
-        .where('id', conversationId)
-        .update({ updated_at: new Date() })
-      return
+      return finalizeBotReplyClaim(knex, claim, handoffMessage)
     }
 
     const recentMessages = allMessages.slice(0, 10)
@@ -348,26 +728,14 @@ RULES:
 - When you do hand off, respond with [HANDOFF] followed by: "${handoffMessage}"
 - If asked about an off-limits topic, politely redirect the conversation without handing off unless the visitor insists.`
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
-    if (!apiKey) return
-
-    // Cost guard: the public chatbot runs on the platform Gemini key. If the
-    // widget's org is over its AI allowance, hand off to a human instead of
-    // burning AI the platform can't recover (otherwise an embedded widget id is
-    // an unmetered, unbounded LLM-spend vector).
-    const gate = await checkCustomersAiAllowance({ orgId: widget.organization_id })
+    // Resolve allowance before requiring a platform key: an over-pool org with
+    // a valid Google BYOK key remains allowed even when this deployment has no
+    // platform Google credential.
     if (!gate.allowed) {
-      await knex('chat_messages').insert({
-        id: crypto.randomUUID(),
-        conversation_id: conversationId,
-        sender_type: 'business',
-        message: handoffMessage,
-        is_bot: true,
-        created_at: new Date(),
-      })
-      await knex('chat_conversations').where('id', conversationId).update({ updated_at: new Date(), agent_typing: false, agent_typing_at: null }).catch(() => {})
-      return
+      return finalizeBotReplyClaim(knex, claim, handoffMessage)
     }
+    const apiKey = resolveGoogleChatApiKey(gate)
+    if (!apiKey) return false
 
     // Show typing indicator while AI generates response
     await knex('chat_conversations').where('id', conversationId).update({
@@ -384,6 +752,7 @@ RULES:
     // escalates (queues a flagged proposal + alerts the org + posts a holding
     // message). On a drafting failure we fall through to the widget bot below so
     // chat is never left silent.
+    let csPublishedReplyId: string | null = null
     try {
       const csSettings = await knex('customer_service_settings')
         .where('organization_id', widget.organization_id)
@@ -397,12 +766,14 @@ RULES:
             bodyText: m.message,
             body: m.message,
           }))
-          const lastInbound = [...messagesForContext]
-            .reverse()
-            .find((m: { sender_type: string; message: string }) => m.sender_type === 'visitor')
+          const lastInbound = messagesForContext.find(
+            (m: { id?: string; sender_type: string }) =>
+              m.id === inboundMessageId && m.sender_type === 'visitor',
+          )
+          const previousBotMessageId = await findLatestBotMessageId(knex, conversationId)
           const { handleCsChatMessage } = await import('@/modules/customers/lib/cs-chat')
           const handled = await handleCsChatMessage(knex, {
-            aiKey: gate.byoApiKey || apiKey,
+            aiKey: apiKey,
             byoKey: !!gate.byoApiKey,
             orgId: conversation.organization_id,
             tenantId: conversation.tenant_id,
@@ -412,16 +783,25 @@ RULES:
             lastInboundText: lastInbound?.message || '',
           })
           if (handled) {
+            csPublishedReplyId = await findLatestBotMessageId(knex, conversationId)
+            if (!csPublishedReplyId || csPublishedReplyId === previousBotMessageId) {
+              throw new Error('Customer-service chat handled without publishing a new bot message')
+            }
+            const promoted = await promoteExistingBotReplyToClaim(knex, claim, csPublishedReplyId)
+            if (!promoted) throw new Error('Customer-service bot reply claim promotion failed')
             await knex('chat_conversations')
               .where('id', conversationId)
               .update({ updated_at: new Date(), agent_typing: false, agent_typing_at: null })
               .catch(() => {})
-            return
+            return true
           }
         }
       }
     } catch (csErr) {
       console.error('[chat.bot.cs]', csErr)
+      // Once CS has published, never fall through and add a second standalone
+      // widget reply. A failed claim promotion is recovered on the next inbound.
+      if (csPublishedReplyId) return false
       // Fall through to the widget bot below so the visitor still gets a reply.
     }
 
@@ -430,7 +810,7 @@ RULES:
 
     // Over-allowance orgs that gated through on a BYO key run on that key, not
     // the platform key (otherwise Noli eats the over-pool cost).
-    const google = createGoogleGenerativeAI({ apiKey: gate.byoApiKey || apiKey })
+    const google = createGoogleGenerativeAI({ apiKey })
     const model = google('gemini-3.5-flash')
 
     const aiMessages = messagesForContext.map((m: { sender_type: string; message: string }) => ({
@@ -444,41 +824,32 @@ RULES:
       messages: aiMessages,
     })
 
-    // Meter against the widget's org so public-chatbot AI counts toward their pool.
-    const usage = (result.usage || {}) as { promptTokens?: number; completionTokens?: number; inputTokens?: number; outputTokens?: number }
-    void meterCustomersAi({ orgId: widget.organization_id }, {
-      model: 'gemini-3.5-flash',
-      tokensIn: usage.promptTokens ?? usage.inputTokens ?? 0,
-      tokensOut: usage.completionTokens ?? usage.outputTokens ?? 0,
-      feature: 'public-chatbot',
-      byoKey: !!gate.byoApiKey,
-    })
+    // Await metering before this callback returns so the GDPR processor lease
+    // covers the full external usage write.
+    await meterPublicChatUsage(widget.organization_id, gate, result)
 
     const botReply = result.text?.trim()
-    if (!botReply) return
+    if (!botReply) return false
 
     const isHandoff = botReply.includes('[HANDOFF]')
     const cleanedReply = isHandoff ? botReply.replace('[HANDOFF]', '').trim() || handoffMessage : botReply
 
-    const botMsgId = crypto.randomUUID()
-    await knex('chat_messages').insert({
-      id: botMsgId,
-      conversation_id: conversationId,
-      sender_type: 'business',
-      message: cleanedReply,
-      is_bot: true,
-      created_at: new Date(),
-    })
-    await knex('chat_conversations')
-      .where('id', conversationId)
-      .update({ updated_at: new Date(), agent_typing: false, agent_typing_at: null })
+    return finalizeBotReplyClaim(knex, claim, cleanedReply)
   } catch (err) {
     console.error('[chat.bot.response]', err)
     // Clear typing indicator on error
     await knex('chat_conversations').where('id', conversationId).update({
       agent_typing: false, agent_typing_at: null,
     }).catch(() => {})
+    return false
   }
+}
+
+export const publicChatTestHelpers = {
+  acquireBotReplyClaim,
+  botReplyIdForInbound,
+  meterPublicChatUsage,
+  resolveGoogleChatApiKey,
 }
 
 export const openApi: OpenApiRouteDoc = {
