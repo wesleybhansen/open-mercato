@@ -287,6 +287,11 @@ When you need to understand or modify sessions, follow these rules:
 - MUST use `opencodeSessionIdRef` (React ref) alongside `opencodeSessionId` (state) — refs avoid stale closures in callbacks
 - MUST return `sessionId` in the `done` SSE event — the frontend depends on this to persist context
 - MUST NOT use `Promise.race` for SSE completion — wait only on the SSE event promise (see bug fix below)
+- MUST bind every new OpenCode session ID to the exact session API key, user, organization, and tenant before sending the first provider message
+- MUST reject resume and question-answer requests unless the durable binding belongs to the authenticated exact owner
+- MUST acquire a fresh user + organization processor lease for every message or question answer and hold it through provider completion and usage metering
+- MUST abort, delete, and prove absence after a timeout or failed operation. If terminal state cannot be proved, retain the processor lease for audited operator adjudication; never auto-expire it
+- MUST NOT install an organization BYO credential into the shared OpenCode server. Its provider authentication is process-global, so chat uses pooled allowance only until credentials are isolated per organization
 
 ```typescript
 // First message creates a session
@@ -481,6 +486,10 @@ class OpenCodeClient {
   mcpStatus(): Promise<OpenCodeMcpStatus>
   createSession(): Promise<OpenCodeSession>
   getSession(id: string): Promise<OpenCodeSession>
+  sessionExists(id: string): Promise<boolean>
+  abortSession(id: string): Promise<boolean>
+  deleteSession(id: string): Promise<boolean>
+  abortDeleteAndProveSessionAbsent(id: string): Promise<void>
   sendMessage(sessionId: string, message: string): Promise<OpenCodeMessage>
 }
 
@@ -800,6 +809,7 @@ When modifying token storage, follow these column constraints:
 |--------|------|------------|
 | `sessionToken` | string | MUST be the `sess_xxx` token for lookup |
 | `sessionUserId` | string | MUST reference the user this session represents |
+| `opencodeSessionId` | string | MUST be unique and durably bound before the first provider message |
 | `rolesJson` | string[] | MUST contain user's role IDs (inherited from user) |
 | `tenantId` | string | MUST scope to tenant |
 | `organizationId` | string | MUST scope to organization |
@@ -1033,6 +1043,14 @@ if (tool.requiredFeatures?.length) {
 ---
 
 ## Changelog
+
+### 2026-07-22 - Exact OpenCode Ownership and Erasure
+
+**Lesson learned:** An opaque provider session ID is not authorization. New OpenCode sessions are durably bound to the exact session key, local user, organization, and tenant before provider work; resume and question-answer paths require that exact binding.
+
+Chat work now runs under user + organization GDPR processor leases. Timeout/error cleanup uses OpenCode's abort and delete acknowledgements plus a final absence check. Ambiguous cleanup retains the no-TTL lease so erasure fails closed instead of racing work that may resume.
+
+CRM erasure inventories those durable bindings, aborts/deletes every exact external session, proves absence, then keeps the local bindings until the database transaction removes them. Shared OpenCode authentication remains pooled-only because applying a tenant BYO key to the process-global server would expose credentials across organizations.
 
 ### 2026-07-21 - Listener-First HTTP Startup
 

@@ -3,17 +3,20 @@ import { NextResponse } from 'next/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { Knex as KnexTypes } from 'knex'
 import { computeEmailHash } from '@open-mercato/core/modules/auth/lib/emailHash'
+import { purgeOpenCodeSessions } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/opencode-session-purge'
 import { gdprDeleteResponse, parseGdprDeleteRequest, type GdprDeleteRequest } from './contract'
 import {
   activeOrganizationJobTables,
   crmQueueBarriers,
   missingOrganizationWriteFences,
+  missingUserSearchWriteFences,
   missingUserWriteFences,
   orderOrganizationTablesForDelete,
   organizationScopedTables,
   purgeCrmOrganizationFiles,
   purgeCrmOrganizationSearch,
   purgeCrmUserFiles,
+  purgeCrmUserLocalSearch,
   purgeCrmUserSearch,
   userReferenceColumns,
   type CrmUserReferenceColumn,
@@ -136,6 +139,120 @@ async function existingColumns(knex: Knex, table: string, columns: readonly stri
   return rows.map((row) => row.column_name)
 }
 
+type OpenCodeSessionBindingRow = {
+  opencode_session_id: string
+  session_user_id: string | null
+  organization_id: string | null
+  tenant_id: string | null
+}
+
+async function userOpenCodeSessionBindings(
+  knex: Knex,
+  userIds: readonly string[],
+): Promise<OpenCodeSessionBindingRow[]> {
+  if (userIds.length === 0) return []
+  const requiredColumns = [
+    'opencode_session_id',
+    'session_user_id',
+    'organization_id',
+    'tenant_id',
+  ] as const
+  if ((await existingColumns(knex, 'api_keys', requiredColumns)).length !== requiredColumns.length) {
+    return []
+  }
+  return await knex('api_keys')
+    .select(...requiredColumns)
+    .whereIn('session_user_id', [...userIds])
+    .whereNotNull('opencode_session_id') as OpenCodeSessionBindingRow[]
+}
+
+async function organizationOpenCodeSessionBindings(
+  knex: Knex,
+  organizationId: string,
+): Promise<OpenCodeSessionBindingRow[]> {
+  const requiredColumns = [
+    'opencode_session_id',
+    'session_user_id',
+    'organization_id',
+    'tenant_id',
+  ] as const
+  if ((await existingColumns(knex, 'api_keys', requiredColumns)).length !== requiredColumns.length) {
+    return []
+  }
+  return await knex('api_keys')
+    .select(...requiredColumns)
+    .where('organization_id', organizationId)
+    .whereNotNull('opencode_session_id') as OpenCodeSessionBindingRow[]
+}
+
+function sameSessionInventory(
+  left: readonly OpenCodeSessionBindingRow[],
+  right: readonly OpenCodeSessionBindingRow[],
+): boolean {
+  const normalize = (rows: readonly OpenCodeSessionBindingRow[]) => rows
+    .map((row) => JSON.stringify([
+      row.opencode_session_id,
+      row.session_user_id,
+      row.organization_id,
+      row.tenant_id,
+    ]))
+    .sort()
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
+}
+
+export async function purgeUserOpenCodeSessions(
+  knex: Knex,
+  subjects: readonly { id: string; organizationId: string | null; tenantId: string | null }[],
+  purge: typeof purgeOpenCodeSessions = purgeOpenCodeSessions,
+): Promise<number> {
+  const subjectById = new Map(subjects.map((subject) => [subject.id, subject]))
+  const inventory = await userOpenCodeSessionBindings(knex, [...subjectById.keys()])
+  for (const binding of inventory) {
+    const subject = binding.session_user_id ? subjectById.get(binding.session_user_id) : null
+    if (
+      !subject
+      || !subject.organizationId
+      || !subject.tenantId
+      || binding.organization_id !== subject.organizationId
+      || binding.tenant_id !== subject.tenantId
+    ) {
+      throw new Error('OpenCode user session ownership inventory was not exact')
+    }
+  }
+  const sessionIds = inventory.map((binding) => binding.opencode_session_id)
+  if (sessionIds.length > 0) await purge(sessionIds)
+  const proofInventory = await userOpenCodeSessionBindings(knex, [...subjectById.keys()])
+  if (!sameSessionInventory(inventory, proofInventory)) {
+    throw new Error('OpenCode user session ownership changed during provider purge')
+  }
+  return new Set(sessionIds).size
+}
+
+export async function purgeOrganizationOpenCodeSessions(
+  knex: Knex,
+  organizationId: string,
+  tenantId: string | null,
+  purge: typeof purgeOpenCodeSessions = purgeOpenCodeSessions,
+): Promise<number> {
+  const inventory = await organizationOpenCodeSessionBindings(knex, organizationId)
+  for (const binding of inventory) {
+    if (
+      binding.organization_id !== organizationId
+      || !tenantId
+      || binding.tenant_id !== tenantId
+    ) {
+      throw new Error('OpenCode organization session ownership inventory was not exact')
+    }
+  }
+  const sessionIds = inventory.map((binding) => binding.opencode_session_id)
+  if (sessionIds.length > 0) await purge(sessionIds)
+  const proofInventory = await organizationOpenCodeSessionBindings(knex, organizationId)
+  if (!sameSessionInventory(inventory, proofInventory)) {
+    throw new Error('OpenCode organization session ownership changed during provider purge')
+  }
+  return new Set(sessionIds).size
+}
+
 function applyUserReferenceFilter(
   query: KnexTypes.QueryBuilder,
   reference: CrmUserReferenceColumn,
@@ -177,6 +294,8 @@ async function collectUserSearchSubjects(
     if (user.organization_id && user.tenant_id) {
       tenantByOrganization.set(user.organization_id, user.tenant_id)
     }
+    recordIds.add(user.id)
+    deletedRecordIds.add(user.id)
     if (user.tenant_id) {
       const subject = {
         tenantId: user.tenant_id,
@@ -184,8 +303,6 @@ async function collectUserSearchSubjects(
         recordId: user.id,
       }
       subjectMap.set(`${subject.tenantId}:${subject.recordId}`, subject)
-      recordIds.add(user.id)
-      deletedRecordIds.add(user.id)
     }
   }
 
@@ -281,8 +398,22 @@ async function collectUserSearchSubjects(
     }
   }
 
+  const scopedRecordIds = new Set([...subjectMap.values()].map((subject) => subject.recordId))
+  for (const recordId of [...recordIds].sort()) {
+    if (scopedRecordIds.has(recordId)) continue
+    subjectMap.set(`*:${recordId}`, {
+      tenantId: null,
+      organizationId: null,
+      recordId,
+    })
+  }
+
   return {
-    subjects: [...subjectMap.values()],
+    subjects: [...subjectMap.values()].sort(
+      (left, right) =>
+        left.recordId.localeCompare(right.recordId) ||
+        (left.tenantId ?? '').localeCompare(right.tenantId ?? ''),
+    ),
     recordIds: [...recordIds],
     deletedRecordIds: [...deletedRecordIds],
   }
@@ -337,17 +468,19 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
     .insert({
       operation_id: request.operationId,
       noli_user_id: request.noliUserId,
+      noli_org_id: request.noliOrgId,
       email_hash: emailHash,
       clerk_hash: clerkHash,
     })
     .onConflict('noli_user_id')
     .ignore()
   const receipt = (await knex('gdpr_user_receipts')
-    .select('operation_id', 'email_hash', 'clerk_hash', 'completed_at')
+    .select('operation_id', 'noli_org_id', 'email_hash', 'clerk_hash', 'completed_at')
     .where('noli_user_id', request.noliUserId)
     .first()) as
     | {
         operation_id: string
+        noli_org_id: string | null
         email_hash: string | null
         clerk_hash: string | null
         completed_at: Date | null
@@ -356,6 +489,7 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
   if (
     !receipt ||
     receipt.operation_id !== request.operationId ||
+    receipt.noli_org_id !== request.noliOrgId ||
     receipt.email_hash !== emailHash ||
     receipt.clerk_hash !== clerkHash
   ) {
@@ -388,6 +522,7 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
       'users.email_hash',
       'users.clerk_user_id',
       'organizations.noli_org_id',
+      'organizations.tenant_id as organization_tenant_id',
     )
     .where((query) => {
       query.where('users.id', request.noliUserId)
@@ -403,6 +538,7 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
     email_hash: string | null
     clerk_user_id: string | null
     noli_org_id: string | null
+    organization_tenant_id: string | null
   }>
 
   const clerkIds = new Set(
@@ -414,14 +550,26 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
   const durableOrganizationIds = (durable.rows ?? [])
     .map((subject) => subject.organization_id)
     .filter((value): value is string => Boolean(value))
+  const tenantByOrganization = new Map<string, string>()
+  for (const user of users) {
+    const tenantId = user.tenant_id ?? user.organization_tenant_id
+    if (user.organization_id && tenantId) {
+      tenantByOrganization.set(user.organization_id, tenantId)
+    }
+  }
   if (durableOrganizationIds.length) {
     const durableOrganizations = (await knex('organizations')
-      .select('noli_org_id')
+      .select('id', 'noli_org_id', 'tenant_id')
       .whereIn('id', durableOrganizationIds)) as Array<{
+      id: string
       noli_org_id: string | null
+      tenant_id: string | null
     }>
     for (const organization of durableOrganizations) {
       if (organization.noli_org_id) discoveredOrgIds.add(organization.noli_org_id)
+      if (organization.tenant_id) {
+        tenantByOrganization.set(organization.id, organization.tenant_id)
+      }
     }
   }
   if (
@@ -451,7 +599,13 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
     if (localFence.rows?.[0]?.state !== 'deleting') throw new Error('invalid local fence receipt')
     const recorded = (await knex.raw(
       'select public.crm_gdpr_record_user_subject(?, ?::uuid, ?::uuid, ?::uuid, ?::uuid) as recorded',
-      [request.noliUserId, request.operationId, user.id, user.organization_id, user.tenant_id],
+      [
+        request.noliUserId,
+        request.operationId,
+        user.id,
+        user.organization_id,
+        user.tenant_id ?? user.organization_tenant_id,
+      ],
     )) as { rows?: Array<{ recorded?: boolean }> }
     if (recorded.rows?.[0]?.recorded !== true) throw new Error('invalid subject receipt')
   }
@@ -460,13 +614,15 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
   for (const subject of durable.rows ?? []) {
     subjectMap.set(subject.local_user_id, {
       organizationId: subject.organization_id,
-      tenantId: subject.tenant_id,
+      tenantId:
+        subject.tenant_id ??
+        (subject.organization_id ? (tenantByOrganization.get(subject.organization_id) ?? null) : null),
     })
   }
   for (const user of users) {
     subjectMap.set(user.id, {
       organizationId: user.organization_id,
-      tenantId: user.tenant_id,
+      tenantId: user.tenant_id ?? user.organization_tenant_id,
     })
   }
   subjectMap.set(
@@ -499,13 +655,17 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
 
   const references = await userReferenceColumns(knex as never)
   const missingFences = await missingUserWriteFences(knex as never, references)
-  if (missingFences.length) {
+  const missingSearchFences = await missingUserSearchWriteFences(knex as never)
+  if (missingFences.length || missingSearchFences.length) {
     return NextResponse.json(
       gdprDeleteResponse(
         request,
         'partial',
         {},
-        missingFences.map((table) => `user_writer_fence:${table}`),
+        [
+          ...missingFences.map((table) => `user_writer_fence:${table}`),
+          ...missingSearchFences.map((table) => `user_search_writer_fence:${table}`),
+        ],
       ),
       { status: 503 },
     )
@@ -525,11 +685,12 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
           operation_id: request.operationId,
           noli_user_id: request.noliUserId,
           tenant_id: subject.tenantId,
+          tenant_scope: subject.tenantId ?? '*',
           organization_id: subject.organizationId,
           record_id: subject.recordId,
         })),
       )
-      .onConflict(['operation_id', 'tenant_id', 'record_id'])
+      .onConflict(['operation_id', 'tenant_scope', 'record_id'])
       .ignore()
   }
 
@@ -547,7 +708,23 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
     })
   }
 
-  const fileProof = await purgeCrmUserFiles(knex as never, ids, searchInventory.deletedRecordIds)
+  deleted.opencode_sessions = await purgeUserOpenCodeSessions(
+    knex,
+    userScopes.map((scope) => ({
+      id: scope.id,
+      organizationId: scope.organization_id,
+      tenantId: scope.tenant_id,
+    })),
+  )
+
+  const fileProof = await purgeCrmUserFiles(
+    knex as never,
+    ids,
+    searchInventory.deletedRecordIds,
+    userScopes
+      .map((scope) => scope.organization_id)
+      .filter((value): value is string => Boolean(value)),
+  )
   Object.assign(deleted, fileProof.deleted)
   await knex('gdpr_user_receipts')
     .where({
@@ -562,7 +739,7 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
       operation_id: request.operationId,
       noli_user_id: request.noliUserId,
     })) as Array<{
-    tenant_id: string
+    tenant_id: string | null
     organization_id: string | null
     record_id: string
   }>
@@ -618,8 +795,16 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
       transaction as never,
       transactionReferences,
     )
-    if (transactionMissingFences.length) {
-      throw new Error(`user writer fence proof failed: ${transactionMissingFences.join(',')}`)
+    const transactionMissingSearchFences = await missingUserSearchWriteFences(
+      transaction as never,
+    )
+    if (transactionMissingFences.length || transactionMissingSearchFences.length) {
+      throw new Error(
+        `user writer fence proof failed: ${[
+          ...transactionMissingFences,
+          ...transactionMissingSearchFences,
+        ].join(',')}`,
+      )
     }
     if (fileProof.attachmentIds.length) {
       deleted.attachments = await transaction('attachments')
@@ -631,46 +816,22 @@ export async function deleteUserPhase(knex: Knex, request: GdprDeleteRequest) {
         .whereIn('id', fileProof.contactAttachmentIds)
         .del()
     }
-    if (
-      (await existingColumns(transaction, 'vector_search', ['tenant_id', 'record_id'])).length ===
-        2 &&
-      durableSearchSubjects.length
-    ) {
-      const vectorSubjects = new Map<string, string[]>()
-      for (const subject of durableSearchSubjects) {
-        const records = vectorSubjects.get(subject.tenant_id) ?? []
-        records.push(subject.record_id)
-        vectorSubjects.set(subject.tenant_id, records)
-      }
-      deleted.vector_search = await transaction('vector_search')
-        .where((query) => {
-          for (const [index, [tenantId, recordIds]] of [...vectorSubjects].entries()) {
-            const clause = index === 0 ? query.where.bind(query) : query.orWhere.bind(query)
-            clause((nested) =>
-              nested
-                .where('tenant_id', tenantId)
-                .whereRaw('record_id = any(?::text[])', [recordIds]),
-            )
-          }
-        })
+    if (fileProof.localFileIds.length) {
+      deleted.gdpr_user_local_files = await transaction('gdpr_user_local_files')
+        .whereIn('id', fileProof.localFileIds)
         .del()
-      const vectorProof = await transaction('vector_search')
-        .where((query) => {
-          for (const [index, [tenantId, recordIds]] of [...vectorSubjects].entries()) {
-            const clause = index === 0 ? query.where.bind(query) : query.orWhere.bind(query)
-            clause((nested) =>
-              nested
-                .where('tenant_id', tenantId)
-                .whereRaw('record_id = any(?::text[])', [recordIds]),
-            )
-          }
-        })
-        .count<{ count: string }>({ count: '*' })
-        .first()
-      if (Number(vectorProof?.count ?? 0) !== 0) {
-        throw new Error('CRM user vector deletion proof returned residual documents')
-      }
     }
+    Object.assign(
+      deleted,
+      await purgeCrmUserLocalSearch(
+        transaction as never,
+        durableSearchSubjects.map((subject) => ({
+          tenantId: subject.tenant_id,
+          organizationId: subject.organization_id,
+          recordId: subject.record_id,
+        })),
+      ),
+    )
     await sweepAndProveUserReferences(transaction, ids, transactionReferences, deleted)
 
     const userRows = await transaction('users').whereIn('id', ids).del()
@@ -820,6 +981,12 @@ export async function deleteOrganizationPhase(knex: Knex, request: GdprDeleteReq
       { status: 409 },
     )
   }
+
+  deleted.opencode_sessions = await purgeOrganizationOpenCodeSessions(
+    knex,
+    receipt.organization_id,
+    receipt.tenant_id,
+  )
 
   Object.assign(deleted, await purgeCrmOrganizationFiles(knex as never, receipt.organization_id))
   await knex('gdpr_org_subjects')

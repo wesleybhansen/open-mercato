@@ -21,6 +21,11 @@ import {
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { logCrmAiUsage } from '@open-mercato/shared/lib/noli/ai-usage'
 import { checkOrgAiAllowance } from '@open-mercato/shared/lib/noli/allowance'
+import {
+  AI_ASSISTANT_GDPR_BLOCK_MESSAGE,
+  beginAiAssistantProcessorLease,
+  type AiAssistantProcessorLease,
+} from '../../lib/gdpr-processor-lease'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['ai_assistant.view'] },
@@ -84,6 +89,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  let processorLease: AiAssistantProcessorLease | null = null
   try {
     const body = await req.json()
     const { query, availableTools } = body as {
@@ -104,6 +110,11 @@ export async function POST(req: NextRequest) {
 
     // Get user's configured provider
     const container = await createRequestContainer()
+    const em = container.resolve('em') as import('@mikro-orm/postgresql').EntityManager
+    processorLease = await beginAiAssistantProcessorLease(em, auth)
+    if (!processorLease) {
+      return NextResponse.json({ error: AI_ASSISTANT_GDPR_BLOCK_MESSAGE }, { status: 503 })
+    }
     let config = await resolveChatConfig(container)
 
     // Fallback to first configured provider
@@ -131,7 +142,7 @@ export async function POST(req: NextRequest) {
     // P-3 allowance gate + unified BYOK fall-through (GAP-4). Resolve the noli
     // org, check the pooled allowance for the configured provider; over the pool
     // with no BYO key → 402; with a BYO key → route on it and meter byoKey: true.
-    const meterEm = (container.resolve('em') as { fork: () => { findOne: (e: unknown, w: unknown) => Promise<{ noliOrgId?: string | null } | null> } }).fork()
+    const meterEm = (em as unknown as { fork: () => { findOne: (e: unknown, w: unknown) => Promise<{ noliOrgId?: string | null } | null> } }).fork()
     const meterOrg = auth.orgId ? await meterEm.findOne(Organization, { id: auth.orgId }) : null
     const gate = await checkOrgAiAllowance(meterOrg?.noliOrgId, config.providerId)
     if (!gate.allowed) {
@@ -169,11 +180,11 @@ Respond with:
 
     console.log('[AI Route] Result:', result.object)
 
-    // Cross-product usage metering (fire-and-forget; never blocks the response).
+    // Keep metering inside the admitted operation so erasure cannot overtake it.
     try {
       if (meterOrg?.noliOrgId) {
         const bareModel = modelWithProvider.includes('/') ? modelWithProvider.split('/').pop()! : modelWithProvider
-        void logCrmAiUsage({
+        await logCrmAiUsage({
           noliOrgId: meterOrg.noliOrgId,
           model: bareModel,
           tokensIn: Number(result.usage?.inputTokens ?? 0) || 0,
@@ -193,5 +204,9 @@ Respond with:
       { error: 'Routing request failed' },
       { status: 500 }
     )
+  } finally {
+    await processorLease?.release().catch((releaseError) => {
+      console.error('[AI Route] Failed to release processor lease:', releaseError)
+    })
   }
 }

@@ -86,7 +86,13 @@ export {
   type OpenCodeResponseMetadata,
   type OpenCodeStreamEvent,
   type OpenCodeQuestion,
+  type OpenCodeOperationResult,
 } from './modules/ai_assistant/lib/opencode-handlers'
+
+export {
+  purgeOpenCodeSessions,
+  type OpenCodeSessionPurgeReceipt,
+} from './modules/ai_assistant/lib/opencode-session-purge'
 
 // Module metadata
 export { metadata, features } from './modules/ai_assistant'

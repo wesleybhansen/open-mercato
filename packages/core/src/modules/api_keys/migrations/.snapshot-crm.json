@@ -106,6 +106,15 @@
           "nullable": true,
           "mappedType": "uuid"
         },
+        "opencode_session_id": {
+          "name": "opencode_session_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
         "session_secret_encrypted": {
           "name": "session_secret_encrypted",
           "type": "text",
@@ -114,6 +123,24 @@
           "primary": false,
           "nullable": true,
           "mappedType": "text"
+        },
+        "rate_limit_tier": {
+          "name": "rate_limit_tier",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "text"
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
         },
         "last_used_at": {
           "name": "last_used_at",
@@ -169,6 +196,16 @@
       "name": "api_keys",
       "schema": "public",
       "indexes": [
+        {
+          "keyName": "api_keys_opencode_session_id_unique",
+          "columnNames": [
+            "opencode_session_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": false,
+          "unique": true
+        },
         {
           "keyName": "api_keys_key_prefix_unique",
           "columnNames": [

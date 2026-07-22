@@ -22,6 +22,7 @@ function getClient(): OpenCodeClient {
 export type OpenCodeTestRequest = {
   message: string
   sessionId?: string
+  onSessionReady?: (sessionId: string) => Promise<void>
   model?: {
     providerID: string
     modelID: string
@@ -31,6 +32,11 @@ export type OpenCodeTestRequest = {
 export type OpenCodeTestResponse = {
   sessionId: string
   result: unknown
+}
+
+export type OpenCodeOperationResult = {
+  sessionId: string | null
+  terminalConfirmed: boolean
 }
 
 export type OpenCodeHealthResponse = {
@@ -71,6 +77,7 @@ export async function handleOpenCodeMessage(
   } else {
     session = await client.createSession()
   }
+  await request.onSessionReady?.(session.id)
 
   // Send message
   const result = await client.sendMessage(session.id, message, { model })
@@ -246,14 +253,16 @@ export type OpenCodeStreamEvent =
 export async function handleOpenCodeMessageStreaming(
   request: OpenCodeTestRequest,
   onEvent: (event: OpenCodeStreamEvent) => Promise<void>
-): Promise<void> {
+): Promise<OpenCodeOperationResult> {
   const client = getClient()
-  const { message, sessionId, model } = request
+  const { message, sessionId, model, onSessionReady } = request
   const startTime = Date.now()
+  let targetSessionId: string | null = null
+  let terminalConfirmed = false
 
   if (!message) {
     await onEvent({ type: 'error', error: 'Message is required' })
-    return
+    return { sessionId: null, terminalConfirmed: true }
   }
 
   try {
@@ -265,7 +274,8 @@ export async function handleOpenCodeMessageStreaming(
       session = await client.createSession()
     }
 
-    const targetSessionId = session.id
+    targetSessionId = session.id
+    await onSessionReady?.(targetSessionId)
     let unsubscribe: (() => void) | null = null
     let emittedThinking = false
     let wasBusy = false // Track if session was ever busy
@@ -277,6 +287,7 @@ export async function handleOpenCodeMessageStreaming(
       provider?: string
       tokens?: { input: number; output: number }
     } | null = null
+    const completedMessageUsage = new Map<string, { input: number; output: number }>()
 
     // Helper to clean up resources
     const cleanup = () => {
@@ -331,6 +342,7 @@ export async function handleOpenCodeMessageStreaming(
               lastActivityTime = Date.now() // Reset timer after emitting question
             } else if (status.status === 'idle') {
               // Session is explicitly idle and no questions - complete
+              terminalConfirmed = true
               resolved = true
               try {
                 await onEvent({ type: 'done', sessionId: targetSessionId })
@@ -354,9 +366,6 @@ export async function handleOpenCodeMessageStreaming(
           try {
             const { type, properties } = sseEvent
 
-            // Update activity timestamp for heartbeat
-            lastActivityTime = Date.now()
-
             // Filter events for our session
             const eventSessionId =
               (properties.sessionID as string) ||
@@ -366,9 +375,11 @@ export async function handleOpenCodeMessageStreaming(
               (properties.session as { id?: string })?.id ||
               (properties.status as { sessionID?: string })?.sessionID
 
-            if (eventSessionId && eventSessionId !== targetSessionId) {
-              return // Ignore events from other sessions
-            }
+            // OpenCode's event feed is process-global. Never let an event
+            // without an exact session receipt (or from another session)
+            // advance this request's state machine.
+            if (eventSessionId !== targetSessionId) return
+            lastActivityTime = Date.now()
 
             switch (type) {
               case 'question.asked': {
@@ -456,6 +467,7 @@ export async function handleOpenCodeMessageStreaming(
                           lastActivityTime = Date.now()
                         } else {
                           // Truly idle - complete the stream
+                          terminalConfirmed = true
                           resolved = true
                           await onEvent({ type: 'done', sessionId: targetSessionId })
                           cleanup()
@@ -467,6 +479,7 @@ export async function handleOpenCodeMessageStreaming(
                         console.error('[OpenCode SSE] Error in timeout callback:', err)
                         // Still try to complete even if there was an error
                         if (!resolved) {
+                          terminalConfirmed = true
                           resolved = true
                           try {
                             await onEvent({ type: 'done', sessionId: targetSessionId })
@@ -512,10 +525,23 @@ export async function handleOpenCodeMessageStreaming(
 
                   // Track metadata from completed messages
                   if (info.time?.completed) {
+                    if (info.tokens) {
+                      completedMessageUsage.set(info.id, {
+                        input: info.tokens.input,
+                        output: info.tokens.output,
+                      })
+                    }
+                    const aggregateTokens = [...completedMessageUsage.values()].reduce(
+                      (total, tokens) => ({
+                        input: total.input + tokens.input,
+                        output: total.output + tokens.output,
+                      }),
+                      { input: 0, output: 0 },
+                    )
                     lastMetadata = {
-                      model: info.modelID,
-                      provider: info.providerID,
-                      tokens: info.tokens,
+                      model: info.modelID ?? lastMetadata?.model,
+                      provider: info.providerID ?? lastMetadata?.provider,
+                      tokens: completedMessageUsage.size > 0 ? aggregateTokens : undefined,
                     }
                     // Emit intermediate metadata for visibility
                     await onEvent({
@@ -578,7 +604,9 @@ export async function handleOpenCodeMessageStreaming(
           }
         },
         (error) => {
+          cleanup()
           clearTimeout(timeout)
+          unsubscribe?.()
           reject(error)
         }
       )
@@ -593,11 +621,26 @@ export async function handleOpenCodeMessageStreaming(
 
     // Wait for SSE to indicate completion (session.status: idle or error)
     await eventPromise
+    if (!terminalConfirmed && targetSessionId) {
+      await client.abortDeleteAndProveSessionAbsent(targetSessionId)
+      terminalConfirmed = true
+    }
+    return { sessionId: targetSessionId, terminalConfirmed }
   } catch (error) {
     await onEvent({
       type: 'error',
       error: error instanceof Error ? error.message : 'OpenCode request failed',
     })
+    if (!targetSessionId) {
+      return { sessionId: null, terminalConfirmed: true }
+    }
+    try {
+      await client.abortDeleteAndProveSessionAbsent(targetSessionId)
+      return { sessionId: targetSessionId, terminalConfirmed: true }
+    } catch (cleanupError) {
+      console.error('[OpenCode] Could not prove failed session terminal:', cleanupError)
+      return { sessionId: targetSessionId, terminalConfirmed: false }
+    }
   }
 }
 
@@ -610,12 +653,12 @@ export async function handleOpenCodeAnswer(
   answer: number,
   sessionId: string,
   onEvent: (event: OpenCodeStreamEvent) => Promise<void>
-): Promise<void> {
+): Promise<OpenCodeOperationResult> {
   const client = getClient()
 
   try {
     // Answer the question
-    await client.answerQuestion(questionId, answer)
+    await client.answerQuestion(questionId, answer, sessionId)
     await onEvent({ type: 'thinking' })
 
     // Poll for completion using session status (max 20 seconds for same-question wait, 60 seconds total)
@@ -630,10 +673,9 @@ export async function handleOpenCodeAnswer(
       // Check session status - most reliable way to know if processing is done
       const status = await client.getSessionStatus(sessionId)
 
-      if (status.status === 'idle' || status.status === 'unknown') {
-        // Session is idle or unknown - processing complete
+      if (status.status === 'idle') {
         await onEvent({ type: 'done', sessionId })
-        return
+        return { sessionId, terminalConfirmed: true }
       }
 
       if (status.status === 'waiting' && status.questionId && status.questionId !== questionId) {
@@ -642,7 +684,7 @@ export async function handleOpenCodeAnswer(
         const newQuestion = allQuestions.find((q) => q.id === status.questionId)
         if (newQuestion) {
           await onEvent({ type: 'question', question: newQuestion })
-          return
+          return { sessionId, terminalConfirmed: true }
         }
       }
 
@@ -650,9 +692,7 @@ export async function handleOpenCodeAnswer(
       if (status.status === 'waiting' && status.questionId === questionId) {
         sameQuestionWaitCount++
         if (sameQuestionWaitCount >= maxSameQuestionWait) {
-          // OpenCode didn't properly clear the question - assume answered and complete
-          await onEvent({ type: 'done', sessionId })
-          return
+          return { sessionId, terminalConfirmed: true }
         }
       } else {
         // Reset counter if status changed
@@ -662,14 +702,22 @@ export async function handleOpenCodeAnswer(
       // Session is busy - keep polling
     }
 
-    // Timeout - assume complete
-    await onEvent({ type: 'done', sessionId })
+    await client.abortDeleteAndProveSessionAbsent(sessionId)
+    await onEvent({ type: 'error', error: 'OpenCode session exceeded the processing deadline' })
+    return { sessionId, terminalConfirmed: true }
   } catch (error) {
     console.error('[OpenCode Answer] Error:', error)
     await onEvent({
       type: 'error',
       error: error instanceof Error ? error.message : 'Failed to answer question',
     })
+    try {
+      await client.abortDeleteAndProveSessionAbsent(sessionId)
+      return { sessionId, terminalConfirmed: true }
+    } catch (cleanupError) {
+      console.error('[OpenCode Answer] Could not prove failed session terminal:', cleanupError)
+      return { sessionId, terminalConfirmed: false }
+    }
   }
 }
 

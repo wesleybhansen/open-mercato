@@ -2,6 +2,7 @@ import { Entity, PrimaryKey, Property, Unique } from '@mikro-orm/core'
 
 @Entity({ tableName: 'api_keys' })
 @Unique({ properties: ['keyPrefix'] })
+@Unique({ properties: ['opencodeSessionId'] })
 export class ApiKey {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -37,6 +38,9 @@ export class ApiKey {
   /** User ID who owns this session (for ephemeral keys) */
   @Property({ name: 'session_user_id', type: 'uuid', nullable: true })
   sessionUserId?: string | null
+
+  @Property({ name: 'opencode_session_id', type: 'text', nullable: true })
+  opencodeSessionId?: string | null
 
   /** Encrypted API key secret for session keys (recoverable for API calls) */
   @Property({ name: 'session_secret_encrypted', type: 'text', nullable: true })

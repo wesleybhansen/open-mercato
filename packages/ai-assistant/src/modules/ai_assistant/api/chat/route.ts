@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import {
+  handleOpenCodeAnswer,
   handleOpenCodeMessageStreaming,
   type OpenCodeStreamEvent,
 } from '../../lib/opencode-handlers'
-import { createOpenCodeClient } from '../../lib/opencode-client'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import {
@@ -13,6 +13,26 @@ import {
 } from '@open-mercato/core/modules/api_keys/services/apiKeyService'
 import { UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import {
+  bindOpenCodeSession,
+  findOwnedOpenCodeSession,
+} from '@open-mercato/core/modules/api_keys/services/openCodeSessionBinding'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import {
+  resolveFirstConfiguredOpenCodeProvider,
+  resolveOpenCodeModel,
+} from '@open-mercato/shared/lib/ai/opencode-provider'
+import { checkOrgAiAllowance } from '@open-mercato/shared/lib/noli/allowance'
+import { logCrmAiUsage } from '@open-mercato/shared/lib/noli/ai-usage'
+import {
+  isProviderConfigured,
+  resolveChatConfig,
+} from '../../lib/chat-config'
+import {
+  AI_ASSISTANT_GDPR_BLOCK_MESSAGE,
+  beginAiAssistantProcessorLease,
+  type AiAssistantProcessorLease,
+} from '../../lib/gdpr-processor-lease'
 
 /**
  * System instructions injected at the start of new chat sessions.
@@ -87,6 +107,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  let processorLease: AiAssistantProcessorLease | null = null
+  let leaseHandedToStream = false
+  let retainLeaseForAmbiguousExternalWork = false
   try {
     const body = await req.json()
     const { messages, sessionId, answerQuestion } = body as {
@@ -100,47 +123,67 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create SSE stream for frontend compatibility
-    const encoder = new TextEncoder()
-    const stream = new TransformStream()
-    const writer = stream.writable.getWriter()
-    let writerClosed = false
+    const container = await createRequestContainer()
+    const em = container.resolve<EntityManager>('em')
+    processorLease = await beginAiAssistantProcessorLease(em, auth)
+    if (!processorLease) {
+      return NextResponse.json({ error: AI_ASSISTANT_GDPR_BLOCK_MESSAGE }, { status: 503 })
+    }
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: AI_ASSISTANT_GDPR_BLOCK_MESSAGE }, { status: 503 })
+    }
+    const sessionOwner = {
+      localUserId: processorLease.localUserId,
+      organizationId: processorLease.organizationId,
+      tenantId: auth.tenantId,
+    }
 
-    const writeSSE = async (event: OpenCodeStreamEvent | { type: string; [key: string]: unknown }) => {
-      if (writerClosed) return // Guard against writes after close
-      try {
-        const jsonStr = JSON.stringify(event)
-        await writer.write(encoder.encode(`data: ${jsonStr}\n\n`))
-      } catch (err) {
-        // Writer may have been closed by client disconnect
-        console.warn('[AI Chat] Failed to write SSE event:', event.type)
+    const requestedSessionId = answerQuestion?.sessionId ?? sessionId
+    if (requestedSessionId) {
+      const ownedSession = await findOwnedOpenCodeSession(em, requestedSessionId, sessionOwner)
+      if (!ownedSession) {
+        return NextResponse.json({ error: 'AI session is unavailable.' }, { status: 404 })
       }
     }
 
-    const closeWriter = async () => {
-      if (writerClosed) return
-      writerClosed = true
-      try {
-        await writer.close()
-      } catch {
-        // Already closed
+    let config = await resolveChatConfig(container)
+    if (!config) {
+      const configuredProvider = resolveFirstConfiguredOpenCodeProvider()
+      if (!configuredProvider) {
+        return NextResponse.json({ error: 'AI provider is unavailable.' }, { status: 503 })
       }
+      config = { providerId: configuredProvider, model: '', updatedAt: '' }
     }
+    if (!isProviderConfigured(config.providerId)) {
+      return NextResponse.json({ error: 'AI provider is unavailable.' }, { status: 503 })
+    }
+    const meterEm = em.fork()
+    const meterOrg = await meterEm.findOne(Organization, { id: processorLease.organizationId })
+    const gate = await checkOrgAiAllowance(meterOrg?.noliOrgId, config.providerId)
+    if (!gate.allowed || gate.byoApiKey) {
+      return NextResponse.json(
+        { error: "You've used your team's monthly AI allowance. Add your own provider API key or upgrade your plan to keep using AI." },
+        { status: 402 },
+      )
+    }
+    const { modelId } = resolveOpenCodeModel(config.providerId, {
+      overrideModel: config.model,
+    })
 
     // Handle question answer - simple JSON response, not SSE
     // The original SSE stream continues and will receive the follow-up response
     if (answerQuestion) {
-      try {
-        const client = createOpenCodeClient()
-        await client.answerQuestion(answerQuestion.questionId, answerQuestion.answer)
-        return NextResponse.json({ success: true })
-      } catch (error) {
-        console.error('[AI Chat] Answer error:', error)
-        return NextResponse.json(
-          { error: error instanceof Error ? error.message : 'Failed to answer question' },
-          { status: 500 }
-        )
+      const result = await handleOpenCodeAnswer(
+        answerQuestion.questionId,
+        answerQuestion.answer,
+        answerQuestion.sessionId,
+        async () => {},
+      )
+      if (!result.terminalConfirmed) {
+        retainLeaseForAmbiguousExternalWork = true
+        return NextResponse.json({ error: 'AI session state is ambiguous.' }, { status: 503 })
       }
+      return NextResponse.json({ success: true })
     }
 
     // Handle regular message
@@ -157,29 +200,19 @@ export async function POST(req: NextRequest) {
     // For new sessions, create an ephemeral API key that inherits user permissions
     // The API key secret is encrypted and stored; MCP server recovers it via session token
     let sessionToken: string | null = null
+    let sessionKeyId: string | null = null
     if (!sessionId) {
-      try {
-        const container = await createRequestContainer()
-        const em = container.resolve<EntityManager>('em')
-
-        // Get user's role IDs from database
-        const userRoleIds = await getUserRoleIds(em, auth.sub, auth.tenantId)
-
-        // Generate session token and create ephemeral key
-        sessionToken = generateSessionToken()
-        await createSessionApiKey(em, {
-          sessionToken,
-          userId: auth.sub,
-          userRoles: userRoleIds,
-          tenantId: auth.tenantId,
-          organizationId: auth.orgId,
-          ttlMinutes: 120,
-        })
-        console.log('[AI Chat] Created session token:', sessionToken.slice(0, 12) + '...')
-      } catch (error) {
-        console.error('[AI Chat] Failed to create session key:', error)
-        // Continue without session key - tools will use static API key auth
-      }
+      const userRoleIds = await getUserRoleIds(em, processorLease.localUserId, auth.tenantId)
+      sessionToken = generateSessionToken()
+      const sessionKey = await createSessionApiKey(em, {
+        sessionToken,
+        userId: processorLease.localUserId,
+        userRoles: userRoleIds,
+        tenantId: auth.tenantId,
+        organizationId: processorLease.organizationId,
+        ttlMinutes: 120,
+      })
+      sessionKeyId = sessionKey.keyId
     }
 
     // Build the message to send to OpenCode
@@ -198,6 +231,36 @@ export async function POST(req: NextRequest) {
     }
 
     messageToSend += lastUserMessage
+    let usageMetadata: { model?: string; tokensIn: number; tokensOut: number } | null = null
+
+    // Create the stream only after every synchronous validation and the
+    // question-answer path have completed. An unconsumed TransformStream
+    // writer can otherwise remain blocked on backpressure for JSON responses.
+    const encoder = new TextEncoder()
+    const stream = new TransformStream()
+    const writer = stream.writable.getWriter()
+    let writerClosed = false
+
+    const writeSSE = async (event: OpenCodeStreamEvent | { type: string; [key: string]: unknown }) => {
+      if (writerClosed) return
+      try {
+        const jsonStr = JSON.stringify(event)
+        await writer.write(encoder.encode(`data: ${jsonStr}\n\n`))
+      } catch {
+        // The reader may have disconnected while OpenCode was finishing.
+        console.warn('[AI Chat] Failed to write SSE event:', event.type)
+      }
+    }
+
+    const closeWriter = async () => {
+      if (writerClosed) return
+      writerClosed = true
+      try {
+        await writer.close()
+      } catch {
+        // Already closed
+      }
+    }
 
     // Process in background - starts AFTER Response is returned so there's a reader for the stream
     ;(async () => {
@@ -215,15 +278,47 @@ export async function POST(req: NextRequest) {
         await writeSSE({ type: 'thinking' })
 
         // Use streaming handler that supports questions
-        await handleOpenCodeMessageStreaming(
+        const result = await handleOpenCodeMessageStreaming(
           {
             message: messageToSend,
             sessionId,
+            model: { providerID: config.providerId, modelID: modelId },
+            onSessionReady: sessionToken && sessionKeyId
+              ? async (externalSessionId) => {
+                  await bindOpenCodeSession(em, {
+                    keyId: sessionKeyId,
+                    sessionToken,
+                    sessionId: externalSessionId,
+                    ...sessionOwner,
+                  })
+                }
+              : undefined,
           },
           async (event) => {
+            if (event.type === 'metadata' && event.tokens) {
+              usageMetadata = {
+                model: event.model,
+                tokensIn: event.tokens.input,
+                tokensOut: event.tokens.output,
+              }
+            }
             await writeSSE(event)
           }
         )
+        if (usageMetadata && meterOrg?.noliOrgId) {
+          await logCrmAiUsage({
+            noliOrgId: meterOrg.noliOrgId,
+            model: usageMetadata.model || modelId,
+            tokensIn: usageMetadata.tokensIn,
+            tokensOut: usageMetadata.tokensOut,
+            feature: 'assistant-chat',
+            byoKey: false,
+          }).catch(() => {})
+        }
+        if (!result.terminalConfirmed) {
+          retainLeaseForAmbiguousExternalWork = true
+          await writeSSE({ type: 'error', error: 'AI session state is ambiguous.' })
+        }
       } catch (error) {
         console.error('[AI Chat] OpenCode error:', error)
         await writeSSE({
@@ -231,9 +326,15 @@ export async function POST(req: NextRequest) {
           error: error instanceof Error ? error.message : 'OpenCode request failed',
         })
       } finally {
+        if (!retainLeaseForAmbiguousExternalWork) {
+          await processorLease?.release().catch((releaseError) => {
+            console.error('[AI Chat] Failed to release processor lease:', releaseError)
+          })
+        }
         await closeWriter()
       }
     })()
+    leaseHandedToStream = true
 
     return new Response(stream.readable, {
       headers: {
@@ -245,5 +346,11 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('[AI Chat] Error:', error)
     return NextResponse.json({ error: 'Chat request failed' }, { status: 500 })
+  } finally {
+    if (!leaseHandedToStream && !retainLeaseForAmbiguousExternalWork) {
+      await processorLease?.release().catch((releaseError) => {
+        console.error('[AI Chat] Failed to release processor lease:', releaseError)
+      })
+    }
   }
 }

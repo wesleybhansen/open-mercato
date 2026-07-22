@@ -51,6 +51,32 @@ function chunksOf<T>(values: readonly T[], size: number): T[][] {
   return chunks
 }
 
+async function listStoredFiles(root: string): Promise<string[]> {
+  let entries
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw error
+  }
+  const files: string[] = []
+  for (const entry of entries) {
+    const candidate = path.join(root, entry.name)
+    if (entry.isDirectory()) files.push(...(await listStoredFiles(candidate)))
+    else files.push(candidate)
+  }
+  return files
+}
+
+function resolveLandingImageManifestPath(organizationId: string, relativePath: string): string {
+  const root = path.resolve(process.cwd(), 'uploads', 'page-images', safeSegment(organizationId))
+  const candidate = path.resolve(process.cwd(), relativePath)
+  if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
+    throw new Error('CRM landing image manifest escaped its organization prefix')
+  }
+  return candidate
+}
+
 /** Removes both recorded files and deterministic organization prefixes, then
  * proves each target is absent before database rows can be removed. */
 export async function purgeCrmOrganizationFiles(
@@ -159,7 +185,7 @@ export async function purgeCrmOrganizationSearch(
 }
 
 export type CrmUserSearchSubject = {
-  tenantId: string
+  tenantId: string | null
   organizationId: string | null
   recordId: string
 }
@@ -183,7 +209,12 @@ export async function purgeCrmUserSearch(
     apiKey: process.env.MEILISEARCH_API_KEY,
   })
   const recordIdsByTenant = new Map<string, Set<string>>()
+  const unscopedRecordIds = new Set<string>()
   for (const subject of subjects) {
+    if (!subject.tenantId) {
+      unscopedRecordIds.add(subject.recordId)
+      continue
+    }
     const recordIds = recordIdsByTenant.get(subject.tenantId) ?? new Set<string>()
     recordIds.add(subject.recordId)
     recordIdsByTenant.set(subject.tenantId, recordIds)
@@ -224,6 +255,7 @@ export async function purgeCrmUserSearch(
   return {
     meilisearch_user_documents: provenDocuments,
     meilisearch_user_indexes: provenIndexes,
+    meilisearch_user_unscoped_records: unscopedRecordIds.size,
   }
 }
 
@@ -231,17 +263,20 @@ export type CrmUserFileProof = {
   deleted: Record<string, number>
   attachmentIds: string[]
   contactAttachmentIds: string[]
+  localFileIds: string[]
 }
 
 export async function purgeCrmUserFiles(
   database: Knex,
   userIds: readonly string[],
   deletedRecordIds: readonly string[],
+  organizationIds: readonly string[],
 ): Promise<CrmUserFileProof> {
   const proof: CrmUserFileProof = {
     deleted: {},
     attachmentIds: [],
     contactAttachmentIds: [],
+    localFileIds: [],
   }
   if (!userIds.length) return proof
 
@@ -324,7 +359,155 @@ export async function purgeCrmUserFiles(
     }
     proof.deleted.attachment_files = attachments.length
   }
+
+  const localFileTableExists = await tableExists(database, 'gdpr_user_local_files')
+  const targetLocalFiles = localFileTableExists
+    ? ((await database('gdpr_user_local_files')
+        .select('id', 'local_user_id', 'organization_id', 'relative_path')
+        .whereIn('local_user_id', [...userIds])) as Array<{
+        id: string
+        local_user_id: string
+        organization_id: string
+        relative_path: string
+      }>)
+    : []
+  const proofOrganizationIds = [
+    ...new Set([
+      ...organizationIds,
+      ...targetLocalFiles.map((file) => file.organization_id),
+    ]),
+  ].sort()
+  const allLocalFiles =
+    localFileTableExists && proofOrganizationIds.length
+      ? ((await database('gdpr_user_local_files')
+          .select('id', 'local_user_id', 'organization_id', 'relative_path')
+          .whereIn('organization_id', proofOrganizationIds)) as Array<{
+          id: string
+          local_user_id: string
+          organization_id: string
+          relative_path: string
+        }>)
+      : []
+  const trackedPaths = new Set(
+    allLocalFiles.map((file) =>
+      resolveLandingImageManifestPath(file.organization_id, file.relative_path),
+    ),
+  )
+  for (const file of targetLocalFiles) {
+    await removeAndProve(
+      resolveLandingImageManifestPath(file.organization_id, file.relative_path),
+    )
+    proof.localFileIds.push(file.id)
+  }
+  for (const organizationId of proofOrganizationIds) {
+    const root = path.resolve(process.cwd(), 'uploads', 'page-images', safeSegment(organizationId))
+    const untracked = (await listStoredFiles(root)).filter(
+      (candidate) => !trackedPaths.has(path.resolve(candidate)),
+    )
+    if (untracked.length) {
+      throw new Error('CRM landing image ownership proof found untracked files')
+    }
+  }
+  proof.deleted.landing_image_files = targetLocalFiles.length
+  proof.deleted.landing_image_ownership_prefixes = proofOrganizationIds.length
   return proof
+}
+
+const USER_LOCAL_SEARCH_TABLES = [
+  { tableName: 'entity_indexes', recordColumn: 'entity_id' },
+  { tableName: 'search_tokens', recordColumn: 'entity_id' },
+  { tableName: 'vector_search', recordColumn: 'record_id' },
+  { tableName: 'indexer_error_logs', recordColumn: 'record_id' },
+  { tableName: 'indexer_status_logs', recordColumn: 'record_id' },
+] as const
+
+export async function missingUserSearchWriteFences(database: Knex): Promise<string[]> {
+  const missing: string[] = []
+  const tombstoneLock = await database('pg_catalog.pg_trigger as triggers')
+    .join('pg_catalog.pg_class as classes', 'classes.oid', 'triggers.tgrelid')
+    .join('pg_catalog.pg_namespace as namespaces', 'namespaces.oid', 'classes.relnamespace')
+    .select('triggers.tgname')
+    .where({
+      'namespaces.nspname': 'public',
+      'classes.relname': 'gdpr_user_search_subjects',
+      'triggers.tgname': 'crm_gdpr_lock_user_search_subject',
+    })
+    .where('triggers.tgenabled', '<>', 'D')
+    .first()
+  if (!tombstoneLock) missing.push('gdpr_user_search_subjects.record_id')
+  for (const expected of USER_LOCAL_SEARCH_TABLES) {
+    const columns = (await database('information_schema.columns')
+      .select('column_name')
+      .where({ table_schema: 'public', table_name: expected.tableName })
+      .whereIn('column_name', ['tenant_id', expected.recordColumn])) as Array<{
+      column_name: string
+    }>
+    if (columns.length !== 2) continue
+    const trigger = await database('pg_catalog.pg_trigger as triggers')
+      .join('pg_catalog.pg_class as classes', 'classes.oid', 'triggers.tgrelid')
+      .join('pg_catalog.pg_namespace as namespaces', 'namespaces.oid', 'classes.relnamespace')
+      .select(database.raw("encode(triggers.tgargs, 'escape') as arguments"))
+      .where({
+        'namespaces.nspname': 'public',
+        'classes.relname': expected.tableName,
+        'triggers.tgname': 'crm_gdpr_guard_user_search_write',
+      })
+      .where('triggers.tgenabled', '<>', 'D')
+      .first() as { arguments?: string } | undefined
+    if (trigger?.arguments?.split('\\000').filter(Boolean)[0] !== expected.recordColumn) {
+      missing.push(`${expected.tableName}.${expected.recordColumn}`)
+    }
+  }
+  return missing.sort()
+}
+
+export async function purgeCrmUserLocalSearch(
+  database: Knex,
+  subjects: readonly CrmUserSearchSubject[],
+): Promise<Record<string, number>> {
+  const deleted: Record<string, number> = {}
+  if (!subjects.length) return deleted
+  const allRecordIds = [...new Set(subjects.map((subject) => subject.recordId))].sort()
+  const recordsByTenant = new Map<string, string[]>()
+  for (const subject of subjects) {
+    if (!subject.tenantId) continue
+    const recordIds = recordsByTenant.get(subject.tenantId) ?? []
+    recordIds.push(subject.recordId)
+    recordsByTenant.set(subject.tenantId, recordIds)
+  }
+
+  for (const expected of USER_LOCAL_SEARCH_TABLES) {
+    const columns = (await database('information_schema.columns')
+      .select('column_name')
+      .where({ table_schema: 'public', table_name: expected.tableName })
+      .whereIn('column_name', ['tenant_id', expected.recordColumn])) as Array<{
+      column_name: string
+    }>
+    if (columns.length !== 2) continue
+    const filter = (query: Knex.QueryBuilder) => {
+      query.where((scoped) => {
+        scoped
+          .whereNull('tenant_id')
+          .whereRaw('?? = any(?::text[])', [expected.recordColumn, allRecordIds])
+        for (const [tenantId, recordIds] of [...recordsByTenant.entries()].sort()) {
+          scoped.orWhere((tenantScope) =>
+            tenantScope
+              .where('tenant_id', tenantId)
+              .whereRaw('?? = any(?::text[])', [expected.recordColumn, recordIds]),
+          )
+        }
+      })
+    }
+    deleted[expected.tableName] = await database(expected.tableName).where(filter).del()
+    const proof = await database(expected.tableName)
+      .where(filter)
+      .count<{ count: string }>({ count: '*' })
+      .first()
+    if (Number(proof?.count ?? 0) !== 0) {
+      throw new Error(`CRM user local search proof failed: ${expected.tableName}`)
+    }
+  }
+  return deleted
 }
 
 export type CrmUserReferenceColumn = {

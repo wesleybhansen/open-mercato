@@ -235,7 +235,7 @@ export class OpenCodeClient {
    * Get an existing session by ID.
    */
   async getSession(sessionId: string): Promise<OpenCodeSession> {
-    const res = await fetch(`${this.baseUrl}/session/${sessionId}`, {
+    const res = await fetch(`${this.baseUrl}/session/${encodeURIComponent(sessionId)}`, {
       headers: this.headers,
     })
 
@@ -244,6 +244,62 @@ export class OpenCodeClient {
     }
 
     return res.json()
+  }
+
+  async sessionExists(sessionId: string): Promise<boolean> {
+    const res = await fetch(`${this.baseUrl}/session/${encodeURIComponent(sessionId)}`, {
+      headers: this.headers,
+    })
+    if (res.status === 404) return false
+    if (!res.ok) throw new Error(`Failed to prove OpenCode session state: ${res.status}`)
+    const session = await res.json() as Partial<OpenCodeSession>
+    if (session.id !== sessionId) {
+      throw new Error('OpenCode session receipt did not match the requested session')
+    }
+    return true
+  }
+
+  async abortSession(sessionId: string): Promise<boolean> {
+    const res = await fetch(
+      `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/abort`,
+      { method: 'POST', headers: this.headers },
+    )
+    if (res.status === 404) return true
+    if (!res.ok) throw new Error(`Failed to abort OpenCode session: ${res.status}`)
+    return await res.json() === true
+  }
+
+  async deleteSession(sessionId: string): Promise<boolean> {
+    const res = await fetch(`${this.baseUrl}/session/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: this.headers,
+    })
+    if (res.status === 404) return true
+    if (!res.ok) throw new Error(`Failed to delete OpenCode session: ${res.status}`)
+    return await res.json() === true
+  }
+
+  async abortDeleteAndProveSessionAbsent(sessionId: string): Promise<void> {
+    const aborted = await this.abortSession(sessionId)
+    if (!aborted) {
+      const status = await this.getSessionStatus(sessionId)
+      if (status.status === 'unknown' && !(await this.sessionExists(sessionId))) {
+        return
+      }
+      if (status.status !== 'idle' && status.status !== 'waiting') {
+        throw new Error('OpenCode did not acknowledge session abort')
+      }
+    }
+    const deleted = await this.deleteSession(sessionId)
+    if (!deleted) {
+      if (await this.sessionExists(sessionId)) {
+        throw new Error('OpenCode did not acknowledge session deletion')
+      }
+      return
+    }
+    if (await this.sessionExists(sessionId)) {
+      throw new Error('OpenCode session remained present after deletion')
+    }
   }
 
   /**
@@ -264,7 +320,7 @@ export class OpenCodeClient {
       body.model = options.model
     }
 
-    const res = await fetch(`${this.baseUrl}/session/${sessionId}/message`, {
+    const res = await fetch(`${this.baseUrl}/session/${encodeURIComponent(sessionId)}/message`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(body),
@@ -328,13 +384,20 @@ export class OpenCodeClient {
    * OpenCode expects: POST /question/{requestID}/reply with { answers: [["label"]] }
    * Each answer is an array of selected option labels (for multi-select support).
    */
-  async answerQuestion(questionId: string, answerIndex: number): Promise<void> {
+  async answerQuestion(
+    questionId: string,
+    answerIndex: number,
+    expectedSessionId?: string,
+  ): Promise<void> {
     // First get the question to find the selected option label
     const questions = await this.getPendingQuestions()
     const question = questions.find((q) => q.id === questionId)
 
     if (!question) {
       throw new Error(`Question ${questionId} not found`)
+    }
+    if (expectedSessionId && question.sessionID !== expectedSessionId) {
+      throw new Error('Question does not belong to the authenticated OpenCode session')
     }
 
     // Build answers array - each question's answer is an array of selected labels
@@ -351,7 +414,7 @@ export class OpenCodeClient {
 
     console.log('[OpenCode Client] Answering question', questionId, 'with body:', JSON.stringify(body))
 
-    const res = await fetch(`${this.baseUrl}/question/${questionId}/reply`, {
+    const res = await fetch(`${this.baseUrl}/question/${encodeURIComponent(questionId)}/reply`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(body),
@@ -371,7 +434,7 @@ export class OpenCodeClient {
   async rejectQuestion(questionId: string): Promise<void> {
     console.log('[OpenCode Client] Rejecting question', questionId)
 
-    const res = await fetch(`${this.baseUrl}/question/${questionId}/reject`, {
+    const res = await fetch(`${this.baseUrl}/question/${encodeURIComponent(questionId)}/reject`, {
       method: 'POST',
       headers: this.headers,
     })
@@ -388,14 +451,26 @@ export class OpenCodeClient {
    */
   async getSessionStatus(sessionId: string): Promise<{ status: string; questionId?: string }> {
     try {
-      const res = await fetch(`${this.baseUrl}/session/${sessionId}/status`, {
+      const res = await fetch(`${this.baseUrl}/session/status`, {
         headers: this.headers,
       })
 
       if (res.ok) {
         const contentType = res.headers.get('content-type')
         if (contentType && contentType.includes('application/json')) {
-          return res.json()
+          const statuses = await res.json() as Record<
+            string,
+            { type?: string; status?: string; questionId?: string }
+          >
+          const sessionStatus = statuses[sessionId]
+          const type = sessionStatus?.type ?? sessionStatus?.status
+          if (type === 'idle') return { status: 'idle' }
+          if (type === 'busy' || type === 'active' || type === 'retry') {
+            return { status: 'busy' }
+          }
+          if (type === 'waiting') {
+            return { status: 'waiting', questionId: sessionStatus?.questionId }
+          }
         }
       }
     } catch {
