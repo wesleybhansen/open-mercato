@@ -28,6 +28,7 @@ import { deletePartitionFile, storePartitionFile } from '@open-mercato/core/modu
 import { ensureDefaultPartitions, resolveDefaultPartitionCode } from '@open-mercato/core/modules/attachments/lib/partitions'
 import { mergeAttachmentMetadata } from '@open-mercato/core/modules/attachments/lib/metadata'
 import { attachmentCrudEvents, attachmentCrudIndexer } from '@open-mercato/core/modules/attachments/lib/crud'
+import { withGdprLocalWriteLease } from '@open-mercato/core/modules/auth/lib/gdprLocalWriteLease'
 import { emitCatalogQueryIndexEvent } from '@open-mercato/core/modules/catalog/commands/shared'
 import { SalesChannel } from '@open-mercato/core/modules/sales/data/entities'
 import type { CustomFieldDefinition } from '@open-mercato/shared/modules/entities'
@@ -2273,49 +2274,63 @@ export async function createAkeneoImporter(client: AkeneoClient, scope: ImportSc
     if (existingAttachmentId) return existingAttachmentId
 
     await ensureDefaultPartitions(em)
-    const binary = await client.downloadMediaFile(asset.remote.codeOrUrl)
-    const fileName = asset.remote.fileNameHint ?? binary.fileName ?? `akeneo-${randomUUID().slice(0, 8)}`
     const partitionCode = resolveDefaultPartitionCode(asset.entityId)
-    const stored = await storePartitionFile({
-      partitionCode,
-      orgId: scope.organizationId,
-      tenantId: scope.tenantId,
-      fileName,
-      buffer: binary.buffer,
-    })
-    const attachment = em.create(Attachment, {
-      entityId: asset.entityId,
-      recordId: asset.recordId,
-      organizationId: scope.organizationId,
-      tenantId: scope.tenantId,
-      partitionCode,
-      fileName,
-      mimeType: asset.remote.mimeTypeHint ?? binary.contentType ?? 'application/octet-stream',
-      fileSize: binary.contentLength ?? binary.buffer.byteLength,
-      storageDriver: 'local',
-      storagePath: stored.storagePath,
-      storageMetadata: mergeAttachmentMetadata(null, {
-        assignments: [{ type: asset.entityId, id: asset.recordId }],
-      }),
-      url: buildAttachmentFileUrl('pending'),
-      content: null,
-    })
-    em.persist(attachment)
-    await em.flush()
-    attachment.url = asset.kind === 'image'
-      ? buildAttachmentImageUrl(attachment.id, { slug: slugifyAttachmentFileName(fileName) })
-      : buildAttachmentFileUrl(attachment.id)
-    attachment.storageMetadata = {
-      ...(attachment.storageMetadata ?? {}),
-      source: 'akeneo',
-      externalId: asset.externalId,
-      kind: asset.kind,
-      remoteCode: asset.remote.codeOrUrl,
-    }
-    await em.flush()
-    await emitAttachmentCrudChange('created', attachment)
-    await externalIdMappingService.storeExternalIdMapping('sync_akeneo', 'attachment', attachment.id, asset.externalId, scope)
-    return attachment.id
+    return withGdprLocalWriteLease(
+      em.getKnex() as never,
+      scope.organizationId,
+      'storage',
+      async () => {
+        const binary = await client.downloadMediaFile(asset.remote.codeOrUrl)
+        const fileName =
+          asset.remote.fileNameHint ?? binary.fileName ?? `akeneo-${randomUUID().slice(0, 8)}`
+        const stored = await storePartitionFile({
+          partitionCode,
+          orgId: scope.organizationId,
+          tenantId: scope.tenantId,
+          fileName,
+          buffer: binary.buffer,
+        })
+        const attachment = em.create(Attachment, {
+          entityId: asset.entityId,
+          recordId: asset.recordId,
+          organizationId: scope.organizationId,
+          tenantId: scope.tenantId,
+          partitionCode,
+          fileName,
+          mimeType: asset.remote.mimeTypeHint ?? binary.contentType ?? 'application/octet-stream',
+          fileSize: binary.contentLength ?? binary.buffer.byteLength,
+          storageDriver: 'local',
+          storagePath: stored.storagePath,
+          storageMetadata: mergeAttachmentMetadata(null, {
+            assignments: [{ type: asset.entityId, id: asset.recordId }],
+          }),
+          url: buildAttachmentFileUrl('pending'),
+          content: null,
+        })
+        em.persist(attachment)
+        await em.flush()
+        attachment.url = asset.kind === 'image'
+          ? buildAttachmentImageUrl(attachment.id, { slug: slugifyAttachmentFileName(fileName) })
+          : buildAttachmentFileUrl(attachment.id)
+        attachment.storageMetadata = {
+          ...(attachment.storageMetadata ?? {}),
+          source: 'akeneo',
+          externalId: asset.externalId,
+          kind: asset.kind,
+          remoteCode: asset.remote.codeOrUrl,
+        }
+        await em.flush()
+        await emitAttachmentCrudChange('created', attachment)
+        await externalIdMappingService.storeExternalIdMapping(
+          'sync_akeneo',
+          'attachment',
+          attachment.id,
+          asset.externalId,
+          scope,
+        )
+        return attachment.id
+      },
+    )
   }
 
   async function reconcileAttachments(params: {

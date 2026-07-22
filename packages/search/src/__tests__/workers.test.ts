@@ -169,7 +169,9 @@ describe('Fulltext Index Worker', () => {
       { entity_id: 'rec-2', doc: { name: 'Test 2' } },
     ]),
   }
-  const mockKnex = jest.fn(() => mockKnexQuery)
+  const mockKnex = Object.assign(jest.fn(() => mockKnexQuery), {
+    raw: jest.fn().mockResolvedValue({ rows: [{ relation: null }] }),
+  })
 
   const mockSearchIndexer = {
     getEntityConfig: jest.fn().mockReturnValue(null),
@@ -201,6 +203,7 @@ describe('Fulltext Index Worker', () => {
       { entity_id: 'rec-1', doc: { name: 'Test 1' } },
       { entity_id: 'rec-2', doc: { name: 'Test 2' } },
     ])
+    mockKnex.raw.mockResolvedValue({ rows: [{ relation: null }] })
   })
 
   it('should skip job with missing tenantId', async () => {

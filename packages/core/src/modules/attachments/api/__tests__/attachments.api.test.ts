@@ -1,4 +1,6 @@
 /** @jest-environment node */
+jest.mock('server-only', () => ({}))
+
 import { GET as list, POST as upload } from '@open-mercato/core/modules/attachments/api/route'
 
 const partitions = [

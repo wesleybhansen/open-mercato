@@ -20,7 +20,9 @@ const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthFromCookies()
-  if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  if (!auth?.orgId || !auth.tenantId || !auth.userId) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
 
   try {
     const { id: pageId } = await params
@@ -54,15 +56,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const dir = path.join(UPLOAD_DIR, auth.orgId, pageId)
-    const ext = file.name.split('.').pop() || 'png'
+    const fallbackExtension: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/svg+xml': 'svg',
+    }
+    const requestedExtension = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const ext = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(requestedExtension)
+      ? requestedExtension
+      : (fallbackExtension[file.type] ?? 'png')
     const filename = `${crypto.randomUUID()}.${ext}`
-    const filePath = path.join(dir, filename)
+    const relativePath = path.join('uploads', 'page-images', auth.orgId, pageId, filename)
+    const filePath = path.join(process.cwd(), relativePath)
     const buffer = Buffer.from(await file.arrayBuffer())
     await withGdprLocalWriteLease(knex as never, auth.orgId, 'storage', () =>
       withGdprUserWriteLease(knex as never, auth.userId, 'storage', async () => {
         fs.mkdirSync(dir, { recursive: true })
         try {
           fs.writeFileSync(filePath, buffer)
+          await knex('gdpr_user_local_files').insert({
+            id: crypto.randomUUID(),
+            local_user_id: auth.userId,
+            organization_id: auth.orgId,
+            tenant_id: auth.tenantId,
+            relative_path: relativePath,
+          })
         } catch (error) {
           fs.rmSync(filePath, { force: true })
           throw error

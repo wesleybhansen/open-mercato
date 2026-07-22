@@ -205,10 +205,16 @@ export function registerSearchModule(
 
   // Create presenter enricher for database-based presenter resolution
   let presenterEnricher: PresenterEnricherFn | undefined
+  let database: Knex | undefined
   try {
     const em = container.resolve<{ getConnection: () => { getKnex: () => Knex } }>('em')
-    const knex = em.getConnection().getKnex()
-    presenterEnricher = createPresenterEnricher(knex, entityConfigMap, queryEngine, encryptionService)
+    database = em.getConnection().getKnex()
+    presenterEnricher = createPresenterEnricher(
+      database,
+      entityConfigMap,
+      queryEngine,
+      encryptionService,
+    )
   } catch {
     // knex not available, presenter enrichment disabled
   }
@@ -250,6 +256,7 @@ export function registerSearchModule(
 
   const searchIndexer = new SearchIndexer(searchService, moduleConfigs, {
     queryEngine,
+    database,
     fulltextQueue,
     vectorQueue,
   })

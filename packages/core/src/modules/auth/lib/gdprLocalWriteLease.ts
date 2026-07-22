@@ -66,6 +66,9 @@ async function releaseGdprUserWriteLease(
 }
 
 export type GdprLocalWriteLease = {
+  /** Opaque database binding used when an admitted direct operation must
+   * register a longer-lived external grant before it returns. */
+  leaseId: string
   release: () => Promise<void>
 }
 
@@ -78,12 +81,12 @@ export async function beginGdprLocalWriteLease(
 ): Promise<GdprLocalWriteLease | null> {
   const leaseId = await acquireGdprLocalWriteLease(database, organizationId, kind)
   if (!leaseId) return null
-  let released = false
+  let releasePromise: Promise<void> | null = null
   return {
-    release: async () => {
-      if (released) return
-      await releaseGdprLocalWriteLease(database, organizationId, leaseId, kind)
-      released = true
+    leaseId,
+    release: () => {
+      releasePromise ??= releaseGdprLocalWriteLease(database, organizationId, leaseId, kind)
+      return releasePromise
     },
   }
 }
@@ -95,12 +98,12 @@ export async function beginGdprUserWriteLease(
 ): Promise<GdprLocalWriteLease | null> {
   const leaseId = await acquireGdprUserWriteLease(database, userId, kind)
   if (!leaseId) return null
-  let released = false
+  let releasePromise: Promise<void> | null = null
   return {
-    release: async () => {
-      if (released) return
-      await releaseGdprUserWriteLease(database, userId, leaseId, kind)
-      released = true
+    leaseId,
+    release: () => {
+      releasePromise ??= releaseGdprUserWriteLease(database, userId, leaseId, kind)
+      return releasePromise
     },
   }
 }

@@ -37,6 +37,7 @@ export class Migration20260722030000 extends Migration {
       create table if not exists "gdpr_user_receipts" (
         "operation_id" uuid primary key,
         "noli_user_id" text not null unique,
+        "noli_org_id" text,
         "email_hash" text,
         "clerk_hash" text,
         "storage_proven_at" timestamptz,
@@ -49,11 +50,22 @@ export class Migration20260722030000 extends Migration {
       create table if not exists "gdpr_user_search_subjects" (
         "operation_id" uuid not null,
         "noli_user_id" text not null,
-        "tenant_id" uuid not null,
+        "tenant_id" uuid,
+        "tenant_scope" text not null,
         "organization_id" uuid,
         "record_id" text not null,
         "created_at" timestamptz not null default now(),
-        primary key ("operation_id", "tenant_id", "record_id")
+        primary key ("operation_id", "tenant_scope", "record_id"),
+        check ("tenant_scope" = coalesce("tenant_id"::text, '*'))
+      );
+      create table if not exists "gdpr_user_local_files" (
+        "id" uuid primary key default gen_random_uuid(),
+        "local_user_id" uuid not null,
+        "organization_id" uuid not null,
+        "tenant_id" uuid not null,
+        "relative_path" text not null unique,
+        "created_at" timestamptz not null default now(),
+        check ("relative_path" like 'uploads/page-images/%')
       );
       create table if not exists "gdpr_local_write_leases" (
         "lease_id" uuid primary key,
@@ -67,6 +79,19 @@ export class Migration20260722030000 extends Migration {
         "local_user_id" uuid not null,
         "kind" text not null check ("kind" in ('processor', 'storage', 'search')),
         "created_at" timestamptz not null default now()
+      );
+      create table if not exists "gdpr_external_processor_grants" (
+        "grant_id" uuid primary key,
+        "organization_id" uuid not null references "organizations" ("id") on delete cascade,
+        "local_user_id" uuid not null references "users" ("id") on delete cascade,
+        "noli_org_id" text not null,
+        "provider" text not null check (nullif(btrim("provider"), '') is not null),
+        "purpose" text not null check (nullif(btrim("purpose"), '') is not null),
+        "external_binding_sha256" text not null
+          check ("external_binding_sha256" ~ '^[0-9a-f]{64}$'),
+        "expires_at" timestamptz not null,
+        "created_at" timestamptz not null default now(),
+        check ("expires_at" > "created_at")
       );
       create table if not exists "gdpr_org_subjects" (
         "operation_id" uuid not null,
@@ -82,14 +107,70 @@ export class Migration20260722030000 extends Migration {
         primary key ("operation_id", "noli_org_id"),
         unique ("noli_org_id")
       );
+      alter table public.gdpr_user_search_subjects
+        add column if not exists tenant_scope text;
+      update public.gdpr_user_search_subjects
+         set tenant_scope = coalesce(tenant_id::text, '*')
+       where tenant_scope is null;
+      alter table public.gdpr_user_search_subjects
+        alter column tenant_scope set not null;
+      do $$
+      declare
+        primary_key_name text;
+        primary_key_has_scope boolean;
+      begin
+        select constraints.conname,
+               attributes.attnum = any(constraints.conkey)
+          into primary_key_name, primary_key_has_scope
+          from pg_catalog.pg_constraint as constraints
+          join pg_catalog.pg_attribute as attributes
+            on attributes.attrelid = constraints.conrelid
+           and attributes.attname = 'tenant_scope'
+         where constraints.conrelid = 'public.gdpr_user_search_subjects'::regclass
+           and constraints.contype = 'p';
+        if primary_key_name is not null and not primary_key_has_scope then
+          execute format(
+            'alter table public.gdpr_user_search_subjects drop constraint %I',
+            primary_key_name
+          );
+          primary_key_name := null;
+        end if;
+        alter table public.gdpr_user_search_subjects
+          alter column tenant_id drop not null;
+        if primary_key_name is null then
+          alter table public.gdpr_user_search_subjects
+            add constraint gdpr_user_search_subjects_pkey
+            primary key (operation_id, tenant_scope, record_id);
+        end if;
+        if not exists (
+          select 1
+            from pg_catalog.pg_constraint as constraints
+           where constraints.conrelid = 'public.gdpr_user_search_subjects'::regclass
+             and constraints.contype = 'c'
+             and pg_catalog.pg_get_constraintdef(constraints.oid) like '%tenant_scope%'
+        ) then
+          alter table public.gdpr_user_search_subjects
+            add constraint gdpr_user_search_subjects_tenant_scope_check
+            check (tenant_scope = coalesce(tenant_id::text, '*'));
+        end if;
+      end;
+      $$;
       create index if not exists "gdpr_local_write_leases_noli_org_idx"
         on "gdpr_local_write_leases" ("noli_org_id", "kind");
       create index if not exists "gdpr_user_write_leases_user_idx"
         on "gdpr_user_write_leases" ("local_user_id", "kind");
+      create index if not exists "gdpr_external_processor_grants_org_idx"
+        on "gdpr_external_processor_grants" ("noli_org_id", "expires_at");
+      create index if not exists "gdpr_external_processor_grants_user_idx"
+        on "gdpr_external_processor_grants" ("local_user_id", "expires_at");
       create index if not exists "gdpr_user_subjects_local_user_idx"
         on "gdpr_user_subjects" ("local_user_id");
       create index if not exists "gdpr_user_search_subjects_record_tenant_idx"
         on "gdpr_user_search_subjects" ("record_id", "tenant_id");
+      create index if not exists "gdpr_user_local_files_user_idx"
+        on "gdpr_user_local_files" ("local_user_id");
+      create index if not exists "gdpr_user_local_files_org_idx"
+        on "gdpr_user_local_files" ("organization_id");
       create unique index if not exists "gdpr_org_subjects_organization_idx"
         on "gdpr_org_subjects" ("organization_id");
       alter table public.gdpr_erasure_fences enable row level security;
@@ -97,6 +178,7 @@ export class Migration20260722030000 extends Migration {
       alter table public.gdpr_user_subjects enable row level security;
       alter table public.gdpr_user_receipts enable row level security;
       alter table public.gdpr_user_search_subjects enable row level security;
+      alter table public.gdpr_user_local_files enable row level security;
       alter table public.gdpr_local_write_leases enable row level security;
       alter table public.gdpr_user_write_leases enable row level security;
       alter table public.gdpr_org_subjects enable row level security;
@@ -105,10 +187,13 @@ export class Migration20260722030000 extends Migration {
         public.gdpr_user_subjects,
         public.gdpr_user_receipts,
         public.gdpr_user_search_subjects,
+        public.gdpr_user_local_files,
         public.gdpr_local_write_leases,
         public.gdpr_user_write_leases,
         public.gdpr_org_subjects
         from public;
+      alter table public.gdpr_user_receipts
+        add column if not exists noli_org_id text;
       alter table if exists public.attachments
         add column if not exists uploaded_by_user_id uuid;
       do $$
@@ -344,6 +429,109 @@ export class Migration20260722030000 extends Migration {
       $$;
     `)
     this.addSql(`
+      create or replace function public.crm_gdpr_lock_user_search_subject()
+      returns trigger
+      language plpgsql
+      security definer
+      set search_path = ''
+      as $$
+      declare
+        lock_key text;
+      begin
+        for lock_key in
+          select candidate
+            from unnest(array[
+              'crm-gdpr-user-search:*:' || new.record_id,
+              'crm-gdpr-user-search:' || new.tenant_id::text || ':' || new.record_id
+            ]) as candidate
+           where candidate is not null
+           order by candidate
+        loop
+          perform pg_catalog.pg_advisory_xact_lock(
+            pg_catalog.hashtextextended(lock_key, 0)
+          );
+        end loop;
+        return new;
+      end;
+      $$;
+
+      create or replace function public.crm_gdpr_guard_user_search_write()
+      returns trigger
+      language plpgsql
+      security definer
+      set search_path = ''
+      as $$
+      declare
+        candidate record;
+        candidates jsonb := '[]'::jsonb;
+        lock_key text;
+        record_column text;
+      begin
+        if tg_nargs <> 1 then
+          raise exception 'CRM user-search writer trigger has no record column';
+        end if;
+        record_column := tg_argv[0];
+        if tg_op = 'UPDATE' then
+          candidates := candidates || jsonb_build_array(jsonb_build_object(
+            'tenant_id', to_jsonb(old) ->> 'tenant_id',
+            'record_id', to_jsonb(old) ->> record_column
+          ));
+        end if;
+        candidates := candidates || jsonb_build_array(jsonb_build_object(
+          'tenant_id', to_jsonb(new) ->> 'tenant_id',
+          'record_id', to_jsonb(new) ->> record_column
+        ));
+
+        for lock_key in
+          with normalized as (
+            select distinct
+                   value ->> 'tenant_id' as tenant_id,
+                   value ->> 'record_id' as record_id
+              from jsonb_array_elements(candidates)
+             where nullif(value ->> 'record_id', '') is not null
+          )
+          select distinct candidate_key
+            from normalized
+            cross join lateral unnest(array[
+              'crm-gdpr-user-search:*:' || normalized.record_id,
+              case when normalized.tenant_id is not null then
+                'crm-gdpr-user-search:' || normalized.tenant_id || ':' || normalized.record_id
+              end
+            ]) as candidate_key
+           where candidate_key is not null
+           order by candidate_key
+        loop
+          perform pg_catalog.pg_advisory_xact_lock_shared(
+            pg_catalog.hashtextextended(lock_key, 0)
+          );
+        end loop;
+
+        for candidate in
+          select distinct
+                 value ->> 'tenant_id' as tenant_id,
+                 value ->> 'record_id' as record_id
+            from jsonb_array_elements(candidates)
+           where nullif(value ->> 'record_id', '') is not null
+           order by tenant_id nulls first, record_id
+        loop
+          if exists (
+            select 1
+              from public.gdpr_user_search_subjects as subjects
+             where subjects.record_id = candidate.record_id
+               and (
+                 subjects.tenant_id is null
+                 or candidate.tenant_id is null
+                 or subjects.tenant_id = candidate.tenant_id::uuid
+               )
+          ) then
+            raise exception 'CRM search subject is frozen for GDPR erasure';
+          end if;
+        end loop;
+        return new;
+      end;
+      $$;
+    `)
+    this.addSql(`
       create or replace function public.crm_gdpr_guard_organization_write()
       returns trigger
       language plpgsql
@@ -498,6 +686,53 @@ export class Migration20260722030000 extends Migration {
       end;
       $$;
     `)
+    this.addSql(`drop trigger if exists crm_gdpr_lock_user_search_subject on "gdpr_user_search_subjects";`)
+    this.addSql(`
+      create trigger crm_gdpr_lock_user_search_subject
+      before insert or update on "gdpr_user_search_subjects"
+      for each row execute function public.crm_gdpr_lock_user_search_subject();
+    `)
+    this.addSql(`
+      do $$
+      declare table_row record;
+      begin
+        for table_row in
+          select * from (values
+            ('entity_indexes', 'entity_id'),
+            ('search_tokens', 'entity_id'),
+            ('vector_search', 'record_id'),
+            ('indexer_error_logs', 'record_id'),
+            ('indexer_status_logs', 'record_id')
+          ) as expected(table_name, record_column)
+         where exists (
+           select 1
+             from information_schema.columns
+            where table_schema = 'public'
+              and table_name = expected.table_name
+              and column_name = expected.record_column
+         )
+           and exists (
+             select 1
+               from information_schema.columns
+              where table_schema = 'public'
+                and table_name = expected.table_name
+                and column_name = 'tenant_id'
+           )
+         order by expected.table_name
+        loop
+          execute format(
+            'drop trigger if exists crm_gdpr_guard_user_search_write on public.%I',
+            table_row.table_name
+          );
+          execute format(
+            'create trigger crm_gdpr_guard_user_search_write before insert or update on public.%I for each row execute function public.crm_gdpr_guard_user_search_write(%L)',
+            table_row.table_name,
+            table_row.record_column
+          );
+        end loop;
+      end;
+      $$;
+    `)
     this.addSql(`
       create or replace function public.crm_gdpr_begin_erasure(
         p_scope text,
@@ -630,9 +865,16 @@ export class Migration20260722030000 extends Migration {
         ) then
           raise exception 'CRM local-write lease inventory fence mismatch';
         end if;
-        select count(*) into lease_count
-          from public.gdpr_local_write_leases
-         where noli_org_id = p_noli_org_id;
+        select
+          (select count(*)
+             from public.gdpr_local_write_leases
+            where noli_org_id = p_noli_org_id)
+          +
+          (select count(*)
+             from public.gdpr_external_processor_grants
+            where noli_org_id = p_noli_org_id
+              and expires_at > now())
+          into lease_count;
         return lease_count;
       end;
       $$;
@@ -726,10 +968,131 @@ export class Migration20260722030000 extends Migration {
         ) then
           raise exception 'CRM user-write lease inventory fence mismatch';
         end if;
-        select count(*) into lease_count
-          from public.gdpr_user_write_leases
-         where local_user_id = any(coalesce(p_local_user_ids, array[]::uuid[]));
+        select
+          (select count(*)
+             from public.gdpr_user_write_leases
+            where local_user_id = any(coalesce(p_local_user_ids, array[]::uuid[])))
+          +
+          (select count(*)
+             from public.gdpr_external_processor_grants
+            where local_user_id = any(coalesce(p_local_user_ids, array[]::uuid[]))
+              and expires_at > now())
+          into lease_count;
         return lease_count;
+      end;
+      $$;
+    `)
+    this.addSql(`
+      create or replace function public.crm_gdpr_create_external_processor_grant(
+        p_organization_id uuid,
+        p_local_user_id uuid,
+        p_organization_lease_id uuid,
+        p_user_lease_id uuid,
+        p_grant_id uuid,
+        p_provider text,
+        p_purpose text,
+        p_external_binding text,
+        p_lifetime_seconds integer
+      ) returns jsonb
+      language plpgsql
+      security definer
+      set search_path = ''
+      as $$
+      declare
+        noli_org_id_value text;
+        organization_fence_state text;
+        user_fence_state text;
+        expires_at_value timestamptz;
+      begin
+        if p_organization_id is null
+           or p_local_user_id is null
+           or p_organization_lease_id is null
+           or p_user_lease_id is null
+           or p_grant_id is null
+           or nullif(btrim(p_provider), '') is null
+           or nullif(btrim(p_purpose), '') is null
+           or nullif(p_external_binding, '') is null
+           or p_lifetime_seconds is null
+           or p_lifetime_seconds < 1
+           or p_lifetime_seconds > 4200 then
+          raise exception 'CRM external processor grant binding is required';
+        end if;
+
+        select leases.noli_org_id
+          into noli_org_id_value
+          from public.gdpr_local_write_leases as leases
+          join public.organizations as organizations
+            on organizations.id = leases.organization_id
+           and organizations.noli_org_id = leases.noli_org_id
+         where leases.lease_id = p_organization_lease_id
+           and leases.organization_id = p_organization_id
+           and leases.kind = 'processor'
+         for key share of leases, organizations;
+        if not found then
+          raise exception 'CRM external grant lacks its organization processor lease';
+        end if;
+        if not exists (
+          select 1
+            from public.gdpr_user_write_leases as leases
+           where leases.lease_id = p_user_lease_id
+             and leases.local_user_id = p_local_user_id
+             and leases.kind = 'processor'
+           for key share
+        ) then
+          raise exception 'CRM external grant lacks its user processor lease';
+        end if;
+
+        perform pg_catalog.pg_advisory_xact_lock_shared(
+          pg_catalog.hashtextextended(
+            'crm-gdpr-fence:organization:' || noli_org_id_value,
+            0
+          )
+        );
+        perform pg_catalog.pg_advisory_xact_lock_shared(
+          pg_catalog.hashtextextended(
+            'crm-gdpr-fence:user:' || p_local_user_id::text,
+            0
+          )
+        );
+        select state into organization_fence_state
+          from public.gdpr_erasure_fences
+         where scope = 'organization' and subject_id = noli_org_id_value;
+        select state into user_fence_state
+          from public.gdpr_erasure_fences
+         where scope = 'user' and subject_id = p_local_user_id::text;
+        if organization_fence_state <> 'active' or user_fence_state <> 'active' then
+          raise exception 'CRM external processor grant was rejected by an erasure fence';
+        end if;
+
+        expires_at_value := now() + make_interval(secs => p_lifetime_seconds);
+        insert into public.gdpr_external_processor_grants (
+          grant_id,
+          organization_id,
+          local_user_id,
+          noli_org_id,
+          provider,
+          purpose,
+          external_binding_sha256,
+          expires_at
+        ) values (
+          p_grant_id,
+          p_organization_id,
+          p_local_user_id,
+          noli_org_id_value,
+          btrim(p_provider),
+          btrim(p_purpose),
+          encode(sha256(convert_to(p_external_binding, 'UTF8')), 'hex'),
+          expires_at_value
+        );
+        return jsonb_build_object(
+          'grantId', p_grant_id::text,
+          'organizationId', p_organization_id::text,
+          'localUserId', p_local_user_id::text,
+          'noliOrgId', noli_org_id_value,
+          'provider', btrim(p_provider),
+          'purpose', btrim(p_purpose),
+          'expiresAt', expires_at_value
+        );
       end;
       $$;
     `)
@@ -855,6 +1218,8 @@ export class Migration20260722030000 extends Migration {
       revoke execute on function public.crm_gdpr_lock_active(text, text) from public;
       revoke execute on function public.crm_gdpr_guard_user_insert() from public;
       revoke execute on function public.crm_gdpr_guard_user_scoped_write() from public;
+      revoke execute on function public.crm_gdpr_lock_user_search_subject() from public;
+      revoke execute on function public.crm_gdpr_guard_user_search_write() from public;
       revoke execute on function public.crm_gdpr_guard_organization_write() from public;
       revoke execute on function public.crm_gdpr_guard_org_scoped_write() from public;
       revoke execute on function public.crm_gdpr_begin_erasure(text, text, uuid) from public;
@@ -867,11 +1232,34 @@ export class Migration20260722030000 extends Migration {
       revoke execute on function public.crm_gdpr_acquire_user_write_lease(uuid, uuid, text) from public;
       revoke execute on function public.crm_gdpr_release_user_write_lease(uuid, uuid, text) from public;
       revoke execute on function public.crm_gdpr_active_user_write_leases(text, uuid, uuid[]) from public;
+      revoke execute on function public.crm_gdpr_create_external_processor_grant(uuid, uuid, uuid, uuid, uuid, text, text, text, integer) from public;
+      revoke all on table public.gdpr_external_processor_grants from public;
     `)
   }
 
   override async down(): Promise<void> {
     this.addSql(`drop trigger if exists crm_gdpr_guard_user_insert on "users";`)
+    this.addSql(`drop trigger if exists crm_gdpr_lock_user_search_subject on "gdpr_user_search_subjects";`)
+    this.addSql(`
+      do $$
+      declare table_row record;
+      begin
+        for table_row in
+          select classes.relname as table_name
+            from pg_catalog.pg_trigger as triggers
+            join pg_catalog.pg_class as classes on classes.oid = triggers.tgrelid
+            join pg_catalog.pg_namespace as namespaces on namespaces.oid = classes.relnamespace
+           where namespaces.nspname = 'public'
+             and triggers.tgname = 'crm_gdpr_guard_user_search_write'
+        loop
+          execute format(
+            'drop trigger if exists crm_gdpr_guard_user_search_write on public.%I',
+            table_row.table_name
+          );
+        end loop;
+      end;
+      $$;
+    `)
     this.addSql(`drop trigger if exists crm_gdpr_guard_organization_write on "organizations";`)
     this.addSql(`
       do $$
@@ -917,6 +1305,8 @@ export class Migration20260722030000 extends Migration {
     `)
     this.addSql(`drop function if exists public.crm_gdpr_guard_user_insert();`)
     this.addSql(`drop function if exists public.crm_gdpr_guard_user_scoped_write();`)
+    this.addSql(`drop function if exists public.crm_gdpr_lock_user_search_subject();`)
+    this.addSql(`drop function if exists public.crm_gdpr_guard_user_search_write();`)
     this.addSql(`drop function if exists public.crm_gdpr_guard_organization_write();`)
     this.addSql(`drop function if exists public.crm_gdpr_guard_org_scoped_write();`)
     this.addSql(`drop function if exists public.crm_gdpr_begin_erasure(text, text, uuid);`)
@@ -943,14 +1333,19 @@ export class Migration20260722030000 extends Migration {
     this.addSql(
       `drop function if exists public.crm_gdpr_active_user_write_leases(text, uuid, uuid[]);`,
     )
+    this.addSql(
+      `drop function if exists public.crm_gdpr_create_external_processor_grant(uuid, uuid, uuid, uuid, uuid, text, text, text, integer);`,
+    )
     this.addSql(`drop function if exists public.crm_gdpr_lock_active(text, text);`)
     this.addSql(`drop table if exists "gdpr_erasure_fences";`)
     this.addSql(`drop table if exists "gdpr_identity_fences";`)
     this.addSql(`drop table if exists "gdpr_user_subjects";`)
     this.addSql(`drop table if exists "gdpr_user_receipts";`)
     this.addSql(`drop table if exists "gdpr_user_search_subjects";`)
+    this.addSql(`drop table if exists "gdpr_user_local_files";`)
     this.addSql(`drop table if exists "gdpr_local_write_leases";`)
     this.addSql(`drop table if exists "gdpr_user_write_leases";`)
+    this.addSql(`drop table if exists "gdpr_external_processor_grants";`)
     this.addSql(`drop table if exists "gdpr_org_subjects";`)
     this.addSql(`drop index if exists public.attachments_uploaded_by_user_idx;`)
     this.addSql(

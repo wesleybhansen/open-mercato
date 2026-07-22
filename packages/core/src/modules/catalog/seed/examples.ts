@@ -32,6 +32,7 @@ import {
   resolveDefaultPartitionCode,
 } from "@open-mercato/core/modules/attachments/lib/partitions";
 import { storePartitionFile } from "@open-mercato/core/modules/attachments/lib/storage";
+import { withGdprLocalWriteLease } from "@open-mercato/core/modules/auth/lib/gdprLocalWriteLease";
 import { mergeAttachmentMetadata } from "@open-mercato/core/modules/attachments/lib/metadata";
 import {
   buildAttachmentFileUrl,
@@ -87,13 +88,19 @@ async function attachMediaFromExamples(
       console.warn(`[catalog.seed] Example media missing: ${sourcePath}`);
       continue;
     }
-    const stored = await storePartitionFile({
-      partitionCode: partition.code,
-      orgId: scope.organizationId,
-      tenantId: scope.tenantId,
-      fileName: media.file,
-      buffer,
-    });
+    const stored = await withGdprLocalWriteLease(
+      em.getKnex() as never,
+      scope.organizationId,
+      "storage",
+      () =>
+        storePartitionFile({
+          partitionCode: partition.code,
+          orgId: scope.organizationId,
+          tenantId: scope.tenantId,
+          fileName: media.file,
+          buffer,
+        }),
+    );
     const attachmentId = randomUUID();
     const slug = slugifyAttachmentFileName(media.file, "media");
     const metadata = mergeAttachmentMetadata(null, {

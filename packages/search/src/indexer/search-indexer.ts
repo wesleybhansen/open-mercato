@@ -11,9 +11,11 @@ import type { FullTextSearchStrategy } from '../strategies/fulltext.strategy'
 import type { EntityId } from '@open-mercato/shared/modules/entities'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import type { Queue } from '@open-mercato/queue'
+import type { Knex } from 'knex'
 import type { FulltextIndexJobPayload } from '../queue/fulltext-indexing'
 import type { VectorIndexJobPayload, VectorBatchRecord } from '../queue/vector-indexing'
 import { searchDebug, searchDebugWarn, searchError } from '../lib/debug'
+import { tryWithGdprUserSearchWriteLeases } from '../lib/gdpr-local-write-lease'
 
 /**
  * Maximum number of pages to process during reindex to prevent infinite loops.
@@ -108,6 +110,7 @@ export type ReindexResult = {
  */
 export type SearchIndexerOptions = {
   queryEngine?: QueryEngine
+  database?: Knex
   /** Queue for fulltext batch indexing */
   fulltextQueue?: Queue<FulltextIndexJobPayload>
   /** Queue for vector batch indexing */
@@ -121,6 +124,7 @@ export type SearchIndexerOptions = {
 export class SearchIndexer {
   private readonly entityConfigMap: Map<EntityId, SearchEntityConfig>
   private readonly queryEngine?: QueryEngine
+  private readonly database?: Knex
   private readonly fulltextQueue?: Queue<FulltextIndexJobPayload>
   private readonly vectorQueue?: Queue<VectorIndexJobPayload>
 
@@ -131,6 +135,7 @@ export class SearchIndexer {
   ) {
     this.entityConfigMap = new Map()
     this.queryEngine = options?.queryEngine
+    this.database = options?.database
     this.fulltextQueue = options?.fulltextQueue
     this.vectorQueue = options?.vectorQueue
     for (const moduleConfig of moduleConfigs) {
@@ -177,13 +182,47 @@ export class SearchIndexer {
     return config?.enabled !== false
   }
 
+  private async writeIndexableRecords(
+    records: readonly IndexableRecord[],
+    operation: (allowedRecords: readonly IndexableRecord[]) => Promise<void>,
+  ): Promise<number> {
+    if (!records.length) return 0
+    if (!this.database) {
+      throw new Error('Search indexing requires the GDPR write-fence database')
+    }
+    const result = await tryWithGdprUserSearchWriteLeases(
+      this.database,
+      records.map((record) => ({ tenantId: record.tenantId, recordId: record.recordId })),
+      async (allowedSubjects) => {
+        const allowedKeys = new Set(
+          allowedSubjects.map((subject) => `${subject.tenantId}\u0000${subject.recordId}`),
+        )
+        const allowedRecords = records.filter((record) =>
+          allowedKeys.has(`${record.tenantId}\u0000${record.recordId}`),
+        )
+        await operation(allowedRecords)
+        return allowedRecords.length
+      },
+    )
+    return result.executed ? result.value : 0
+  }
+
+  private async writeIndexableRecord(record: IndexableRecord): Promise<boolean> {
+    return (
+      (await this.writeIndexableRecords([record], async (allowedRecords) => {
+        const allowedRecord = allowedRecords[0]
+        if (allowedRecord) await this.searchService.index(allowedRecord)
+      })) === 1
+    )
+  }
+
   /**
    * Index a record in the search service.
    */
-  async indexRecord(params: IndexRecordParams): Promise<void> {
+  async indexRecord(params: IndexRecordParams): Promise<boolean> {
     const config = this.entityConfigMap.get(params.entityId)
     if (!config || config.enabled === false) {
-      return // Entity not configured for search
+      return false // Entity not configured for search
     }
 
     const buildContext: SearchBuildContext = {
@@ -275,7 +314,7 @@ export class SearchIndexer {
       checksumSource,
     }
 
-    await this.searchService.index(indexableRecord)
+    return this.writeIndexableRecord(indexableRecord)
   }
 
   /**
@@ -321,7 +360,7 @@ export class SearchIndexer {
         }
       }
 
-      await this.indexRecord({
+      const indexed = await this.indexRecord({
         entityId: params.entityId,
         recordId: params.recordId,
         tenantId: params.tenantId,
@@ -330,7 +369,9 @@ export class SearchIndexer {
         customFields,
       })
 
-      return { action: 'indexed' }
+      return indexed
+        ? { action: 'indexed' }
+        : { action: 'skipped', reason: 'user erasure tombstone' }
     } catch (error) {
       searchError('SearchIndexer', 'Failed to load record for indexing', {
         entityId: params.entityId,
@@ -436,8 +477,7 @@ export class SearchIndexer {
         // Index each record via SearchService (sends to all strategies)
         for (const record of records) {
           try {
-            await this.searchService.index(record)
-            result.recordsIndexed++
+            if (await this.writeIndexableRecord(record)) result.recordsIndexed++
           } catch (error) {
             searchDebugWarn('SearchIndexer', 'Failed to index record', {
               entityId: params.entityId,
@@ -561,7 +601,9 @@ export class SearchIndexer {
     }
 
     if (indexableRecords.length > 0) {
-      await this.searchService.bulkIndex(indexableRecords)
+      await this.writeIndexableRecords(indexableRecords, async (allowedRecords) => {
+        await this.searchService.bulkIndex([...allowedRecords])
+      })
     }
   }
 
@@ -695,8 +737,12 @@ export class SearchIndexer {
             } else {
               // Direct indexing (blocking)
               try {
-                await fulltext.bulkIndex(indexableRecords)
-                totalProcessed += indexableRecords.length
+                totalProcessed += await this.writeIndexableRecords(
+                  indexableRecords,
+                  async (allowedRecords) => {
+                    await fulltext.bulkIndex([...allowedRecords])
+                  },
+                )
               } catch (indexError) {
                 // Log error but continue with remaining batches
                 const errorMsg = indexError instanceof Error ? indexError.message : String(indexError)

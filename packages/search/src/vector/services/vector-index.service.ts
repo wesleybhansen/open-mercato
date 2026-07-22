@@ -18,6 +18,7 @@ import { computeChecksum } from './checksum'
 import { EmbeddingService } from './embedding'
 import { logVectorOperation } from '../lib/vector-logs'
 import { searchDebug, searchDebugWarn } from '../../lib/debug'
+import { tryWithGdprUserSearchWriteLease } from '../../lib/gdpr-local-write-lease'
 
 type ContainerResolver = () => unknown
 const VECTOR_ENTRY_ENCRYPTION_ENTITY_ID = 'vector:vector_search'
@@ -96,7 +97,7 @@ export type VectorIndexOperationResult = {
   existed?: boolean
   tenantId: string
   organizationId: string | null
-  reason?: 'unsupported' | 'missing_record' | 'checksum_match'
+  reason?: 'unsupported' | 'missing_record' | 'checksum_match' | 'user_erasure'
 }
 
 export class VectorIndexService {
@@ -126,6 +127,31 @@ export class VectorIndexService {
       const container = this.opts.containerResolver() as any
       if (!container || typeof container.resolve !== 'function') return null
       return container.resolve('tenantEncryptionService') as TenantDataEncryptionService
+    } catch {
+      return null
+    }
+  }
+
+  private resolveGdprDatabase(): Parameters<typeof tryWithGdprUserSearchWriteLease>[0] | null {
+    if (!this.opts.containerResolver) return null
+    try {
+      const container = this.opts.containerResolver() as {
+        resolve(name: string): unknown
+      }
+      if (!container || typeof container.resolve !== 'function') return null
+      const em = container.resolve('em') as {
+        getKnex?: () => unknown
+        getConnection?: () => { getKnex?: () => unknown }
+      }
+      const database = em?.getKnex?.() ?? em?.getConnection?.().getKnex?.()
+      if (
+        !database ||
+        typeof (database as { raw?: unknown }).raw !== 'function' ||
+        typeof (database as { transaction?: unknown }).transaction !== 'function'
+      ) {
+        return null
+      }
+      return database as Parameters<typeof tryWithGdprUserSearchWriteLease>[0]
     } catch {
       return null
     }
@@ -376,6 +402,33 @@ export class VectorIndexService {
   }
 
   private async indexExisting(
+    entry: { config: VectorEntityConfig; driverId: VectorDriverId },
+    driver: VectorDriver,
+    args: IndexRecordArgs,
+    raw: Record<string, any>,
+    opts: { skipDelete?: boolean } = {},
+  ): Promise<VectorIndexOperationResult> {
+    const database = this.resolveGdprDatabase()
+    if (!database) {
+      throw new Error('Vector indexing requires the GDPR write-fence database')
+    }
+    const result = await tryWithGdprUserSearchWriteLease(
+      database,
+      args.tenantId,
+      args.recordId,
+      () => this.indexExistingUnfenced(entry, driver, args, raw, opts),
+    )
+    if (result.executed) return result.value
+    return {
+      action: 'skipped',
+      existed: false,
+      tenantId: args.tenantId,
+      organizationId: args.organizationId ?? null,
+      reason: 'user_erasure',
+    }
+  }
+
+  private async indexExistingUnfenced(
     entry: { config: VectorEntityConfig; driverId: VectorDriverId },
     driver: VectorDriver,
     args: IndexRecordArgs,
