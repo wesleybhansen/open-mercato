@@ -1,10 +1,13 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import crypto from 'crypto'
 import { meterCustomersAi } from '@/lib/usage/meter'
-import { checkCustomersAiAllowance } from '@/lib/usage/allowance'
+import {
+  beginCustomersAiAllowance,
+  type CustomersAiAllowanceLease,
+} from '@/lib/usage/allowance'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['courses.manage'] },
@@ -18,19 +21,32 @@ export async function POST(req: Request, ctx: any) {
   const auth = ctx?.auth
   if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
-  const gate = await checkCustomersAiAllowance(auth)
-  if (!gate.allowed) return NextResponse.json({ ok: false, error: gate.message }, { status: 402 })
-
-  const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  if (!aiKey) return NextResponse.json({ ok: false, error: 'AI not configured' }, { status: 400 })
+  let allowanceLease: CustomersAiAllowanceLease | null = null
+  let leaseHandedToBackground = false
 
   try {
     const container = await createRequestContainer()
-    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const em = container.resolve('em') as EntityManager
+    const knex = em.getKnex()
     const body = await req.json()
     const { topic, targetAudience, depth, style, notes, outline: preBuiltOutline, sourceDocuments, isFree, price, landingCopy, landingStyle } = body
 
     if (!topic?.trim() && !preBuiltOutline) return NextResponse.json({ ok: false, error: 'Topic is required' }, { status: 400 })
+
+    allowanceLease = await beginCustomersAiAllowance(em, auth)
+    if (!allowanceLease) {
+      return NextResponse.json({
+        ok: false,
+        error: 'AI operations are unavailable while this account is being deleted.',
+      }, { status: 503 })
+    }
+    const gate = allowanceLease.gate
+    if (!gate.allowed) {
+      return NextResponse.json({ ok: false, error: gate.message }, { status: 402 })
+    }
+
+    const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    if (!aiKey) return NextResponse.json({ ok: false, error: 'AI not configured' }, { status: 400 })
 
     let referenceContext = ''
     if (sourceDocuments && Array.isArray(sourceDocuments) && sourceDocuments.length > 0) {
@@ -83,7 +99,7 @@ Return ONLY valid JSON (no markdown fences):
       const jsonMatch = outlineText.match(/\{[\s\S]*\}/)
       if (!jsonMatch) return NextResponse.json({ ok: false, error: 'AI failed to generate outline' }, { status: 500 })
       outline = JSON.parse(jsonMatch[0])
-      void meterCustomersAi(auth, {
+      await meterCustomersAi(auth, {
         model: 'gemini-2.5-flash',
         tokensIn: outlineData?.usageMetadata?.promptTokenCount || 0,
         tokensOut: outlineData?.usageMetadata?.candidatesTokenCount || 0,
@@ -147,7 +163,8 @@ Return ONLY valid JSON (no markdown fences):
       }
     }
 
-    // Step 4: Generate content for each lesson (fire and forget — runs in background)
+    // Step 4: Generate content after the response while keeping the exact
+    // organization/user processor leases alive through provider, DB, and meter writes.
     const styleGuide: Record<string, string> = {
       professional: 'Clear, authoritative, structured.',
       conversational: 'Warm, friendly, uses "you" language.',
@@ -158,8 +175,8 @@ Return ONLY valid JSON (no markdown fences):
     // If style doesn't match a preset, treat it as a custom style description
     const styleInstruction = styleGuide[style || 'professional'] || style || styleGuide.professional
 
-    // Background task with its own DB connection
-    ;(async () => {
+    const activeLease = allowanceLease
+    after(async () => {
       let bgKnex: any
       let bgTokensIn = 0
       let bgTokensOut = 0
@@ -200,7 +217,7 @@ Write thorough, practical markdown content: start with a brief intro (2-3 senten
         }
         await bgKnex('courses').where('id', courseId).update({ generation_status: 'complete', updated_at: new Date() })
         // Meter the full background lesson-generation batch in one row.
-        void meterCustomersAi(auth, {
+        await meterCustomersAi(auth, {
           model: 'gemini-2.5-flash',
           tokensIn: bgTokensIn,
           tokensOut: bgTokensOut,
@@ -214,8 +231,13 @@ Write thorough, practical markdown content: start with a brief intro (2-3 senten
           const fallbackKnex = (fallbackContainer.resolve('em') as EntityManager).getKnex()
           await fallbackKnex('courses').where('id', courseId).update({ generation_status: 'failed', updated_at: new Date() })
         } catch {}
+      } finally {
+        await activeLease.release().catch((releaseError) => {
+          console.error('[courses.ai.generate-full-course] failed to release processor lease', releaseError)
+        })
       }
-    })()
+    })
+    leaseHandedToBackground = true
 
     return NextResponse.json({
       ok: true,
@@ -225,6 +247,12 @@ Write thorough, practical markdown content: start with a brief intro (2-3 senten
     console.error('[courses.ai.generate-full-course]', error)
     const detail = error instanceof Error ? error.message : 'Failed to generate course'
     return NextResponse.json({ ok: false, error: `Failed to generate course: ${detail}` }, { status: 500 })
+  } finally {
+    if (allowanceLease && !leaseHandedToBackground) {
+      await allowanceLease.release().catch((releaseError) => {
+        console.error('[courses.ai.generate-full-course] failed to release processor lease', releaseError)
+      })
+    }
   }
 }
 

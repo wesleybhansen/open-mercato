@@ -2,7 +2,7 @@
 export const metadata = { path: '/ai/realtime/session', POST: { requireAuth: true } }
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
-import { checkCustomersAiAllowance } from '@/lib/usage/allowance'
+import { withCustomersAiAllowance } from '@/lib/usage/allowance'
 import { meterCustomersAi } from '@/lib/usage/meter'
 import { query, queryOne } from '@/lib/db'
 import { CRM_TOOLS } from '@/modules/customers/lib/crm-tool-catalog'
@@ -39,21 +39,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Cap gate — voice is the most expensive surface; block over-allowance orgs.
-  // Realtime runs on OpenAI, so the BYOK fall-through must resolve the org's
-  // OpenAI key (not the default Google).
-  const gate = await checkCustomersAiAllowance(auth, 'openai')
-  if (!gate.allowed) {
-    return NextResponse.json({ ok: false, error: gate.message }, { status: 402 })
-  }
-
-  const apiKey = gate.byoApiKey || process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ ok: false, error: 'OpenAI API key not configured' }, { status: 500 })
-  }
-
   try {
-    const body = await req.json().catch(() => ({}))
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const attempt = await withCustomersAiAllowance(
+      em,
+      { orgId: auth.orgId, sub: userId },
+      'openai',
+      async (gate, processorScope) => {
+        // Voice is the most expensive surface. Realtime runs on OpenAI, so the
+        // BYOK fall-through must resolve the org's OpenAI key rather than the
+        // default Google key.
+        if (!gate.allowed) {
+          return NextResponse.json({ ok: false, error: gate.message }, { status: 402 })
+        }
+
+        const apiKey = gate.byoApiKey || process.env.OPENAI_API_KEY
+        if (!apiKey) {
+          return NextResponse.json(
+            { ok: false, error: 'OpenAI API key not configured' },
+            { status: 500 },
+          )
+        }
+
+        try {
+          const body = await req.json().catch(() => ({}))
     // Realtime API voices: alloy, ash, ballad, coral, echo, sage, shimmer, verse
     const validVoices = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse']
     const voice = validVoices.includes(body.voice) ? body.voice : 'alloy'
@@ -129,8 +139,8 @@ COMPLEX (ask follow-up questions first): create_landing_page, create_funnel, cre
 When editing/deleting, use the id= values from the CRM DATA section below. You can also pass item names and they'll be auto-resolved. Always confirm DELETE actions with the user first.`
 
     // Load user info and email connections
-    const orgId = auth.orgId
-    const tenantId = auth.tenantId
+    const orgId = auth.orgId as string
+    const tenantId = auth.tenantId as string
 
     const [currentUser, emailConnections, espConnection] = await Promise.all([
       queryOne('SELECT name, email FROM users WHERE id = $1', [userId]).catch(() => null),
@@ -158,7 +168,7 @@ When editing/deleting, use the id= values from the CRM DATA section below. You c
       'SELECT id, display_name, primary_email, lifecycle_stage FROM customer_entities WHERE organization_id = $1 AND deleted_at IS NULL AND kind = $2 ORDER BY created_at DESC LIMIT 10',
       [orgId, 'person']
     )
-    const recentContacts = await decryptContactRows(recentContactsRaw as any[], auth.tenantId, auth.orgId)
+    const recentContacts = await decryptContactRows(recentContactsRaw as any[], tenantId, orgId)
 
     const recentDeals = await query(
       'SELECT id, title, pipeline_stage, value_amount, status FROM customer_deals WHERE organization_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 10',
@@ -309,23 +319,50 @@ TOOL CALL DISCIPLINE (CRITICAL — read carefully):
 - If a tool call fails mid-chain, STOP the chain, tell the user what failed, and wait for instructions. Do not skip ahead or pretend later steps succeeded.
 - Read-only queries (summaries, reports, searches) do NOT each need a function_call — speak naturally about retrieved data. This rule applies only to state-changing actions.`
 
-    // Create ephemeral client secret with OpenAI GA endpoint
+    // Register the browser-owned provider window before minting the credential.
+    // OpenAI documents a 60-minute maximum Realtime session. The connection
+    // token below is valid for 60 seconds, and the DB-timed 65-minute grant
+    // conservatively covers a last-second connection plus the full session.
+    // Its UUID is also sent as OpenAI's client request id, making the hashed DB
+    // binding traceable without retaining the credential itself.
+    const externalGrant = await processorScope.createExternalGrant({
+      provider: 'openai',
+      purpose: 'realtime-voice',
+      lifetimeSeconds: 3900,
+    })
     const sessionRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'X-Client-Request-Id': externalGrant.grantId,
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        expires_after: {
+          anchor: 'created_at',
+          seconds: 60,
+        },
+      }),
     })
 
     if (!sessionRes.ok) {
       const err = await sessionRes.text().catch(() => '')
       console.error('[realtime.session] OpenAI error:', sessionRes.status, err)
+      await processorScope.revokeExternalGrant(externalGrant)
       return NextResponse.json({ ok: false, error: 'Failed to create realtime session' }, { status: 500 })
     }
 
     const sessionData = await sessionRes.json()
+    if (
+      typeof sessionData?.value !== 'string'
+      || !sessionData.value
+      || !Number.isFinite(Number(sessionData.expires_at))
+    ) {
+      return NextResponse.json(
+        { ok: false, error: 'OpenAI returned an invalid realtime credential' },
+        { status: 502 },
+      )
+    }
 
     // Voice sessions don't expose token counts at mint time; charge a flat
     // per-session estimate toward the cap so voice isn't free. Billed at the
@@ -372,6 +409,22 @@ TOOL CALL DISCIPLINE (CRITICAL — read carefully):
         },
       },
     })
+        } catch (error) {
+          console.error('[realtime.session]', error)
+          return NextResponse.json(
+            { ok: false, error: 'Failed to create session' },
+            { status: 500 },
+          )
+        }
+      },
+    )
+    if (!attempt.executed) {
+      return NextResponse.json(
+        { ok: false, error: 'AI operations are unavailable while this account is being deleted.' },
+        { status: 409 },
+      )
+    }
+    return attempt.value
   } catch (error) {
     console.error('[realtime.session]', error)
     return NextResponse.json({ ok: false, error: 'Failed to create session' }, { status: 500 })

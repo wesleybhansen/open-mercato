@@ -1,4 +1,5 @@
 import 'server-only'
+import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { getNoliCoreClient, resolveOrgByoKeys, type ByoProvider } from '@open-mercato/shared/lib/noli/core-client'
@@ -8,6 +9,12 @@ import {
   type NoliBillingSubscription,
 } from '@open-mercato/shared/lib/noli/billing-period'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { after } from 'next/server'
+import {
+  beginGdprLocalWriteLease,
+  beginGdprUserWriteLease,
+  type GdprLocalWriteLease,
+} from '@open-mercato/core/modules/auth/lib/gdprLocalWriteLease'
 
 /*
  * P-3 allowance gate for the CRM customer-facing AI suite, with unified BYOK
@@ -35,14 +42,153 @@ export const ALLOWANCE_BLOCK_MESSAGE =
 
 export type AllowanceResult = { allowed: boolean; message?: string; byoApiKey?: string }
 
-export async function checkCustomersAiAllowance(
-  auth: { orgId?: string | null } | null | undefined,
-  provider: ByoProvider = 'google',
-): Promise<AllowanceResult> {
+export type CustomersAiExternalGrantReceipt = {
+  grantId: string
+  organizationId: string
+  localUserId: string
+  noliOrgId: string
+  provider: string
+  purpose: string
+  expiresAt: string
+}
+
+type CustomersAiProcessorScope = {
+  createExternalGrant: (args: {
+    provider: string
+    purpose: string
+    lifetimeSeconds: number
+  }) => Promise<CustomersAiExternalGrantReceipt>
+  revokeExternalGrant: (grant: CustomersAiExternalGrantReceipt) => Promise<void>
+}
+
+const GDPR_AI_BLOCK_MESSAGE =
+  'AI operations are unavailable while this account is being deleted.'
+const LOCAL_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function resolveLocalUserId(auth: {
+  sub?: string | null
+  userId?: string | null
+}): string | null {
+  const userId = auth.userId?.trim()
+  if (userId && LOCAL_USER_ID.test(userId)) return userId
+  const subject = auth.sub?.trim()
+  return subject && LOCAL_USER_ID.test(subject) ? subject : null
+}
+
+async function releaseProcessorLeases(
+  userLease: GdprLocalWriteLease | null,
+  organizationLease: GdprLocalWriteLease,
+): Promise<void> {
+  let releaseError: unknown
   try {
-    if (!auth?.orgId) return { allowed: true }
-    const container = await createRequestContainer()
-    const em = container.resolve('em') as EntityManager
+    await userLease?.release()
+  } catch (error) {
+    releaseError = error
+  }
+  try {
+    await organizationLease.release()
+  } catch (error) {
+    releaseError ??= error
+  }
+  if (releaseError) throw releaseError
+}
+
+type ProcessorLeaseSet = {
+  organizationLease: GdprLocalWriteLease
+  userLease: GdprLocalWriteLease | null
+}
+
+const processorLeaseContextToken = Symbol('customers-ai-processor-lease')
+type ProcessorLeaseContext = {
+  token: typeof processorLeaseContextToken
+  em: EntityManager
+  orgId: string
+  localUserId: string | null
+}
+
+async function acquireProcessorLeases(
+  em: EntityManager,
+  auth: { orgId: string; sub?: string | null; userId?: string | null },
+): Promise<ProcessorLeaseSet | null> {
+  const database = em.getKnex()
+  const organizationLease = await beginGdprLocalWriteLease(
+    database as never,
+    auth.orgId,
+    'processor',
+  )
+  if (!organizationLease) return null
+
+  const localUserId = resolveLocalUserId(auth)
+  let userLease: GdprLocalWriteLease | null = null
+  try {
+    userLease = localUserId
+      ? await beginGdprUserWriteLease(database as never, localUserId, 'processor')
+      : null
+    if (localUserId && !userLease) {
+      await organizationLease.release()
+      return null
+    }
+    return { organizationLease, userLease }
+  } catch (error) {
+    await releaseProcessorLeases(userLease, organizationLease).catch(() => {})
+    throw error
+  }
+}
+
+async function registerRequestProcessorLeases(
+  em: EntityManager,
+  auth: { orgId: string; sub?: string | null; userId?: string | null },
+): Promise<boolean> {
+  let leases: ProcessorLeaseSet | null = null
+  try {
+    const acquired = await acquireProcessorLeases(em, auth)
+    if (!acquired) return false
+    leases = acquired
+    after(() => releaseProcessorLeases(acquired.userLease, acquired.organizationLease))
+    return true
+  } catch {
+    if (leases) {
+      await releaseProcessorLeases(leases.userLease, leases.organizationLease).catch(() => {})
+    }
+    return false
+  }
+}
+
+export async function checkCustomersAiAllowance(
+  auth: {
+    orgId?: string | null
+    sub?: string | null
+    userId?: string | null
+  } | null | undefined,
+  provider: ByoProvider = 'google',
+  processorLeaseContext?: ProcessorLeaseContext,
+): Promise<AllowanceResult> {
+  if (!auth?.orgId) return { allowed: true }
+  let em: EntityManager
+  if (processorLeaseContext) {
+    const localUserId = resolveLocalUserId(auth)
+    if (
+      processorLeaseContext.token !== processorLeaseContextToken
+      || processorLeaseContext.orgId !== auth.orgId
+      || processorLeaseContext.localUserId !== localUserId
+    ) {
+      return { allowed: false, message: GDPR_AI_BLOCK_MESSAGE }
+    }
+    em = processorLeaseContext.em
+  } else {
+    const container = await createRequestContainer().catch(() => null)
+    if (!container) return { allowed: false, message: GDPR_AI_BLOCK_MESSAGE }
+    try {
+      em = container.resolve('em') as EntityManager
+    } catch {
+      return { allowed: false, message: GDPR_AI_BLOCK_MESSAGE }
+    }
+    if (!(await registerRequestProcessorLeases(em, { ...auth, orgId: auth.orgId }))) {
+      return { allowed: false, message: GDPR_AI_BLOCK_MESSAGE }
+    }
+  }
+
+  try {
     const org = await em.findOne(Organization, { id: auth.orgId })
     if (!org?.noliOrgId) return { allowed: true } // not linked to noli-core
     const supabase = getNoliCoreClient()
@@ -117,5 +263,200 @@ export async function checkCustomersAiAllowance(
     return { allowed: true }
   } catch {
     return { allowed: true }
+  }
+}
+
+export type CustomersAiAllowanceLease = CustomersAiProcessorScope & {
+  gate: AllowanceResult
+  release: () => Promise<void>
+}
+
+function createCustomersAiProcessorScope(
+  em: EntityManager,
+  auth: { orgId: string; sub?: string | null; userId?: string | null },
+  leases: ProcessorLeaseSet,
+  gate: AllowanceResult,
+): CustomersAiProcessorScope {
+  let externalGrantCreated = false
+  let externalGrant: CustomersAiExternalGrantReceipt | null = null
+  return {
+    createExternalGrant: async (args) => {
+      if (!gate.allowed) {
+        throw new Error('CRM external processor grant requires an allowed AI operation')
+      }
+      const localUserId = resolveLocalUserId(auth)
+      if (!localUserId || !leases.userLease) {
+        throw new Error('CRM external processor grant requires an authenticated user lease')
+      }
+      if (externalGrantCreated) {
+        throw new Error('CRM processor operation already created an external grant')
+      }
+      if (
+        !args.provider.trim()
+        || !args.purpose.trim()
+        || !Number.isInteger(args.lifetimeSeconds)
+        || args.lifetimeSeconds < 1
+        || args.lifetimeSeconds > 4200
+      ) {
+        throw new Error('CRM external processor grant parameters are invalid')
+      }
+
+      const grantId = randomUUID()
+      const database = em.getKnex() as unknown as {
+        raw: (
+          sql: string,
+          bindings: readonly unknown[],
+        ) => Promise<{ rows?: Array<{ receipt?: unknown }> }>
+      }
+      const result = await database.raw(
+        `select public.crm_gdpr_create_external_processor_grant(
+           ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?
+         ) as receipt`,
+        [
+          auth.orgId,
+          localUserId,
+          leases.organizationLease.leaseId,
+          leases.userLease.leaseId,
+          grantId,
+          args.provider,
+          args.purpose,
+          grantId,
+          args.lifetimeSeconds,
+        ],
+      )
+      const receipt = result.rows?.[0]?.receipt as
+        | Partial<CustomersAiExternalGrantReceipt>
+        | undefined
+      const expiresAt =
+        typeof receipt?.expiresAt === 'string' ? Date.parse(receipt.expiresAt) : Number.NaN
+      if (
+        receipt?.grantId !== grantId
+        || receipt.organizationId !== auth.orgId
+        || receipt.localUserId !== localUserId
+        || typeof receipt.noliOrgId !== 'string'
+        || !receipt.noliOrgId
+        || receipt.provider !== args.provider.trim()
+        || receipt.purpose !== args.purpose.trim()
+        || !Number.isFinite(expiresAt)
+        || expiresAt <= Date.now()
+      ) {
+        throw new Error('CRM external processor grant receipt was not exact')
+      }
+      externalGrantCreated = true
+      externalGrant = { ...receipt } as CustomersAiExternalGrantReceipt
+      return { ...externalGrant }
+    },
+    revokeExternalGrant: async (grant) => {
+      if (
+        !externalGrant
+        || grant.grantId !== externalGrant.grantId
+        || grant.organizationId !== externalGrant.organizationId
+        || grant.localUserId !== externalGrant.localUserId
+        || grant.noliOrgId !== externalGrant.noliOrgId
+        || grant.provider !== externalGrant.provider
+        || grant.purpose !== externalGrant.purpose
+        || grant.expiresAt !== externalGrant.expiresAt
+      ) {
+        throw new Error('CRM external processor grant revocation was not exact')
+      }
+
+      const exactGrant = externalGrant
+      const database = em.getKnex() as unknown as {
+        raw: (
+          sql: string,
+          bindings: readonly unknown[],
+        ) => Promise<{ rows?: Array<{ grantId?: unknown }> }>
+      }
+      const result = await database.raw(
+        `delete from public.gdpr_external_processor_grants
+          where grant_id = ?::uuid
+            and organization_id = ?::uuid
+            and local_user_id = ?::uuid
+            and noli_org_id = ?
+            and provider = ?
+            and purpose = ?
+            and external_binding_sha256 = encode(sha256(convert_to(?::text, 'UTF8')), 'hex')
+            and expires_at = ?::timestamptz
+        returning grant_id::text as "grantId"`,
+        [
+          exactGrant.grantId,
+          exactGrant.organizationId,
+          exactGrant.localUserId,
+          exactGrant.noliOrgId,
+          exactGrant.provider,
+          exactGrant.purpose,
+          exactGrant.grantId,
+          exactGrant.expiresAt,
+        ],
+      )
+      if (
+        result.rows?.length !== 1
+        || result.rows[0]?.grantId !== exactGrant.grantId
+      ) {
+        throw new Error('CRM external processor grant revocation was not acknowledged')
+      }
+      externalGrant = null
+    },
+  }
+}
+
+/** Acquires explicit leases that can be handed to a registered background
+ * task. Callers must release the returned lease after that task settles. */
+export async function beginCustomersAiAllowance(
+  em: EntityManager,
+  auth: { orgId: string; sub?: string | null; userId?: string | null },
+  provider: ByoProvider = 'google',
+): Promise<CustomersAiAllowanceLease | null> {
+  let leases: ProcessorLeaseSet | null = null
+  try {
+    leases = await acquireProcessorLeases(em, auth)
+    if (!leases) return null
+    const context: ProcessorLeaseContext = {
+      token: processorLeaseContextToken,
+      em,
+      orgId: auth.orgId,
+      localUserId: resolveLocalUserId(auth),
+    }
+    const gate = await checkCustomersAiAllowance(auth, provider, context)
+    const scope = createCustomersAiProcessorScope(em, auth, leases, gate)
+    const acquiredLeases = leases
+    let releasePromise: Promise<void> | null = null
+    return {
+      gate,
+      ...scope,
+      release: () => {
+        releasePromise ??= releaseProcessorLeases(
+          acquiredLeases.userLease,
+          acquiredLeases.organizationLease,
+        )
+        return releasePromise
+      },
+    }
+  } catch {
+    if (leases) await releaseProcessorLeases(leases.userLease, leases.organizationLease).catch(() => {})
+    return null
+  }
+}
+
+/** Runs background AI work under explicit processor leases. Unlike the normal
+ * request gate, this does not depend on Next's request lifecycle. */
+export async function withCustomersAiAllowance<T>(
+  em: EntityManager,
+  auth: { orgId: string; sub?: string | null; userId?: string | null },
+  provider: ByoProvider,
+  operation: (gate: AllowanceResult, scope: CustomersAiProcessorScope) => Promise<T>,
+): Promise<{ executed: false } | { executed: true; value: T }> {
+  const lease = await beginCustomersAiAllowance(em, auth, provider)
+  if (!lease) return { executed: false }
+  try {
+    return {
+      executed: true,
+      value: await operation(lease.gate, {
+        createExternalGrant: lease.createExternalGrant,
+        revokeExternalGrant: lease.revokeExternalGrant,
+      }),
+    }
+  } finally {
+    await lease.release()
   }
 }
