@@ -316,6 +316,9 @@ async function provisionMercatoUserForClerk(
       // d. Create the User attached to the (shared or new) org. Clerk owns auth
       //    so passwordHash stays null.
       const newUser = tem.create(User, {
+        // Canonical UUIDs let the database provision trigger serialize this
+        // insert with the durable GDPR fence for the same Noli identity.
+        id: noliUser.id,
         email:
           ((encryptedPayload as Record<string, unknown>).email as string) ??
           noliUser.email,

@@ -14,10 +14,188 @@ import { resolveInitDerivedSecrets } from './lib/init-secrets'
 // Lazy-imported to avoid pulling in `testcontainers` (devDependency) at startup
 const lazyIntegration = () => import('./lib/testing/integration')
 import type { ChildProcess } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs'
 
 let envLoaded = false
+
+const GDPR_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const GDPR_QUEUE_SUBJECT_LIMIT = 2_048
+const GDPR_QUEUE_SUBJECT_DEPTH_LIMIT = 16
+
+function collectQueueSubjectValues(
+  value: unknown,
+  values = new Set<string>(),
+  seen = new Set<object>(),
+  depth = 0,
+): Set<string> {
+  if (depth > GDPR_QUEUE_SUBJECT_DEPTH_LIMIT) {
+    throw new Error('CRM GDPR queue subject inventory exceeded its depth limit')
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    if (normalized && normalized.length <= 512 && !values.has(normalized)) {
+      if (values.size >= GDPR_QUEUE_SUBJECT_LIMIT) {
+        throw new Error('CRM GDPR queue subject inventory exceeded its value limit')
+      }
+      values.add(normalized)
+    }
+    return values
+  }
+  if (!value || typeof value !== 'object' || seen.has(value)) return values
+  seen.add(value)
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectQueueSubjectValues(entry, values, seen, depth + 1)
+    }
+  } else {
+    for (const entry of Object.values(value as Record<string, unknown>)) {
+      collectQueueSubjectValues(entry, values, seen, depth + 1)
+    }
+  }
+  return values
+}
+
+type GdprQueueExecutionLease = {
+  kind: 'organization' | 'user'
+  subjectId: string
+  leaseId: string
+}
+
+/** Every discovered queue worker enters the same durable GDPR fence before it
+ * can invoke a handler. A queued job that targets a deleting subject is
+ * acknowledged without execution; an already-running handler holds an exact,
+ * non-expiring lease until its finally block releases it. */
+export async function withGdprQueueExecutionLeases(
+  container: { resolve: (name: string) => any },
+  job: unknown,
+  operation: () => Promise<void>,
+): Promise<void> {
+  const em = container.resolve('em')
+  const database =
+    typeof em?.getKnex === 'function' ? em.getKnex() : em?.getConnection?.().getKnex?.()
+  if (!database) throw new Error('CRM GDPR queue lease requires a database connection')
+
+  const functions = await database.raw(`
+    select
+      to_regprocedure(
+        'public.crm_gdpr_acquire_local_write_lease(uuid,uuid,text)'
+      )::text as organization_lease,
+      to_regprocedure(
+        'public.crm_gdpr_acquire_user_write_lease(uuid,uuid,text)'
+      )::text as user_lease
+  `)
+  const support = functions.rows?.[0]
+  if (!support?.organization_lease && !support?.user_lease) {
+    await operation()
+    return
+  }
+  if (!support?.organization_lease || !support?.user_lease) {
+    throw new Error('CRM GDPR queue lease migration is only partially installed')
+  }
+
+  const values = [...collectQueueSubjectValues(job)].sort()
+  if (!values.length) {
+    await operation()
+    return
+  }
+
+  const uuidValues = values.filter((value) => GDPR_UUID_PATTERN.test(value))
+  const durableSubjects = await database.raw(
+    `select
+       exists (
+         select 1 from public.gdpr_user_search_subjects
+          where record_id = any(?::text[])
+       ) as user_search_subject,
+       exists (
+         select 1 from public.gdpr_user_receipts
+          where noli_user_id = any(?::text[])
+       ) as noli_user_subject,
+       exists (
+         select 1 from public.gdpr_user_subjects
+          where local_user_id = any(?::uuid[])
+       ) as local_user_subject,
+       exists (
+         select 1 from public.gdpr_org_subjects
+          where noli_org_id = any(?::text[])
+             or organization_id = any(?::uuid[])
+       ) as organization_subject`,
+    [values, values, uuidValues, values, uuidValues],
+  )
+  const durable = durableSubjects.rows?.[0]
+  if (
+    durable?.user_search_subject === true ||
+    durable?.noli_user_subject === true ||
+    durable?.local_user_subject === true ||
+    durable?.organization_subject === true
+  ) {
+    return
+  }
+
+  if (!uuidValues.length) {
+    await operation()
+    return
+  }
+  const [organizations, users] = (await Promise.all([
+    database('organizations').select('id').whereIn('id', uuidValues),
+    database('users').select('id').whereIn('id', uuidValues),
+  ])) as [Array<{ id: string }>, Array<{ id: string }>]
+
+  const leases: GdprQueueExecutionLease[] = []
+  const releaseLeases = async () => {
+    let firstError: unknown
+    for (const lease of [...leases].reverse()) {
+      try {
+        const result =
+          lease.kind === 'organization'
+            ? await database.raw(
+                "select public.crm_gdpr_release_local_write_lease(?::uuid, ?::uuid, 'processor') as released",
+                [lease.subjectId, lease.leaseId],
+              )
+            : await database.raw(
+                "select public.crm_gdpr_release_user_write_lease(?::uuid, ?::uuid, 'processor') as released",
+                [lease.subjectId, lease.leaseId],
+              )
+        if (result.rows?.[0]?.released !== true) {
+          throw new Error('CRM GDPR queue execution lease release was not acknowledged')
+        }
+      } catch (error) {
+        firstError ??= error
+      }
+    }
+    if (firstError) throw firstError
+  }
+
+  try {
+    for (const organization of [...organizations].sort((a, b) => a.id.localeCompare(b.id))) {
+      const leaseId = randomUUID()
+      const acquired = await database.raw(
+        "select public.crm_gdpr_acquire_local_write_lease(?::uuid, ?::uuid, 'processor') as subject",
+        [organization.id, leaseId],
+      )
+      if (typeof acquired.rows?.[0]?.subject !== 'string') return
+      leases.push({
+        kind: 'organization',
+        subjectId: organization.id,
+        leaseId,
+      })
+    }
+    for (const user of [...users].sort((a, b) => a.id.localeCompare(b.id))) {
+      const leaseId = randomUUID()
+      const acquired = await database.raw(
+        "select public.crm_gdpr_acquire_user_write_lease(?::uuid, ?::uuid, 'processor') as acquired",
+        [user.id, leaseId],
+      )
+      if (acquired.rows?.[0]?.acquired !== true) return
+      leases.push({ kind: 'user', subjectId: user.id, leaseId })
+    }
+    await operation()
+  } finally {
+    await releaseLeases()
+  }
+}
 
 export function padByCodePointWidth(value: string, targetWidth: number): string {
   const valueWidth = [...value].length
@@ -738,9 +916,11 @@ export async function run(argv = process.argv) {
                 concurrency,
                 background: true,
                 handler: async (job, ctx) => {
-                  for (const worker of queueWorkers) {
-                    await worker.handler(job, { ...ctx, resolve: container.resolve.bind(container) })
-                  }
+                  await withGdprQueueExecutionLeases(container, job, async () => {
+                    for (const worker of queueWorkers) {
+                      await worker.handler(job, { ...ctx, resolve: container.resolve.bind(container) })
+                    }
+                  })
                 },
               })
             })
@@ -767,9 +947,11 @@ export async function run(argv = process.argv) {
                 connection: { url: getRedisUrl('QUEUE') },
                 concurrency,
                 handler: async (job, ctx) => {
-                  for (const worker of queueWorkers) {
-                    await worker.handler(job, { ...ctx, resolve: container.resolve.bind(container) })
-                  }
+                  await withGdprQueueExecutionLeases(container, job, async () => {
+                    for (const worker of queueWorkers) {
+                      await worker.handler(job, { ...ctx, resolve: container.resolve.bind(container) })
+                    }
+                  })
                 },
               })
             } else {

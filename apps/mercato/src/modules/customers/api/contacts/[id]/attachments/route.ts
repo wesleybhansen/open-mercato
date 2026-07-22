@@ -1,4 +1,9 @@
-export const metadata = { path: '/contacts/[id]/attachments', GET: { requireAuth: true }, POST: { requireAuth: true }, DELETE: { requireAuth: true } }
+export const metadata = {
+  path: '/contacts/[id]/attachments',
+  GET: { requireAuth: true },
+  POST: { requireAuth: true },
+  DELETE: { requireAuth: true },
+}
 
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
@@ -8,13 +13,14 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { randomUUID } from 'crypto'
 import { writeFile, mkdir, unlink } from 'fs/promises'
 import { join } from 'path'
+import {
+  withGdprLocalWriteLease,
+  withGdprUserWriteLease,
+} from '@open-mercato/core/modules/auth'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
@@ -46,12 +52,10 @@ export async function GET(
   }
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthFromCookies()
-  if (!auth?.orgId || !auth?.tenantId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  if (!auth?.orgId || !auth?.tenantId)
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
   const { id: contactId } = await params
 
@@ -77,7 +81,10 @@ export async function POST(
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ ok: false, error: 'File too large. Maximum size is 10MB.' }, { status: 400 })
+      return NextResponse.json(
+        { ok: false, error: 'File too large. Maximum size is 10MB.' },
+        { status: 400 },
+      )
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -86,24 +93,33 @@ export async function POST(
     const storedName = `${attachmentId}-${safeFilename}`
 
     const uploadDir = join(process.cwd(), 'uploads', 'attachments', auth.orgId, contactId)
-    await mkdir(uploadDir, { recursive: true })
-    await writeFile(join(uploadDir, storedName), buffer)
-
     const fileUrl = `/api/contacts/${contactId}/attachments/${attachmentId}/download`
-
-    const [attachment] = await knex('contact_attachments')
-      .insert({
-        id: attachmentId,
-        tenant_id: auth.tenantId,
-        organization_id: auth.orgId,
-        contact_id: contactId,
-        filename: file.name,
-        file_url: fileUrl,
-        file_size: file.size,
-        mime_type: file.type || null,
-        uploaded_by: auth.userId || null,
-      })
-      .returning('*')
+    const filePath = join(uploadDir, storedName)
+    const attachment = await withGdprLocalWriteLease(knex as never, auth.orgId, 'storage', () =>
+      withGdprUserWriteLease(knex as never, auth.userId, 'storage', async () => {
+        await mkdir(uploadDir, { recursive: true })
+        await writeFile(filePath, buffer)
+        try {
+          const [inserted] = await knex('contact_attachments')
+            .insert({
+              id: attachmentId,
+              tenant_id: auth.tenantId,
+              organization_id: auth.orgId,
+              contact_id: contactId,
+              filename: file.name,
+              file_url: fileUrl,
+              file_size: file.size,
+              mime_type: file.type || null,
+              uploaded_by: auth.userId || null,
+            })
+            .returning('*')
+          return inserted
+        } catch (error) {
+          await unlink(filePath).catch(() => undefined)
+          throw error
+        }
+      }),
+    )
 
     return NextResponse.json({ ok: true, data: attachment })
   } catch (error) {
@@ -112,10 +128,7 @@ export async function POST(
   }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthFromCookies()
   if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
@@ -124,7 +137,10 @@ export async function DELETE(
   const attachmentId = url.searchParams.get('attachmentId')
 
   if (!attachmentId) {
-    return NextResponse.json({ ok: false, error: 'Missing attachmentId parameter' }, { status: 400 })
+    return NextResponse.json(
+      { ok: false, error: 'Missing attachmentId parameter' },
+      { status: 400 },
+    )
   }
 
   try {
@@ -143,7 +159,14 @@ export async function DELETE(
 
     // Delete file from disk
     const safeFilename = attachment.filename.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const filePath = join(process.cwd(), 'uploads', 'attachments', auth.orgId, contactId, `${attachmentId}-${safeFilename}`)
+    const filePath = join(
+      process.cwd(),
+      'uploads',
+      'attachments',
+      auth.orgId,
+      contactId,
+      `${attachmentId}-${safeFilename}`,
+    )
     try {
       await unlink(filePath)
     } catch {

@@ -26,6 +26,10 @@ import { emitCrudSideEffects, setCustomFieldsIfAny } from '@open-mercato/shared/
 import { attachmentCrudEvents, attachmentCrudIndexer } from '../lib/crud'
 import { E } from '#generated/entities.ids.generated'
 import { resolveDefaultAttachmentOcrEnabled } from '../lib/ocrConfig'
+import {
+  withGdprLocalWriteLease,
+  withGdprUserWriteLease,
+} from '@open-mercato/core/modules/auth/lib/gdprLocalWriteLease'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['attachments.view'] },
@@ -284,122 +288,132 @@ export async function POST(req: Request) {
   if (!partition) {
     return NextResponse.json({ error: 'Storage partition is not configured.' }, { status: 400 })
   }
-  let stored
-  try {
-    stored = await storePartitionFile({
-      partitionCode: partition.code,
-      orgId,
-      tenantId,
-      fileName: safeName,
-      buffer: buf,
-    })
-  } catch (error) {
-    console.error('[attachments] failed to persist file', error)
-    return NextResponse.json({ error: 'Failed to persist attachment.' }, { status: 500 })
-  }
+  return withGdprLocalWriteLease(em.getKnex() as never, orgId, 'storage', () =>
+    withGdprUserWriteLease(em.getKnex() as never, auth.userId, 'storage', async () => {
+      let stored
+      try {
+        stored = await storePartitionFile({
+          partitionCode: partition.code,
+          orgId,
+          tenantId,
+          fileName: safeName,
+          buffer: buf,
+        })
+      } catch (error) {
+        console.error('[attachments] failed to persist file', error)
+        return NextResponse.json({ error: 'Failed to persist attachment.' }, { status: 500 })
+      }
 
-  const requiresOcr =
-    typeof (partition as any).requiresOcr === 'boolean'
-      ? Boolean((partition as any).requiresOcr)
-      : resolveDefaultAttachmentOcrEnabled()
-  let extractedContent: string | null = null
-  const fileMimeType = (file as any).type || 'application/octet-stream'
-  const useLlmOcr = requiresOcr && shouldUseLlmOcr(fileMimeType, safeName)
+      const requiresOcr =
+        typeof (partition as any).requiresOcr === 'boolean'
+          ? Boolean((partition as any).requiresOcr)
+          : resolveDefaultAttachmentOcrEnabled()
+      let extractedContent: string | null = null
+      const fileMimeType = (file as any).type || 'application/octet-stream'
+      const useLlmOcr = requiresOcr && shouldUseLlmOcr(fileMimeType, safeName)
 
-  if (requiresOcr && !useLlmOcr) {
-    try {
-      extractedContent = await extractAttachmentContent({
-        filePath: stored.absolutePath,
-        mimeType: fileMimeType,
+      if (requiresOcr && !useLlmOcr) {
+        try {
+          extractedContent = await extractAttachmentContent({
+            filePath: stored.absolutePath,
+            mimeType: fileMimeType,
+          })
+        } catch (error) {
+          console.error('[attachments] failed to extract attachment content', error)
+        }
+      }
+
+      let assignments = assignmentsFromForm.slice()
+      if (entityId !== LIBRARY_ENTITY_ID) {
+        assignments = upsertAssignment(assignments, { type: entityId, id: recordId })
+      }
+      const metadata = mergeAttachmentMetadata(null, { assignments, tags })
+      const attachmentId = randomUUID()
+      const att = em.create(Attachment, {
+        id: attachmentId,
+        entityId,
+        recordId,
+        organizationId: auth.orgId!,
+        tenantId: auth.tenantId!,
+        fileName: safeName,
+        mimeType: (file as any).type || 'application/octet-stream',
+        fileSize: buf.length,
+        partitionCode: partition.code,
+        storageDriver: partition.storageDriver || 'local',
+        storagePath: stored.storagePath,
+        uploadedByUserId: auth.userId,
+        url: buildAttachmentFileUrl(attachmentId),
+        content: extractedContent,
+        storageMetadata: metadata,
       })
-    } catch (error) {
-      console.error('[attachments] failed to extract attachment content', error)
-    }
-  }
+      try {
+        await em.persistAndFlush(att)
+      } catch (error) {
+        await deletePartitionFile(partition.code, stored.storagePath, partition.storageDriver)
+        throw error
+      }
 
-  let assignments = assignmentsFromForm.slice()
-  if (entityId !== LIBRARY_ENTITY_ID) {
-    assignments = upsertAssignment(assignments, { type: entityId, id: recordId })
-  }
-  const metadata = mergeAttachmentMetadata(null, { assignments, tags })
-  const attachmentId = randomUUID()
-  const att = em.create(Attachment, {
-    id: attachmentId,
-    entityId,
-    recordId,
-    organizationId: auth.orgId!,
-    tenantId: auth.tenantId!,
-    fileName: safeName,
-    mimeType: (file as any).type || 'application/octet-stream',
-    fileSize: buf.length,
-    partitionCode: partition.code,
-    storageDriver: partition.storageDriver || 'local',
-    storagePath: stored.storagePath,
-    url: buildAttachmentFileUrl(attachmentId),
-    content: extractedContent,
-    storageMetadata: metadata,
-  })
-  await em.persistAndFlush(att)
+      if (useLlmOcr) {
+        const ocrService = new OcrService()
+        if (ocrService.available) {
+          await requestOcrProcessing(em, att, stored.absolutePath).catch((error) => {
+            console.error('[attachments] failed to queue OCR processing', error)
+          })
+        } else {
+          console.warn('[attachments] OCR requested but OPENAI_API_KEY not configured')
+        }
+      }
 
-  if (useLlmOcr) {
-    const ocrService = new OcrService()
-    if (ocrService.available) {
-      requestOcrProcessing(em, att, stored.absolutePath).catch((error) => {
-        console.error('[attachments] failed to queue OCR processing', error)
+      if (dataEngine) {
+        try {
+          await setCustomFieldsIfAny({
+            dataEngine,
+            entityId: E.attachments.attachment,
+            recordId: attachmentId,
+            tenantId,
+            organizationId: orgId,
+            values: customFieldValues,
+          })
+        } catch (error) {
+          console.error('[attachments] failed to persist custom attributes', error)
+          return NextResponse.json({ error: 'Failed to save attachment attributes.' }, { status: 500 })
+        }
+        await emitCrudSideEffects({
+          dataEngine,
+          action: 'created',
+          entity: att,
+          identifiers: {
+            id: att.id,
+            organizationId: att.organizationId ?? null,
+            tenantId: att.tenantId ?? null,
+          },
+          events: attachmentCrudEvents,
+          indexer: attachmentCrudIndexer,
+        })
+        await dataEngine.flushOrmEntityChanges()
+      }
+
+      return NextResponse.json({
+        ok: true,
+        item: {
+          id: attachmentId,
+          url: att.url,
+          fileName: safeName,
+          fileSize: buf.length,
+          partitionCode: partition.code,
+          thumbnailUrl: buildAttachmentImageUrl(attachmentId, {
+            width: 320,
+            height: 320,
+            slug: slugifyAttachmentFileName(safeName),
+          }),
+          content: extractedContent ?? null,
+          tags: metadata.tags ?? [],
+          assignments: metadata.assignments ?? [],
+          customFields: Object.keys(customFieldValues).length ? customFieldValues : undefined,
+        },
       })
-    } else {
-      console.warn('[attachments] OCR requested but OPENAI_API_KEY not configured')
-    }
-  }
-
-  if (dataEngine) {
-    try {
-      await setCustomFieldsIfAny({
-        dataEngine,
-        entityId: E.attachments.attachment,
-        recordId: attachmentId,
-        tenantId,
-        organizationId: orgId,
-        values: customFieldValues,
-      })
-    } catch (error) {
-      console.error('[attachments] failed to persist custom attributes', error)
-      return NextResponse.json({ error: 'Failed to save attachment attributes.' }, { status: 500 })
-    }
-    await emitCrudSideEffects({
-      dataEngine,
-      action: 'created',
-      entity: att,
-      identifiers: {
-        id: att.id,
-        organizationId: att.organizationId ?? null,
-        tenantId: att.tenantId ?? null,
-      },
-      events: attachmentCrudEvents,
-      indexer: attachmentCrudIndexer,
-    })
-    await dataEngine.flushOrmEntityChanges()
-  }
-
-  return NextResponse.json({
-    ok: true,
-    item: {
-      id: attachmentId,
-      url: att.url,
-      fileName: safeName,
-      fileSize: buf.length,
-      partitionCode: partition.code,
-      thumbnailUrl: buildAttachmentImageUrl(attachmentId, {
-        width: 320,
-        height: 320,
-        slug: slugifyAttachmentFileName(safeName),
-      }),
-      content: extractedContent ?? null,
-      tags: metadata.tags ?? [],
-      assignments: metadata.assignments ?? [],
-      customFields: Object.keys(customFieldValues).length ? customFieldValues : undefined,
-    },
-  })
+    }),
+  )
 }
 
 export async function DELETE(req: Request) {

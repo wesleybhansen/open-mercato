@@ -6,7 +6,19 @@ const partitions = [
   { id: 'p-products', code: 'productsMedia', title: 'Products', isPublic: true, storageDriver: 'local', requiresOcr: false },
 ]
 
+const mockKnex = {
+  raw: jest.fn(async (sql: string) => {
+    if (sql.includes('acquire_local_write_lease')) {
+      return { rows: [{ noli_org_id: 'noli-org' }] }
+    }
+    if (sql.includes('acquire_user_write_lease')) return { rows: [{ acquired: true }] }
+    if (sql.includes('release_')) return { rows: [{ released: true }] }
+    throw new Error(`Unexpected GDPR lease SQL: ${sql}`)
+  }),
+}
+
 const mockEm = {
+  getKnex: () => mockKnex,
   findOne: jest.fn(async (entity: any, where: any) => {
     if (entity?.name === 'AttachmentPartition') {
       return partitions.find((p) => p.code === where?.code) ?? null
@@ -43,7 +55,14 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   }),
 }))
 
-jest.mock('@open-mercato/shared/lib/auth/server', () => ({ getAuthFromRequest: () => ({ orgId: 'org', tenantId: 't1', roles: ['admin'] }) }))
+jest.mock('@open-mercato/shared/lib/auth/server', () => ({
+  getAuthFromRequest: () => ({
+    orgId: 'org',
+    tenantId: 't1',
+    userId: 'user',
+    roles: ['admin'],
+  }),
+}))
 
 // Avoid touching disk
 import { promises as fsp } from 'fs'
@@ -75,6 +94,7 @@ function fdWith(file: File, extra: Record<string, string> = {}) {
 describe('attachments API', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockKnex.raw.mockClear()
     mockEm.find.mockReset()
     mockEm.find.mockResolvedValue([])
     mockExtractAttachmentContent.mockReset()

@@ -27,7 +27,11 @@ export class AttachmentPartition {
   @Property({ name: 'is_public', type: 'boolean', default: false })
   isPublic: boolean = false
 
-  @Property({ name: 'requires_ocr', type: 'boolean', default: resolveDefaultAttachmentOcrEnabled() })
+  @Property({
+    name: 'requires_ocr',
+    type: 'boolean',
+    default: resolveDefaultAttachmentOcrEnabled(),
+  })
   requiresOcr: boolean = resolveDefaultAttachmentOcrEnabled()
 
   @Property({ name: 'ocr_model', type: 'text', nullable: true })
@@ -81,6 +85,9 @@ export class Attachment {
 
   @Property({ name: 'storage_metadata', type: 'jsonb', nullable: true })
   storageMetadata?: Record<string, unknown> | null
+
+  @Property({ name: 'uploaded_by_user_id', type: 'uuid', nullable: true })
+  uploadedByUserId?: string | null
 
   @Property({ name: 'url', type: 'text' })
   url!: string

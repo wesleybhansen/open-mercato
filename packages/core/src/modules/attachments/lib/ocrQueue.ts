@@ -4,6 +4,11 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { logCrmAiUsage } from '@open-mercato/shared/lib/noli/ai-usage'
 import { checkOrgAiAllowance } from '@open-mercato/shared/lib/noli/allowance'
 import { OcrService } from './ocrService'
+import {
+  beginGdprLocalWriteLease,
+  beginGdprUserWriteLease,
+  type GdprLocalWriteLease,
+} from '../../auth/lib/gdprLocalWriteLease'
 
 export type OcrRequestedEvent = {
   attachmentId: string
@@ -12,11 +17,12 @@ export type OcrRequestedEvent = {
   partitionCode: string
   organizationId: string | null
   tenantId: string | null
+  userId?: string | null
 }
 
 export async function processAttachmentOcr(
   em: EntityManager,
-  payload: OcrRequestedEvent
+  payload: OcrRequestedEvent,
 ): Promise<void> {
   const { attachmentId, filePath, mimeType, partitionCode } = payload
 
@@ -24,7 +30,9 @@ export async function processAttachmentOcr(
   const startTime = Date.now()
 
   try {
-    const partition = await em.findOne(AttachmentPartition, { code: partitionCode })
+    const partition = await em.findOne(AttachmentPartition, {
+      code: partitionCode,
+    })
     const resolvedModel = partition?.ocrModel ?? process.env.OCR_MODEL ?? 'gpt-5-mini'
 
     // P-3 allowance gate + unified BYOK fall-through (GAP-4). OCR runs on OpenAI.
@@ -43,7 +51,9 @@ export async function processAttachmentOcr(
     const ocrService = new OcrService(gate.byoApiKey ? { apiKey: gate.byoApiKey } : {})
 
     if (!ocrService.available) {
-      console.warn(`[attachments.ocr] OPENAI_API_KEY not configured, skipping OCR for: ${attachmentId}`)
+      console.warn(
+        `[attachments.ocr] OPENAI_API_KEY not configured, skipping OCR for: ${attachmentId}`,
+      )
       return
     }
 
@@ -101,7 +111,7 @@ export async function processAttachmentOcr(
 export async function requestOcrProcessing(
   em: EntityManager,
   attachment: Attachment,
-  filePath: string
+  filePath: string,
 ): Promise<void> {
   const payload: OcrRequestedEvent = {
     attachmentId: attachment.id,
@@ -110,12 +120,44 @@ export async function requestOcrProcessing(
     partitionCode: attachment.partitionCode,
     organizationId: attachment.organizationId ?? null,
     tenantId: attachment.tenantId ?? null,
+    userId: attachment.uploadedByUserId ?? null,
   }
 
-  setImmediate(() => {
+  const lease = payload.organizationId
+    ? await beginGdprLocalWriteLease(em.getKnex() as never, payload.organizationId, 'processor')
+    : null
+  if (payload.organizationId && !lease) {
+    console.warn(`[attachments.ocr] Suppressed fenced organization OCR: ${attachment.id}`)
+    return
+  }
+  let userLease: GdprLocalWriteLease | null = null
+  try {
+    userLease = payload.userId
+      ? await beginGdprUserWriteLease(em.getKnex() as never, payload.userId, 'processor')
+      : null
+  } catch (error) {
+    await lease?.release()
+    throw error
+  }
+  if (payload.userId && !userLease) {
+    await lease?.release()
+    console.warn(`[attachments.ocr] Suppressed fenced user OCR: ${attachment.id}`)
+    return
+  }
+
+  setImmediate(async () => {
     const workerEm = typeof (em as any)?.fork === 'function' ? (em as any).fork() : em
-    processAttachmentOcr(workerEm, payload).catch((error) => {
+    try {
+      await processAttachmentOcr(workerEm, payload)
+    } catch (error) {
       console.error(`[attachments.ocr] Background processing error:`, error)
-    })
+    } finally {
+      await userLease?.release().catch((error) => {
+        console.error(`[attachments.ocr] GDPR user lease release failed:`, error)
+      })
+      await lease?.release().catch((error) => {
+        console.error(`[attachments.ocr] GDPR processor lease release failed:`, error)
+      })
+    }
   })
 }

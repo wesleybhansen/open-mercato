@@ -1,8 +1,16 @@
-export const metadata = { POST: { requireAuth: true }, GET: { requireAuth: true } }
+export const metadata = {
+  POST: { requireAuth: true },
+  GET: { requireAuth: true },
+}
 export const openApi = { summary: 'images', methods: {} }
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
-import { queryOne } from '@/lib/db'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import {
+  withGdprLocalWriteLease,
+  withGdprUserWriteLease,
+} from '@open-mercato/core/modules/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import crypto from 'crypto'
@@ -17,37 +25,58 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id: pageId } = await params
 
-    const page = await queryOne('SELECT id FROM landing_pages WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL', [pageId, auth.orgId])
+    const container = await createRequestContainer()
+    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const page = await knex('landing_pages')
+      .select('id')
+      .where('id', pageId)
+      .where('organization_id', auth.orgId)
+      .whereNull('deleted_at')
+      .first()
     if (!page) return NextResponse.json({ ok: false, error: 'Page not found' }, { status: 404 })
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ ok: false, error: 'No file provided' }, { status: 400 })
 
-    if (file.size > MAX_SIZE) return NextResponse.json({ ok: false, error: 'File too large (max 10MB)' }, { status: 400 })
+    if (file.size > MAX_SIZE)
+      return NextResponse.json({ ok: false, error: 'File too large (max 10MB)' }, { status: 400 })
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ ok: false, error: 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, SVG' }, { status: 400 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, SVG',
+        },
+        { status: 400 },
+      )
     }
 
-    // Create upload directory
     const dir = path.join(UPLOAD_DIR, auth.orgId, pageId)
-    fs.mkdirSync(dir, { recursive: true })
-
-    // Generate filename
     const ext = file.name.split('.').pop() || 'png'
     const filename = `${crypto.randomUUID()}.${ext}`
     const filePath = path.join(dir, filename)
-
-    // Write file
     const buffer = Buffer.from(await file.arrayBuffer())
-    fs.writeFileSync(filePath, buffer)
+    await withGdprLocalWriteLease(knex as never, auth.orgId, 'storage', () =>
+      withGdprUserWriteLease(knex as never, auth.userId, 'storage', async () => {
+        fs.mkdirSync(dir, { recursive: true })
+        try {
+          fs.writeFileSync(filePath, buffer)
+        } catch (error) {
+          fs.rmSync(filePath, { force: true })
+          throw error
+        }
+      }),
+    )
 
     // Return public URL
     const imageUrl = `/api/pages/${pageId}/images/${filename}`
 
-    return NextResponse.json({ ok: true, data: { url: imageUrl, filename, size: file.size, type: file.type } })
+    return NextResponse.json({
+      ok: true,
+      data: { url: imageUrl, filename, size: file.size, type: file.type },
+    })
   } catch (error) {
     console.error('[pages.images.upload]', error)
     return NextResponse.json({ ok: false, error: 'Failed to upload' }, { status: 500 })
@@ -69,8 +98,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         if (fs.existsSync(filePath)) {
           const buffer = fs.readFileSync(filePath)
           const ext = filename.split('.').pop()?.toLowerCase()
-          const mimeTypes: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' }
-          return new Response(buffer, { headers: { 'Content-Type': mimeTypes[ext || ''] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000' } })
+          const mimeTypes: Record<string, string> = {
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            png: 'image/png',
+            gif: 'image/gif',
+            webp: 'image/webp',
+            svg: 'image/svg+xml',
+          }
+          return new Response(buffer, {
+            headers: {
+              'Content-Type': mimeTypes[ext || ''] || 'application/octet-stream',
+              'Cache-Control': 'public, max-age=31536000',
+            },
+          })
         }
       }
       return new Response('Not found', { status: 404 })
@@ -78,12 +119,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     // List all images for this page
     const auth = await getAuthFromCookies()
-    if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    if (!auth?.orgId)
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
     const dir = path.join(UPLOAD_DIR, auth.orgId, pageId)
     if (!fs.existsSync(dir)) return NextResponse.json({ ok: true, data: [] })
 
-    const files = fs.readdirSync(dir).map(f => ({
+    const files = fs.readdirSync(dir).map((f) => ({
       filename: f,
       url: `/api/pages/${pageId}/images?file=${f}`,
       size: fs.statSync(path.join(dir, f)).size,

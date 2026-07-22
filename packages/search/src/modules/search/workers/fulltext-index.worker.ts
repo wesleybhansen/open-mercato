@@ -1,5 +1,8 @@
 import type { QueuedJob, JobContext, WorkerMeta } from '@open-mercato/queue'
-import { FULLTEXT_INDEXING_QUEUE_NAME, type FulltextIndexJobPayload } from '../../../queue/fulltext-indexing'
+import {
+  FULLTEXT_INDEXING_QUEUE_NAME,
+  type FulltextIndexJobPayload,
+} from '../../../queue/fulltext-indexing'
 import type { FullTextSearchStrategy } from '../../../strategies/fulltext.strategy'
 import type { SearchIndexer } from '../../../indexer/search-indexer'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -11,6 +14,10 @@ import type { ProgressService } from '@open-mercato/core/modules/progress/lib/pr
 import { searchDebug, searchDebugWarn, searchError } from '../../../lib/debug'
 import { clearReindexLock, updateReindexProgress } from '../lib/reindex-lock'
 import { incrementReindexProgress } from '../lib/reindex-progress'
+import {
+  isGdprUserSearchTombstoned,
+  tryWithGdprSearchWriteLease,
+} from '../../../lib/gdpr-local-write-lease'
 
 // Worker metadata for auto-discovery
 const DEFAULT_CONCURRENCY = 2
@@ -122,13 +129,37 @@ export async function handleFulltextIndexJob(
       if (!searchIndexer) {
         throw new Error('searchIndexer not available for single-record index')
       }
+      if (knex && (await isGdprUserSearchTombstoned(knex as never, tenantId, recordId))) {
+        searchDebug('fulltext-index.worker', 'Suppressed user-erasure tombstoned index job', {
+          jobId: jobCtx.jobId,
+          tenantId,
+          recordId,
+        })
+        return
+      }
 
-      const result = await searchIndexer.indexRecordById({
-        entityId: entityType as EntityId,
-        recordId,
-        tenantId,
-        organizationId,
-      })
+      const indexRecord = () =>
+        searchIndexer!.indexRecordById({
+          entityId: entityType as EntityId,
+          recordId,
+          tenantId,
+          organizationId,
+        })
+      const guardedResult =
+        organizationId && knex
+          ? await tryWithGdprSearchWriteLease(knex as never, organizationId, indexRecord)
+          : { executed: true as const, value: await indexRecord() }
+      if (!guardedResult.executed) {
+        searchDebug('fulltext-index.worker', 'Suppressed fenced organization index job', {
+          jobId: jobCtx.jobId,
+          tenantId,
+          organizationId,
+          entityType,
+          recordId,
+        })
+        return
+      }
+      const result = guardedResult.value
 
       searchDebug('fulltext-index.worker', 'Indexed single record to fulltext', {
         jobId: jobCtx.jobId,
@@ -173,12 +204,22 @@ export async function handleFulltextIndexJob(
 
       for (const { entityId, recordId } of records) {
         try {
-          const result = await searchIndexer.indexRecordById({
-            entityId: entityId as EntityId,
-            recordId,
-            tenantId,
-            organizationId,
-          })
+          if (knex && (await isGdprUserSearchTombstoned(knex as never, tenantId, recordId))) {
+            continue
+          }
+          const indexRecord = () =>
+            searchIndexer!.indexRecordById({
+              entityId: entityId as EntityId,
+              recordId,
+              tenantId,
+              organizationId,
+            })
+          const guardedResult =
+            organizationId && knex
+              ? await tryWithGdprSearchWriteLease(knex as never, organizationId, indexRecord)
+              : { executed: true as const, value: await indexRecord() }
+          if (!guardedResult.executed) continue
+          const result = guardedResult.value
           if (result.action === 'indexed') {
             successCount++
           }
@@ -194,7 +235,13 @@ export async function handleFulltextIndexJob(
 
       // Update heartbeat to signal worker is still processing
       if (knex && records.length > 0) {
-        await updateReindexProgress(knex, tenantId, 'fulltext', successCount, organizationId ?? null)
+        await updateReindexProgress(
+          knex,
+          tenantId,
+          'fulltext',
+          successCount,
+          organizationId ?? null,
+        )
       }
       if (progressService && em && records.length > 0) {
         const completed = await incrementReindexProgress({
@@ -225,7 +272,12 @@ export async function handleFulltextIndexJob(
           handler: 'worker:fulltext:batch-index',
           message: `Indexed ${successCount}/${records.length} records to fulltext`,
           tenantId,
-          details: { jobId: jobCtx.jobId, requestedCount: records.length, successCount, failCount },
+          details: {
+            jobId: jobCtx.jobId,
+            requestedCount: records.length,
+            successCount,
+            failCount,
+          },
         },
       )
       return
@@ -306,8 +358,12 @@ export async function handleFulltextIndexJob(
       attemptNumber: jobCtx.attemptNumber,
     })
 
-    const entityId = 'entityId' in job.payload ? job.payload.entityId :
-                     'entityType' in job.payload ? (job.payload as { entityType?: string }).entityType : undefined
+    const entityId =
+      'entityId' in job.payload
+        ? job.payload.entityId
+        : 'entityType' in job.payload
+          ? (job.payload as { entityType?: string }).entityType
+          : undefined
     const recordId = 'recordId' in job.payload ? job.payload.recordId : undefined
 
     await recordIndexerError(
@@ -334,7 +390,7 @@ export async function handleFulltextIndexJob(
  */
 export default async function handle(
   job: QueuedJob<FulltextIndexJobPayload>,
-  ctx: JobContext & HandlerContext
+  ctx: JobContext & HandlerContext,
 ): Promise<void> {
   return handleFulltextIndexJob(job, ctx, ctx)
 }

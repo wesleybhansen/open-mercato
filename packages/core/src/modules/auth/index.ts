@@ -13,3 +13,7 @@ export const metadata: ModuleInfo = {
 
 // Re-export features from module root acl.ts so generator can pick them up regardless of consumer imports
 export { features } from './acl'
+export {
+  withGdprLocalWriteLease,
+  withGdprUserWriteLease,
+} from './lib/gdprLocalWriteLease'

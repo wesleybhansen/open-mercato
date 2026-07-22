@@ -1,18 +1,28 @@
 import type { QueuedJob, JobContext, WorkerMeta } from '@open-mercato/queue'
-import { VECTOR_INDEXING_QUEUE_NAME, type VectorIndexJobPayload } from '../../../queue/vector-indexing'
+import {
+  VECTOR_INDEXING_QUEUE_NAME,
+  type VectorIndexJobPayload,
+} from '../../../queue/vector-indexing'
 import type { SearchIndexer } from '../../../indexer/search-indexer'
 import type { EmbeddingService } from '../../../vector'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { Knex } from 'knex'
 import type { ProgressService } from '@open-mercato/core/modules/progress/lib/progressService'
 import { recordIndexerError } from '@open-mercato/shared/lib/indexers/error-log'
-import { applyCoverageAdjustments, createCoverageAdjustments } from '@open-mercato/core/modules/query_index/lib/coverage'
+import {
+  applyCoverageAdjustments,
+  createCoverageAdjustments,
+} from '@open-mercato/core/modules/query_index/lib/coverage'
 import { logVectorOperation } from '../../../vector/lib/vector-logs'
 import { resolveAutoIndexingEnabled } from '../lib/auto-indexing'
 import { resolveEmbeddingConfig } from '../lib/embedding-config'
 import { searchDebugWarn } from '../../../lib/debug'
 import { clearReindexLock, updateReindexProgress } from '../lib/reindex-lock'
 import { incrementReindexProgress } from '../lib/reindex-progress'
+import {
+  isGdprUserSearchTombstoned,
+  tryWithGdprSearchWriteLease,
+} from '../../../lib/gdpr-local-write-lease'
 
 // Worker metadata for auto-discovery
 const DEFAULT_CONCURRENCY = 2
@@ -45,11 +55,15 @@ export async function handleVectorIndexJob(
   // Handle batch-index jobs (from reindex operations)
   if (jobType === 'batch-index') {
     if (!records?.length || !tenantId) {
-      searchDebugWarn('vector-index.worker', 'Skipping batch-index job with missing required fields', {
-        jobId: jobCtx.jobId,
-        recordCount: records?.length ?? 0,
-        tenantId,
-      })
+      searchDebugWarn(
+        'vector-index.worker',
+        'Skipping batch-index job with missing required fields',
+        {
+          jobId: jobCtx.jobId,
+          recordCount: records?.length ?? 0,
+          tenantId,
+        },
+      )
       return
     }
 
@@ -81,15 +95,21 @@ export async function handleVectorIndexJob(
 
     // Load saved embedding config to use the correct provider/model
     try {
-      const embeddingConfig = await resolveEmbeddingConfig(ctx, { defaultValue: null })
+      const embeddingConfig = await resolveEmbeddingConfig(ctx, {
+        defaultValue: null,
+      })
       if (embeddingConfig) {
         const embeddingService = ctx.resolve<EmbeddingService>('vectorEmbeddingService')
         embeddingService.updateConfig(embeddingConfig)
       }
     } catch (configErr) {
-      searchDebugWarn('vector-index.worker', 'Failed to load embedding config for batch, using defaults', {
-        error: configErr instanceof Error ? configErr.message : configErr,
-      })
+      searchDebugWarn(
+        'vector-index.worker',
+        'Failed to load embedding config for batch, using defaults',
+        {
+          error: configErr instanceof Error ? configErr.message : configErr,
+        },
+      )
     }
 
     // Process each record in the batch
@@ -97,12 +117,22 @@ export async function handleVectorIndexJob(
     let failCount = 0
     for (const { entityId, recordId: recId } of records) {
       try {
-        const result = await searchIndexer.indexRecordById({
-          entityId: entityId as Parameters<typeof searchIndexer.indexRecordById>[0]['entityId'],
-          recordId: recId,
-          tenantId,
-          organizationId,
-        })
+        if (knex && (await isGdprUserSearchTombstoned(knex as never, tenantId, recId))) {
+          continue
+        }
+        const indexRecord = () =>
+          searchIndexer.indexRecordById({
+            entityId: entityId as Parameters<typeof searchIndexer.indexRecordById>[0]['entityId'],
+            recordId: recId,
+            tenantId,
+            organizationId,
+          })
+        const guardedResult =
+          organizationId && knex
+            ? await tryWithGdprSearchWriteLease(knex as never, organizationId, indexRecord)
+            : { executed: true as const, value: await indexRecord() }
+        if (!guardedResult.executed) continue
+        const result = guardedResult.value
         if (result.action === 'indexed') {
           successCount++
         }
@@ -154,7 +184,9 @@ export async function handleVectorIndexJob(
     return
   }
 
-  const autoIndexingEnabled = await resolveAutoIndexingEnabled(ctx, { defaultValue: true })
+  const autoIndexingEnabled = await resolveAutoIndexingEnabled(ctx, {
+    defaultValue: true,
+  })
   if (!autoIndexingEnabled) {
     return
   }
@@ -169,7 +201,9 @@ export async function handleVectorIndexJob(
 
   // Load saved embedding config to use the correct provider/model
   try {
-    const embeddingConfig = await resolveEmbeddingConfig(ctx, { defaultValue: null })
+    const embeddingConfig = await resolveEmbeddingConfig(ctx, {
+      defaultValue: null,
+    })
     if (embeddingConfig) {
       const embeddingService = ctx.resolve<EmbeddingService>('vectorEmbeddingService')
       embeddingService.updateConfig(embeddingConfig)
@@ -185,22 +219,26 @@ export async function handleVectorIndexJob(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let em: any | null = null
+  let knex: Knex | null = null
   try {
     em = ctx.resolve('em')
+    knex = (em.getConnection() as unknown as { getKnex: () => Knex }).getKnex()
   } catch {
     em = null
+    knex = null
   }
 
-  let eventBus: { emitEvent(event: string, payload: unknown, options?: unknown): Promise<void> } | null = null
+  let eventBus: {
+    emitEvent(event: string, payload: unknown, options?: unknown): Promise<void>
+  } | null = null
   try {
     eventBus = ctx.resolve('eventBus')
   } catch {
     eventBus = null
   }
 
-  const handlerName = jobType === 'delete'
-    ? 'worker:vector-indexing:delete'
-    : 'worker:vector-indexing:index'
+  const handlerName =
+    jobType === 'delete' ? 'worker:vector-indexing:delete' : 'worker:vector-indexing:index'
 
   try {
     let action: 'indexed' | 'deleted' | 'skipped' = 'skipped'
@@ -215,12 +253,22 @@ export async function handleVectorIndexJob(
       action = 'deleted'
       delta = -1
     } else {
-      const result = await searchIndexer.indexRecordById({
-        entityId: entityType,
-        recordId,
-        tenantId,
-        organizationId,
-      })
+      if (knex && (await isGdprUserSearchTombstoned(knex as never, tenantId, recordId))) {
+        return
+      }
+      const indexRecord = () =>
+        searchIndexer.indexRecordById({
+          entityId: entityType,
+          recordId,
+          tenantId,
+          organizationId,
+        })
+      const guardedResult =
+        organizationId && knex
+          ? await tryWithGdprSearchWriteLease(knex as never, organizationId, indexRecord)
+          : { executed: true as const, value: await indexRecord() }
+      if (!guardedResult.executed) return
+      const result = guardedResult.value
       action = result.action
       if (result.action === 'indexed') {
         delta = 1
@@ -310,7 +358,7 @@ export async function handleVectorIndexJob(
  */
 export default async function handle(
   job: QueuedJob<VectorIndexJobPayload>,
-  ctx: JobContext & HandlerContext
+  ctx: JobContext & HandlerContext,
 ): Promise<void> {
   return handleVectorIndexJob(job, ctx, ctx)
 }

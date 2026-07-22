@@ -4,7 +4,10 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { Attachment, AttachmentPartition } from '@open-mercato/core/modules/attachments/data/entities'
+import {
+  Attachment,
+  AttachmentPartition,
+} from '@open-mercato/core/modules/attachments/data/entities'
 import { resolveAttachmentAbsolutePath } from '@open-mercato/core/modules/attachments/lib/storage'
 import {
   buildThumbnailCacheKey,
@@ -15,6 +18,10 @@ import { checkAttachmentAccess } from '@open-mercato/core/modules/attachments/li
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { promises as fs } from 'fs'
 import { attachmentsTag, imageQuerySchema, attachmentErrorSchema } from '../../../openapi'
+import {
+  withGdprLocalWriteLease,
+  withGdprUserWriteLease,
+} from '@open-mercato/core/modules/auth/lib/gdprLocalWriteLease'
 
 const querySchema = z.object({
   width: z.coerce.number().int().min(1).max(4000).optional(),
@@ -28,7 +35,7 @@ export const metadata = {
 
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ id: string; slug?: string[] | undefined }> }
+  context: { params: Promise<{ id: string; slug?: string[] | undefined }> },
 ) {
   const auth = await getAuthFromRequest(req)
   const { id } = await context.params
@@ -36,7 +43,7 @@ export async function GET(
     return NextResponse.json({ error: 'Attachment id is required' }, { status: 400 })
   }
   const parsedQuery = querySchema.safeParse(
-    Object.fromEntries(new URL(req.url).searchParams.entries())
+    Object.fromEntries(new URL(req.url).searchParams.entries()),
   )
   if (!parsedQuery.success) {
     return NextResponse.json({ error: 'Invalid size parameters' }, { status: 400 })
@@ -55,7 +62,9 @@ export async function GET(
   if (typeof attachment.mimeType !== 'string' || !attachment.mimeType.startsWith('image/')) {
     return NextResponse.json({ error: 'Unsupported media type' }, { status: 400 })
   }
-  const partition = await em.findOne(AttachmentPartition, { code: attachment.partitionCode })
+  const partition = await em.findOne(AttachmentPartition, {
+    code: attachment.partitionCode,
+  })
   if (!partition) {
     return NextResponse.json({ error: 'Partition misconfigured' }, { status: 500 })
   }
@@ -68,7 +77,7 @@ export async function GET(
   const filePath = resolveAttachmentAbsolutePath(
     attachment.partitionCode,
     attachment.storagePath,
-    attachment.storageDriver
+    attachment.storageDriver,
   )
   const cacheKey = buildThumbnailCacheKey(width, height, cropType)
   try {
@@ -92,9 +101,34 @@ export async function GET(
       }
       buffer = await transformer.toBuffer()
       if (cacheKey) {
-        void writeThumbnailCache(attachment.partitionCode, attachment.id, cacheKey, buffer).catch((cacheError) => {
+        try {
+          if (attachment.organizationId) {
+            await withGdprLocalWriteLease(
+              em.getKnex() as never,
+              attachment.organizationId,
+              'storage',
+              () =>
+                attachment.uploadedByUserId
+                  ? withGdprUserWriteLease(
+                      em.getKnex() as never,
+                      attachment.uploadedByUserId,
+                      'storage',
+                      () =>
+                        writeThumbnailCache(
+                          attachment.partitionCode,
+                          attachment.id,
+                          cacheKey,
+                          buffer!,
+                        ),
+                    )
+                  : writeThumbnailCache(attachment.partitionCode, attachment.id, cacheKey, buffer!),
+            )
+          } else {
+            await writeThumbnailCache(attachment.partitionCode, attachment.id, cacheKey, buffer)
+          }
+        } catch (cacheError) {
           console.error('attachments.image.cache.write failed', cacheError)
-        })
+        }
       }
     }
     if (!buffer) {
@@ -120,20 +154,45 @@ export const openApi: OpenApiRouteDoc = {
   methods: {
     GET: {
       summary: 'Serve image with optional resizing',
-      description: 'Returns an image attachment with optional on-the-fly resizing and cropping. Resized images are cached for performance. Only works with image MIME types. Path parameter: {id} - Attachment UUID. Query parameters: ?width=N (1-4000 pixels), ?height=N (1-4000 pixels), ?cropType=cover|contain (resize behavior).',
+      description:
+        'Returns an image attachment with optional on-the-fly resizing and cropping. Resized images are cached for performance. Only works with image MIME types. Path parameter: {id} - Attachment UUID. Query parameters: ?width=N (1-4000 pixels), ?height=N (1-4000 pixels), ?cropType=cover|contain (resize behavior).',
       responses: [
         {
           status: 200,
           description: 'Binary image content (Content-Type: image/jpeg, image/png, etc.)',
-          schema: z.any().describe('Binary image content - actual Content-Type header set to image MIME type, not application/json'),
+          schema: z
+            .any()
+            .describe(
+              'Binary image content - actual Content-Type header set to image MIME type, not application/json',
+            ),
         },
       ],
       errors: [
-        { status: 400, description: 'Invalid parameters, missing ID, or non-image attachment', schema: attachmentErrorSchema },
-        { status: 401, description: 'Unauthorized - authentication required for private partitions', schema: attachmentErrorSchema },
-        { status: 403, description: 'Forbidden - insufficient permissions', schema: attachmentErrorSchema },
-        { status: 404, description: 'Image not found', schema: attachmentErrorSchema },
-        { status: 500, description: 'Partition misconfigured or image rendering failed', schema: attachmentErrorSchema },
+        {
+          status: 400,
+          description: 'Invalid parameters, missing ID, or non-image attachment',
+          schema: attachmentErrorSchema,
+        },
+        {
+          status: 401,
+          description: 'Unauthorized - authentication required for private partitions',
+          schema: attachmentErrorSchema,
+        },
+        {
+          status: 403,
+          description: 'Forbidden - insufficient permissions',
+          schema: attachmentErrorSchema,
+        },
+        {
+          status: 404,
+          description: 'Image not found',
+          schema: attachmentErrorSchema,
+        },
+        {
+          status: 500,
+          description: 'Partition misconfigured or image rendering failed',
+          schema: attachmentErrorSchema,
+        },
       ],
     },
   },
