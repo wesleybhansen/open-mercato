@@ -36,6 +36,12 @@ import { EmailMessage } from '../../../email/data/schema'
  * FALLBACK: this never hard-fails. With no locked voice, or when the model
  * call/parse fails, an honest minimal template is stored as the draft so the
  * user still has a starting point, tagged with the reason.
+ *
+ * IDEMPOTENCY: when a key is threaded (from the hub Idempotency-Key header) it
+ * is stamped into the stored draft's provenance - on EVERY outcome, since both
+ * the AI and template paths persist reply.draftResponse. A repeat with the SAME
+ * (reply, key) returns the stored draft with no second model call and no second
+ * meter, so a double-click / retry never double-charges the AI allowance.
  */
 
 export const REPLY_DRAFT_FEATURE = 'gtm-reply-draft'
@@ -167,6 +173,7 @@ async function storeDraft(
   reply: GtmReply,
   input: { subject: string; body: string; provenance: Record<string, unknown> },
   deps: ReplyDraftDeps,
+  idempotencyKey?: string | null,
 ): Promise<GtmReply> {
   await em.transactional(async (tem) => {
     // Preserve any social note already on the row; overwrite the drafted copy.
@@ -175,7 +182,9 @@ async function storeDraft(
       ...(typeof existing.note === 'string' ? { note: existing.note } : {}),
       subject: input.subject,
       body: input.body,
-      provenance: input.provenance,
+      provenance: idempotencyKey
+        ? { ...input.provenance, idempotency_key: idempotencyKey }
+        : input.provenance,
       drafted_at: (deps.clock?.now() ?? new Date()).toISOString(),
     }
     reply.draftStatus = 'drafted'
@@ -205,10 +214,23 @@ export async function draftReplyWithAi(
   em: ExecutionEm,
   ctx: GtmCtx,
   deps: ReplyDraftDeps,
-  input: { replyId: string },
+  input: { replyId: string; idempotencyKey?: string | null },
 ): Promise<ReplyDraftResult> {
   const reply = await loadReply(em, ctx, input.replyId)
   const nowIso = (deps.clock?.now() ?? new Date()).toISOString()
+  const key = input.idempotencyKey?.trim() || null
+
+  // Idempotency: a repeat with the key already stamped on this reply's stored
+  // draft returns that draft - no second model call and no second meter.
+  if (key) {
+    const stored = (reply.draftResponse ?? null) as Record<string, unknown> | null
+    const provenance = (stored?.provenance ?? null) as Record<string, unknown> | null
+    if (provenance && provenance.idempotency_key === key) {
+      if (provenance.author === 'agent') return { provenance: 'ai', reply }
+      const reason = provenance.reason === 'no_locked_voice' ? 'no_locked_voice' : 'draft_failed'
+      return { provenance: 'template', reason, reply }
+    }
+  }
 
   const enrollment = await em.findOne(GtmEnrollment, {
     id: reply.enrollmentId,
@@ -248,6 +270,7 @@ export async function draftReplyWithAi(
         provenance: { author: 'template', reason: 'no_locked_voice', generated_at: nowIso },
       },
       deps,
+      key,
     )
     return { provenance: 'template', reason: 'no_locked_voice', reply: stored }
   }
@@ -271,6 +294,7 @@ export async function draftReplyWithAi(
         provenance: { author: 'template', reason: 'draft_failed', generated_at: nowIso },
       },
       deps,
+      key,
     )
     return { provenance: 'template', reason: 'draft_failed', reply: stored }
   }
@@ -298,6 +322,7 @@ export async function draftReplyWithAi(
         provenance: { author: 'template', reason: 'draft_failed', generated_at: nowIso },
       },
       deps,
+      key,
     )
     return { provenance: 'template', reason: 'draft_failed', reply: stored }
   }
@@ -320,6 +345,7 @@ export async function draftReplyWithAi(
       },
     },
     deps,
+    key,
   )
   return { provenance: 'ai', reply: stored }
 }

@@ -321,6 +321,7 @@ export async function POST(req: Request) {
       const result = await regenerateMessageForCandidate(em, ctx, { model, meter }, {
         campaignId: body.campaignId,
         candidateId: body.candidateId,
+        idempotencyKey: body.idempotency_key ?? null,
       })
       return NextResponse.json({
         ok: true,

@@ -183,6 +183,54 @@ describe('regenerateMessageForCandidate (opt-in AI drafts, locked-voice gated)',
     expect(rowB.provenance).toBe('template')
   })
 
+  it('dedupes a same-key repeat: no second model call, no second meter, same draft', async () => {
+    const { em, campaign, a } = await setup()
+    await lockVoice(em)
+    const { meter, calls } = makeMeterSpy()
+    const model = jsonModel('Voiced subject', 'Voiced body.')
+
+    const first = await regenerateMessageForCandidate(em, ctx, { model, meter }, {
+      campaignId: campaign.id,
+      candidateId: a.id,
+      idempotencyKey: 'regen-key-1',
+    })
+    const second = await regenerateMessageForCandidate(em, ctx, { model, meter }, {
+      campaignId: campaign.id,
+      candidateId: a.id,
+      idempotencyKey: 'regen-key-1',
+    })
+
+    expect(first.provenance).toBe('ai')
+    expect(second.provenance).toBe('ai')
+    // The metered AI call happened exactly once across the two same-key calls.
+    expect(model.calls).toHaveLength(1)
+    expect(calls).toHaveLength(1)
+    expect((second as { draft: { subject: string } }).draft.subject).toBe('Voiced subject')
+    expect((second as { invalidated: boolean }).invalidated).toBe(false)
+  })
+
+  it('a NEW key regenerates and meters again', async () => {
+    const { em, campaign, a } = await setup()
+    await lockVoice(em)
+    const { meter, calls } = makeMeterSpy()
+    const model = jsonModel('Voiced subject', 'Voiced body.')
+
+    await regenerateMessageForCandidate(em, ctx, { model, meter }, {
+      campaignId: campaign.id,
+      candidateId: a.id,
+      idempotencyKey: 'regen-key-1',
+    })
+    await regenerateMessageForCandidate(em, ctx, { model, meter }, {
+      campaignId: campaign.id,
+      candidateId: a.id,
+      idempotencyKey: 'regen-key-2',
+    })
+
+    // A distinct user action (new key) is a real regeneration: two metered calls.
+    expect(model.calls).toHaveLength(2)
+    expect(calls).toHaveLength(2)
+  })
+
   it('invalidates an approved version and re-freezes the AI copy on re-approval', async () => {
     const { em, campaign, a } = await setup()
     await lockVoice(em)

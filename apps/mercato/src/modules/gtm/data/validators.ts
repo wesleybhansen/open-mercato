@@ -251,6 +251,9 @@ export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
     noliUserId: idString,
     campaignId: idString,
     candidateId: idString,
+    // Threaded from the hub Idempotency-Key header; a repeat with the same key
+    // returns the stored draft instead of making a second metered AI call.
+    idempotency_key: idString.optional(),
   }),
   // Workspace-level settings write (CAN-SPAM sender postal address). Length
   // is bounded loosely here; the 300-char cap after trimming is enforced by
@@ -355,6 +358,9 @@ export const gtmInboxBodySchema = z.discriminatedUnion('op', [
     op: z.literal('draft-response-ai'),
     noliUserId: idString,
     replyId: idString,
+    // Threaded from the hub Idempotency-Key header; a repeat with the same key
+    // returns the stored draft instead of making a second metered AI call.
+    idempotency_key: idString.optional(),
   }),
   z.object({
     op: z.literal('approve-draft'),
@@ -524,6 +530,10 @@ export const gtmStrategyBodySchema = z.discriminatedUnion('op', [
     noliUserId: idString,
     workspaceId: idString,
     sources: voiceDeriveSourcesSchema,
+    // Threaded from the hub Idempotency-Key header; a repeat with the same key
+    // returns the version derived on the first call instead of making a second
+    // metered AI call and a second version.
+    idempotency_key: idString.optional(),
   }),
 ])
 

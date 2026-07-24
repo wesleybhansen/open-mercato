@@ -265,7 +265,10 @@ export async function POST(req: Request) {
       const model = createGeminiDraftModel(apiKey)
       const meter = (usage: { model: string; tokensIn: number; tokensOut: number; feature: string }) =>
         void meterCustomersAi({ orgId: ctx.organizationId }, { ...usage, byoKey: !!gate.byoApiKey })
-      const result = await draftReplyWithAi(em, ctx, { model, meter }, { replyId: body.replyId })
+      const result = await draftReplyWithAi(em, ctx, { model, meter }, {
+        replyId: body.replyId,
+        idempotencyKey: body.idempotency_key ?? null,
+      })
       return NextResponse.json({
         ok: true,
         reply: replyShape(result.reply),

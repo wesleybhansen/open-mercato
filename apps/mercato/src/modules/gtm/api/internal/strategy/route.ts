@@ -173,6 +173,7 @@ export async function POST(req: Request) {
     const version = await deriveVoiceDraft(em, ctx, { model, meter }, {
       workspaceId: body.workspaceId,
       sources: { website, samples },
+      idempotencyKey: body.idempotency_key ?? null,
     })
     return NextResponse.json({ ok: true, version: versionShape('voice', version) })
   } catch (err) {

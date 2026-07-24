@@ -37,6 +37,14 @@ import {
  * or the model call/parse fails, the orchestration (regenerateMessageWithAi)
  * returns an honest "template" result and the deterministic render.ts template
  * remains the shipped content.
+ *
+ * IDEMPOTENCY: when a key is threaded (from the hub Idempotency-Key header) it
+ * is stamped into the stored draft's provenance. A repeat with the SAME
+ * (campaign, candidate, key) returns the stored draft with no second model call
+ * and no second meter - protecting a double-click / retry from double-charging
+ * the AI allowance. Residual window: the template-fallback paths persist
+ * nothing, so a same-key retry that first fell back re-attempts; the common
+ * success path (an AI draft was produced and stored) is fully deduped.
  */
 
 export type DraftProvenance = {
@@ -45,6 +53,9 @@ export type DraftProvenance = {
   voice_version: number | null
   icp_version: number | null
   generated_at: string
+  // Stamped from the hub Idempotency-Key when present; a same-key repeat
+  // returns this stored draft instead of making a second metered AI call.
+  idempotency_key?: string
 }
 
 export type DraftedMessage = {
@@ -237,9 +248,24 @@ export async function regenerateMessageForCandidate(
   em: CampaignEm,
   ctx: GtmCtx,
   deps: DraftDeps,
-  input: { campaignId: string; candidateId: string },
+  input: { campaignId: string; candidateId: string; idempotencyKey?: string | null },
 ): Promise<RegenerateResult> {
   const campaign = await loadCampaign(em, ctx, input.campaignId)
+
+  // Idempotency: a repeat with a key already stamped on this candidate's stored
+  // AI draft returns that draft - no second model call and no second meter.
+  // (org+tenant scope holds: loadCampaign already self-scoped the campaign.)
+  const key = input.idempotencyKey?.trim() || null
+  if (key) {
+    const drafts = ((campaign.channelMix ?? {}) as Record<string, unknown>).ai_drafts as
+      | Record<string, StoredAiDraft>
+      | undefined
+    const stored = drafts?.[input.candidateId]
+    const storedKey = (stored?.provenance as Record<string, unknown> | null | undefined)?.idempotency_key
+    if (stored && storedKey === key) {
+      return { provenance: 'ai', invalidated: false, draft: stored }
+    }
+  }
 
   // AI drafting is opt-in and gated on a LOCKED voice profile. No locked voice
   // -> honest template fallback, nothing mutated.
@@ -296,7 +322,7 @@ export async function regenerateMessageForCandidate(
   const stored: StoredAiDraft = {
     subject: drafted.subject,
     body_text: drafted.body_text,
-    provenance: drafted.provenance,
+    provenance: key ? { ...drafted.provenance, idempotency_key: key } : drafted.provenance,
   }
 
   // A stored AI draft is a draft mutation: it invalidates an approved version

@@ -142,6 +142,47 @@ describe('draftReplyWithAi', () => {
     expect(calls).toHaveLength(1)
   })
 
+  it('dedupes a same-key repeat: no second model call, no second meter, same draft', async () => {
+    const em = new FakeEm()
+    const { reply } = await fixtureWithReply(em)
+    await lockVoice(em)
+    const model = jsonModel('Re: onboarding', 'How is Thursday at 10?')
+    const { meter, calls } = makeMeterSpy()
+
+    const first = await draftReplyWithAi(em, ctx, { model, meter }, {
+      replyId: reply.id,
+      idempotencyKey: 'reply-key-1',
+    })
+    const bodyAfterFirst = (reply.draftResponse as Record<string, unknown>).body
+    const second = await draftReplyWithAi(em, ctx, { model, meter }, {
+      replyId: reply.id,
+      idempotencyKey: 'reply-key-1',
+    })
+
+    expect(first.provenance).toBe('ai')
+    expect(second.provenance).toBe('ai')
+    // The metered AI call happened exactly once across the two same-key calls.
+    expect(model.calls).toHaveLength(1)
+    expect(calls).toHaveLength(1)
+    // The stored draft is unchanged.
+    expect((reply.draftResponse as Record<string, unknown>).body).toBe(bodyAfterFirst)
+  })
+
+  it('a NEW key re-drafts and meters again', async () => {
+    const em = new FakeEm()
+    const { reply } = await fixtureWithReply(em)
+    await lockVoice(em)
+    const model = jsonModel('Re: onboarding', 'How is Thursday at 10?')
+    const { meter, calls } = makeMeterSpy()
+
+    await draftReplyWithAi(em, ctx, { model, meter }, { replyId: reply.id, idempotencyKey: 'reply-key-1' })
+    await draftReplyWithAi(em, ctx, { model, meter }, { replyId: reply.id, idempotencyKey: 'reply-key-2' })
+
+    // A distinct user action (new key) is a real re-draft: two metered calls.
+    expect(model.calls).toHaveLength(2)
+    expect(calls).toHaveLength(2)
+  })
+
   it('preserves a pre-existing social note when overwriting the draft', async () => {
     const em = new FakeEm()
     const { reply } = await fixtureWithReply(em)

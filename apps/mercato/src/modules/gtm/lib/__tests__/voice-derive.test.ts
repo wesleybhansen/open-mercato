@@ -75,6 +75,55 @@ describe('deriveVoiceDraft (metered AI voice profile)', () => {
     expect(model.calls).toHaveLength(0)
   })
 
+  it('dedupes a same-key repeat: no second model call, no second meter, same version', async () => {
+    const em = new FakeEm()
+    await seedWorkspace(em)
+    const model = profileModel()
+    const { meter, calls } = makeMeterSpy()
+
+    const first = await deriveVoiceDraft(em, ctx, { model, meter }, {
+      workspaceId: WORKSPACE,
+      sources: { website: null, samples: ['A sample of the sender voice.'] },
+      idempotencyKey: 'derive-key-1',
+    })
+    const second = await deriveVoiceDraft(em, ctx, { model, meter }, {
+      workspaceId: WORKSPACE,
+      sources: { website: null, samples: ['A sample of the sender voice.'] },
+      idempotencyKey: 'derive-key-1',
+    })
+
+    // Same version returned; no new version, no second model call or meter.
+    expect(second.id).toBe(first.id)
+    expect(second.version).toBe(1)
+    expect(model.calls).toHaveLength(1)
+    expect(calls).toHaveLength(1)
+    expect((first.derivedFrom as Record<string, unknown>).idempotency_key).toBe('derive-key-1')
+  })
+
+  it('a NEW key derives a new version and meters again', async () => {
+    const em = new FakeEm()
+    await seedWorkspace(em)
+    const model = profileModel()
+    const { meter, calls } = makeMeterSpy()
+
+    const first = await deriveVoiceDraft(em, ctx, { model, meter }, {
+      workspaceId: WORKSPACE,
+      sources: { website: null, samples: ['A sample.'] },
+      idempotencyKey: 'derive-key-1',
+    })
+    const second = await deriveVoiceDraft(em, ctx, { model, meter }, {
+      workspaceId: WORKSPACE,
+      sources: { website: null, samples: ['A sample.'] },
+      idempotencyKey: 'derive-key-2',
+    })
+
+    // A distinct user action (new key) is a real derivation: new version, two meters.
+    expect(second.id).not.toBe(first.id)
+    expect(second.version).toBe(2)
+    expect(model.calls).toHaveLength(2)
+    expect(calls).toHaveLength(2)
+  })
+
   it('raises GtmDraftError on an unparseable profile response', async () => {
     const em = new FakeEm()
     await seedWorkspace(em)

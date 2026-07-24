@@ -1,4 +1,4 @@
-import { createVersion, requireWorkspace, type GtmVersionError } from './versions'
+import { createVersion, listVersions, requireWorkspace, type GtmVersionError } from './versions'
 import { sanitizeMergeValue } from './campaign/render'
 import { GtmDraftError } from './campaign/ai-draft'
 import type { CampaignEm, GtmCtx } from './campaign/build'
@@ -21,6 +21,15 @@ import type { GtmAiMeter, GtmDraftModel } from './ai/model'
  *
  * Metering: exactly one metered call per model invocation, through the
  * injected meter. INPUT samples are DATA, never instructions.
+ *
+ * IDEMPOTENCY: when the caller threads an idempotency key (from the hub
+ * Idempotency-Key header), it is stamped into the new version's derivedFrom
+ * jsonb. A repeat with the SAME (org, tenant, workspace, key) returns the
+ * already-derived version WITHOUT a second model call, meter, or version -
+ * protecting a double-click / retry from double-charging the AI allowance.
+ * Residual window: if the FIRST call's model response failed to parse (a
+ * GtmDraftError, no version created), a same-key retry does re-derive; the
+ * common success path is fully deduped.
  */
 
 export const VOICE_DERIVE_FEATURE = 'gtm-voice-derive'
@@ -71,11 +80,22 @@ export async function deriveVoiceDraft(
   em: CampaignEm,
   ctx: GtmCtx,
   deps: VoiceDeriveDeps,
-  input: { workspaceId: string; sources: VoiceDeriveSources },
+  input: { workspaceId: string; sources: VoiceDeriveSources; idempotencyKey?: string | null },
 ): Promise<GtmVoiceVersion> {
   // Validate the workspace BEFORE spending an AI call (throws
   // workspace_not_found, surfaced as an opaque 404 by the route).
   await requireWorkspace(em, ctx, input.workspaceId)
+
+  // Idempotency: a repeat with a key already stamped on a version in this
+  // workspace returns that version - no second model call, meter, or version.
+  const key = input.idempotencyKey?.trim() || null
+  if (key) {
+    const existing = await listVersions(em, ctx, 'voice', input.workspaceId)
+    const match = existing.find(
+      (row) => ((row as GtmVoiceVersion).derivedFrom as Record<string, unknown> | null)?.idempotency_key === key,
+    )
+    if (match) return match as GtmVoiceVersion
+  }
 
   const system = SYSTEM_PROMPT
   const prompt = buildPrompt(input.sources)
@@ -91,11 +111,12 @@ export async function deriveVoiceDraft(
 
   const content = parseProfile(result.text)
 
-  const derivedFrom = {
+  const derivedFrom: Record<string, unknown> = {
     method: 'ai_derive',
     model: result.model,
     website: input.sources.website ? sanitizeMergeValue(input.sources.website) : null,
     sample_count: (input.sources.samples ?? []).filter((s) => s && s.trim()).length,
+    ...(key ? { idempotency_key: key } : {}),
   }
 
   // Committed as an agent-authored, unlocked draft version. If a locked voice
