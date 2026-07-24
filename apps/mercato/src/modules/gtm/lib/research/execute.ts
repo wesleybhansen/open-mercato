@@ -262,6 +262,14 @@ export async function executeResearchRun(
     // 3. Start, then the single provider call.
     await ledger.start(operationId)
 
+    /*
+     * NOTE on max_charge_usd: the wrapper reserves in CREDITS, and this module
+     * has no credits-to-USD rate (markup.ts prices credits, it does not price
+     * dollars). Rather than invent a conversion, the plan omits the field and
+     * the Apify adapter falls back to its own configured per-run USD cap. When
+     * a real credits-to-USD rate exists, pass it here and the provider-side
+     * hard cap becomes the same number as the reservation.
+     */
     const result = await adapter.search({
       signal_kind: planned.capability.signal_kind,
       entity_unit: planned.capability.entity_unit,
@@ -374,6 +382,10 @@ export async function executeResearchRun(
                 operation_id: operationId,
                 provider_request_id: receipt?.provider_request_id ?? null,
                 query,
+                // inert per-observation detail from the adapter (engagement
+                // kind, reaction types, comment body); present only when the
+                // adapter actually captured some, never fabricated
+                ...(evidence.detail ? { detail: evidence.detail } : {}),
               },
               observedAt: evidence.observed_at ? new Date(evidence.observed_at) : null,
               confidence: String(evidence.confidence),

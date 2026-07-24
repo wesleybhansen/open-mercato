@@ -12,10 +12,16 @@ import type { Candidate, CandidateIdentity } from '../types'
  * shape differs, extend the alias list in the normalizer. Nothing outside this
  * file knows an actor id.
  *
- * EVERY actor id below is VERIFY-ON-FIRST-RUN: ids, input schemas, output
- * field names, and per-result pricing all shift on the marketplace and none
- * of this has been exercised against the live API (no network calls are made
- * in development or tests, by standing rule).
+ * VERIFICATION STATE (see
+ * `Software Strategy/gtm-apify-verified-contract-2026-07-24.md`):
+ * - `harvestapi/linkedin-post-comments`: input schema AND output shape
+ *   LIVE-VERIFIED 2026-07-24.
+ * - `harvestapi/linkedin-post-reactions`: input schema LIVE-VERIFIED; output
+ *   shape STILL UNVERIFIED (the probe post had no reactions, so a 201 with an
+ *   empty array was all we saw). Its normalizer keeps defensive aliases.
+ * - `apidojo/tweet-scraper` (X): input AND output STILL UNVERIFIED.
+ * Pricing lives in APIFY_MEASURED_USD below, in DOLLARS (measured 2026-07-24,
+ * not yet reconciled against an invoice).
  */
 
 export type ApifyCapabilityKind =
@@ -42,15 +48,14 @@ export type ApifyActorConfig = {
 }
 
 /*
- * VERIFY-ON-FIRST-RUN for every row: actor id exists, is public, its input
- * schema matches buildActorInput below, and its per-result price matches the
- * researched $1.20-2.00 / 1k (LinkedIn) and $0.15-0.40 / 1k (X) figures in
- * `Software Strategy/gtm-data-sources-origami-map-2026-07-24.md`.
+ * Actor ids VERIFIED to exist and accept our input for both LinkedIn rows;
+ * per-result price measured but not yet invoice-confirmed (background in
+ * `Software Strategy/gtm-data-sources-origami-map-2026-07-24.md`).
  */
 export const APIFY_ACTORS: Record<ApifyCapabilityKind, ApifyActorConfig> = {
   linkedin_post_reactions: {
     kind: 'linkedin_post_reactions',
-    // VERIFY-ON-FIRST-RUN
+    // id + input schema VERIFIED 2026-07-24
     defaultActorId: 'harvestapi/linkedin-post-reactions',
     // VERIFY-ON-FIRST-RUN (documented fallback, not auto-selected)
     fallbackActorId: 'apimaestro/linkedin-post-comments-replies-engagements-scraper-no-cookies',
@@ -59,7 +64,7 @@ export const APIFY_ACTORS: Record<ApifyCapabilityKind, ApifyActorConfig> = {
   },
   linkedin_post_comments: {
     kind: 'linkedin_post_comments',
-    // VERIFY-ON-FIRST-RUN
+    // id + input schema + output shape VERIFIED 2026-07-24
     defaultActorId: 'harvestapi/linkedin-post-comments',
     // VERIFY-ON-FIRST-RUN (documented fallback, not auto-selected)
     fallbackActorId: 'apimaestro/linkedin-profile-comments',
@@ -76,6 +81,25 @@ export const APIFY_ACTORS: Record<ApifyCapabilityKind, ApifyActorConfig> = {
     allowedHosts: ['x.com', 'twitter.com'],
   },
 }
+
+/*
+ * PROVIDER COST, IN USD. USD is the natural unit here: it is what Apify
+ * invoices, what their per-1k pricing quotes, and what their per-event pricing
+ * quotes. Noli credits are derived from these with creditsFromUsd
+ * (lib/credits/markup.ts), never hand-copied from another vendor's rate card.
+ *
+ * Every figure below was LIVE-MEASURED or read off the actor's own pricing
+ * schema on 2026-07-24. RE-CHECK AGAINST A REAL INVOICE before customer use:
+ * marketplace pricing changes without notice.
+ */
+export const APIFY_MEASURED_USD = {
+  // ~$0.003 per returned engagement result (LinkedIn comments/reactions, X)
+  sourcing_per_result: 0.003,
+  // profile detail without an email lookup ("main" profile mode territory)
+  profile_without_email: 0.004,
+  // full-profile-with-email event on the reactions actor
+  profile_with_email: 0.01,
+} as const
 
 export type ApifyEnv = Record<string, string | undefined>
 
@@ -128,23 +152,46 @@ export function extractPostUrl(kind: ApifyCapabilityKind, query: string): PostUr
 }
 
 // ---------------------------------------------------------------------------
-// Input builders (VERIFY-ON-FIRST-RUN: each actor's input schema)
+// Input builders
 // ---------------------------------------------------------------------------
+
+/*
+ * Both harvestapi actors expose `profileScraperMode` as an enum whose members
+ * are exactly ["short","main"], LOWERCASE. A capitalized 'Short' is rejected
+ * with HTTP 400 `invalid-input` (this was the adapter's original bug).
+ *
+ * Cost, straight from the actor's own schema titles: `short` carries NO charge
+ * for profile details; `main` costs $0.002 per profile. We default to `short`
+ * and only ever move to `main` when a plan justifies paying for profile depth.
+ */
+export const APIFY_PROFILE_SCRAPER_MODES = ['short', 'main'] as const
+export type ApifyProfileScraperMode = (typeof APIFY_PROFILE_SCRAPER_MODES)[number]
+export const APIFY_DEFAULT_PROFILE_SCRAPER_MODE: ApifyProfileScraperMode = 'short'
+
+export function normalizeProfileScraperMode(value: unknown): ApifyProfileScraperMode {
+  const lowered = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return (APIFY_PROFILE_SCRAPER_MODES as readonly string[]).includes(lowered)
+    ? (lowered as ApifyProfileScraperMode)
+    : APIFY_DEFAULT_PROFILE_SCRAPER_MODE
+}
 
 export function buildActorInput(
   kind: ApifyCapabilityKind,
-  args: { postUrl: string; maxItems: number },
+  args: { postUrl: string; maxItems: number; profileScraperMode?: string },
 ): Record<string, unknown> {
   const maxItems = Math.max(1, Math.floor(args.maxItems))
+  const profileScraperMode = normalizeProfileScraperMode(args.profileScraperMode)
   switch (kind) {
     case 'linkedin_post_reactions':
-      // VERIFY-ON-FIRST-RUN: harvestapi reactions actor input keys.
-      return { posts: [args.postUrl], postUrl: args.postUrl, maxItems }
+      // VERIFIED input keys: posts (array of post urls), maxItems,
+      // reactionTypeFilter (omitted = all types), profileScraperMode.
+      return { posts: [args.postUrl], maxItems, profileScraperMode }
     case 'linkedin_post_comments':
-      // VERIFY-ON-FIRST-RUN: harvestapi comments actor input keys.
-      return { posts: [args.postUrl], postUrl: args.postUrl, maxItems }
+      // VERIFIED input keys: posts, maxItems, postedLimit, scrapeReplies,
+      // profileScraperMode. We send only what we actually need.
+      return { posts: [args.postUrl], maxItems, profileScraperMode }
     case 'x_post_engagers':
-      // VERIFY-ON-FIRST-RUN: apidojo tweet-scraper input keys.
+      // STILL UNVERIFIED: apidojo tweet-scraper input keys.
       return { startUrls: [args.postUrl], maxItems, includeReplies: true }
   }
 }
@@ -162,8 +209,12 @@ export function buildActorInput(
  *   string, so an engager whose headline is "ignore previous instructions"
  *   is just a row with an odd name;
  * - the evidence claim is built from a FIXED vocabulary plus a sanitized
- *   engagement-type token, never from raw provider text;
+ *   engagement-type token, never from raw provider text. Raw provider text
+ *   that is worth keeping (the comment body) goes in `evidence.detail`, which
+ *   is inert jsonb payload and is never rendered into an instruction path;
  * - source_url is OUR plan's post URL, not a url echoed back by the actor.
+ *   The actor's own echo (`query.post`) is kept in `evidence.detail` instead,
+ *   so a crafted echo can never redirect a stored source_url.
  */
 
 // Direct observation of a public engagement event: high but not certain,
@@ -171,11 +222,29 @@ export function buildActorInput(
 export const APIFY_EVIDENCE_CONFIDENCE = 0.9
 
 const MAX_ENGAGEMENT_TOKEN = 24
+// Comment bodies are kept for evidence, but bounded: receipts and evidence
+// rows are read by humans, not a dumping ground for arbitrary provider text.
+const MAX_COMMENTARY_CHARS = 1_000
+const MAX_REACTION_TYPES = 8
 
 function str(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed ? trimmed : null
+}
+
+/*
+ * harvestapi returns "--" as its own filler for "this profile has no
+ * headline" (verified live). A filler string is ABSENT, not a title: storing
+ * it would put "--" in front of a customer as a job title.
+ */
+// dashes (ascii, en, em), dots and whitespace only; escaped so no literal
+// dash character other than '-' appears in the source
+const PLACEHOLDER_PATTERN = /^[-\u2013\u2014._\s]+$/
+
+function meaningful(value: string | null): string | null {
+  if (!value) return null
+  return PLACEHOLDER_PATTERN.test(value) ? null : value
 }
 
 function at(item: unknown, path: string[]): unknown {
@@ -190,6 +259,16 @@ function at(item: unknown, path: string[]): unknown {
 function pick(item: unknown, paths: string[][]): string | null {
   for (const path of paths) {
     const value = str(at(item, path))
+    if (value) return value
+  }
+  return null
+}
+
+// Same as pick, but a provider filler value ("--") is skipped rather than
+// returned, so a later alias still gets its chance.
+function pickMeaningful(item: unknown, paths: string[][]): string | null {
+  for (const path of paths) {
+    const value = meaningful(str(at(item, path)))
     if (value) return value
   }
   return null
@@ -223,6 +302,46 @@ export function normalizeEngagementType(raw: unknown, fallback: string): string 
   return token.slice(0, MAX_ENGAGEMENT_TOKEN)
 }
 
+/*
+ * Reaction types observed on the item, sanitized to short uppercase tokens.
+ * VERIFIED location on the comments actor: engagement.reactions[].type
+ * (e.g. EMPATHY). These are reactions ON the comment, so they are evidence
+ * detail, not the engagement kind itself.
+ */
+function reactionTypes(item: unknown): string[] {
+  const raw = at(item, ['engagement', 'reactions'])
+  if (!Array.isArray(raw)) return []
+  const seen: string[] = []
+  for (const entry of raw) {
+    const declared = str(at(entry, ['type']))
+    if (!declared) continue
+    const token = normalizeEngagementType(declared, '')
+    if (token && !seen.includes(token)) seen.push(token)
+    if (seen.length >= MAX_REACTION_TYPES) break
+  }
+  return seen
+}
+
+/*
+ * observed_at is WHEN THE ENGAGEMENT HAPPENED when the actor tells us
+ * (verified fields: createdAtTimestamp epoch ms, createdAt), and only falls
+ * back to our own attempt time when it does not. An unparseable value falls
+ * back rather than being coerced.
+ */
+function itemObservedAt(item: unknown, fallback: string): string {
+  const epoch = at(item, ['createdAtTimestamp'])
+  if (typeof epoch === 'number' && Number.isFinite(epoch) && epoch > 0) {
+    const fromEpoch = new Date(epoch)
+    if (!Number.isNaN(fromEpoch.getTime())) return fromEpoch.toISOString()
+  }
+  const raw = str(at(item, ['createdAt']))
+  if (raw) {
+    const parsed = new Date(raw)
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString()
+  }
+  return fallback
+}
+
 function buildIdentity(parts: {
   name: string
   title: string | null
@@ -249,6 +368,15 @@ export type NormalizeResult = {
   dropped: number
 }
 
+/*
+ * VERIFIED (comments actor): the person is nested under `actor`, with
+ * `actor.name` as ONE full-name field (there is no firstName/lastName split),
+ * `actor.linkedinUrl`, and `actor.position` for the headline. The verified
+ * names come FIRST in every list below.
+ *
+ * The remaining aliases exist for the reactions actor, whose output shape is
+ * STILL UNVERIFIED (see the header note), and for a marketplace actor swap.
+ */
 const LINKEDIN_NAME_PATHS: string[][] = [
   ['actor', 'name'],
   ['reactor', 'name'],
@@ -259,6 +387,8 @@ const LINKEDIN_NAME_PATHS: string[][] = [
   ['name'],
 ]
 
+// UNVERIFIED alias set: the verified comments actor has no first/last split.
+// Retained only so an actor swap that does split names still normalizes.
 const LINKEDIN_FIRST_PATHS: string[][] = [
   ['actor', 'firstName'],
   ['reactor', 'firstName'],
@@ -285,6 +415,14 @@ const LINKEDIN_TITLE_PATHS: string[][] = [
   ['occupation'],
 ]
 
+/*
+ * COMPANY IS NOT RETURNED by the verified comments actor in `short` mode:
+ * there is no company field at all, so the comments path never consults this
+ * list and company stays undefined. Company must come from a later enrichment
+ * step, or possibly from `main` mode at $0.002/profile (UNTESTED).
+ *
+ * The list below is used only by the UNVERIFIED reactions path.
+ */
 const LINKEDIN_COMPANY_PATHS: string[][] = [
   ['actor', 'companyName'],
   ['actor', 'company', 'name'],
@@ -330,27 +468,49 @@ const X_ENGAGEMENT_PATHS: string[][] = [['engagementType'], ['type']]
 function linkedinCandidate(
   item: unknown,
   ctx: NormalizeContext,
-  engagementType: string,
-  claimPrefix: string,
+  opts: {
+    engagementKind: 'comment' | 'reaction'
+    engagementType: string
+    claimPrefix: string
+    // false for the verified comments actor: it returns no company field
+    allowCompany: boolean
+  },
 ): Candidate | null {
   const name = pick(item, LINKEDIN_NAME_PATHS) ?? joinName(item, LINKEDIN_FIRST_PATHS, LINKEDIN_LAST_PATHS)
   // No usable name = no candidate. We never synthesize one.
   if (!name) return null
+
+  const detail: Record<string, unknown> = { engagement_kind: opts.engagementKind }
+  const reactions = reactionTypes(item)
+  if (reactions.length > 0) detail.reaction_types = reactions
+  // The comment body, kept as INERT data for evidence. It is bounded and never
+  // reaches a claim, a template, or any instruction path.
+  const commentary = str(at(item, ['commentary']))
+  if (commentary) detail.commentary = commentary.slice(0, MAX_COMMENTARY_CHARS)
+  const createdAt = str(at(item, ['createdAt']))
+  if (createdAt) detail.created_at = createdAt
+  // The actor's echo of the post we asked for. Recorded for reconciliation
+  // only; source_url below stays OUR host-checked plan URL.
+  const queryPost = str(at(item, ['query', 'post']))
+  if (queryPost) detail.query_post = queryPost
+
   return {
     entity_kind: 'person',
     identity: buildIdentity({
       name,
-      title: pick(item, LINKEDIN_TITLE_PATHS),
-      company: pick(item, LINKEDIN_COMPANY_PATHS),
+      // "--" and friends are treated as absent, not as a real title
+      title: pickMeaningful(item, LINKEDIN_TITLE_PATHS),
+      company: opts.allowCompany ? pick(item, LINKEDIN_COMPANY_PATHS) : null,
       profileUrl: pickUrl(item, LINKEDIN_PROFILE_URL_PATHS),
     }),
     evidence: [
       {
         // fixed vocabulary + sanitized token; no raw provider text
-        claim: `${claimPrefix} (${engagementType})`,
+        claim: `${opts.claimPrefix} (${opts.engagementType})`,
         source_url: ctx.postUrl,
-        observed_at: ctx.observedAt,
+        observed_at: itemObservedAt(item, ctx.observedAt),
         confidence: APIFY_EVIDENCE_CONFIDENCE,
+        detail,
       },
     ],
   }
@@ -382,15 +542,30 @@ export function normalizeItems(
   for (const item of items) {
     let candidate: Candidate | null = null
     if (kind === 'linkedin_post_reactions') {
+      // STILL UNVERIFIED shape: the reactions actor returned an empty array on
+      // the live probe, so these aliases (and the company mapping) remain
+      // defensive guesses until a post with reactions is run.
       const type = normalizeEngagementType(
         at(item, ['type']) ?? at(item, ['reactionType']) ?? at(item, ['reaction']),
         'REACTION',
       )
-      candidate = linkedinCandidate(item, ctx, type, 'Reacted to the source LinkedIn post')
+      candidate = linkedinCandidate(item, ctx, {
+        engagementKind: 'reaction',
+        engagementType: type,
+        claimPrefix: 'Reacted to the source LinkedIn post',
+        allowCompany: true,
+      })
     } else if (kind === 'linkedin_post_comments') {
-      // The comment BODY is deliberately not stored in the claim: it is
-      // third-party free text and belongs nowhere near an instruction path.
-      candidate = linkedinCandidate(item, ctx, 'COMMENT', 'Commented on the source LinkedIn post')
+      // VERIFIED shape. The comment BODY is deliberately not stored in the
+      // claim: it is third-party free text and belongs nowhere near an
+      // instruction path. It is carried on evidence.detail as inert data.
+      candidate = linkedinCandidate(item, ctx, {
+        engagementKind: 'comment',
+        engagementType: 'COMMENT',
+        claimPrefix: 'Commented on the source LinkedIn post',
+        // no company field exists in `short` mode: never invent one
+        allowCompany: false,
+      })
     } else {
       const name = pick(item, X_NAME_PATHS)
       if (name) {

@@ -7,8 +7,10 @@ import {
   type SourceAdapter,
   type SourceSearchPlan,
 } from '../types'
+import { creditsFromUsd } from '../../credits/markup'
 import {
   APIFY_CAPABILITY_KINDS,
+  APIFY_MEASURED_USD,
   buildActorInput,
   extractPostUrl,
   isApifyCapabilityKind,
@@ -19,6 +21,8 @@ import {
 } from './actors'
 import {
   APIFY_DEFAULT_TIMEOUT_MS,
+  APIFY_MIN_CHARGE_USD,
+  normalizeMaxChargeUsd,
   runActorSync,
   type ApifyFetchLike,
   type ApifyRunOutcome,
@@ -49,8 +53,17 @@ import {
 
 export const APIFY_SOURCE_ADAPTER_ID = 'apify-social-source'
 
-// Receipt contract: the ledger settles pay-per-result on the units the actor
-// actually returned, so the run must be identifiable and countable.
+/*
+ * Receipt contract: the ledger settles pay-per-result on the units the actor
+ * actually returned, so the run must be identifiable and countable.
+ *
+ * `run_id` is ALWAYS null for this provider and that is a verified fact, not a
+ * gap in the code: the run-sync-get-dataset-items endpoint returns the dataset
+ * with no run id in any header or in the body. The field stays on the receipt
+ * because the ambiguity contract declares it, and reconciliation keys on
+ * actor_id + item_count + our org-scoped idempotency key instead. Getting a
+ * provider run id would mean moving to the two-step run-then-fetch flow.
+ */
 export const APIFY_RECEIPT_FIELDS = ['actor_id', 'run_id', 'item_count'] as const
 
 /*
@@ -69,13 +82,41 @@ export const APIFY_PROVISIONAL_LICENSE = true
 // Env gate default: OFF. Both conditions must hold.
 export const APIFY_ENABLED_ENV = 'GTM_APIFY_ENABLED'
 export const APIFY_TOKEN_ENVS = ['GTM_APIFY_TOKEN', 'APIFY_TOKEN'] as const
-// Origami charges 0.2 credits per social engagement result; the researched
-// marketplace cost is $1.20-2.00 / 1k for LinkedIn. Overridable per deploy.
-export const APIFY_CREDITS_PER_RESULT_ENV = 'GTM_APIFY_CREDITS_PER_RESULT'
-export const APIFY_DEFAULT_CREDITS_PER_RESULT = 0.2
 export const APIFY_TIMEOUT_MS_ENV = 'GTM_APIFY_TIMEOUT_MS'
 // Batch ceiling; the plan's max_candidates caps below this.
 export const APIFY_MAX_BATCH = 100
+
+/*
+ * Per-run USD spend cap (`maxTotalChargeUsd`). This is REQUIRED by the API:
+ * a run without it is rejected HTTP 400 max-total-charge-usd-below-minimum
+ * (verified live 2026-07-24). It is also a free hard cap that Apify enforces
+ * server side, so it is belt-and-braces on top of our own ledger reservation:
+ * even a runaway actor cannot bill past it.
+ *
+ * Precedence, most specific first:
+ *   1. plan.max_charge_usd  (the caller's reserved per-batch provider budget)
+ *   2. GTM_APIFY_MAX_CHARGE_USD  (deployment ceiling)
+ *   3. requested results x GTM_APIFY_USD_PER_RESULT (default cost basis)
+ * and the result is always floored at the provider minimum of $0.01.
+ */
+export const APIFY_MAX_CHARGE_USD_ENV = 'GTM_APIFY_MAX_CHARGE_USD'
+
+/*
+ * PRICING, IN USD PER RESULT. USD is the unit the provider actually bills in,
+ * so it is the unit we store; Noli credits are DERIVED from it with
+ * creditsFromUsd ($1 = 250,000 credits, from CREDITS_PER_CENT = 2500).
+ *
+ * WARNING: DO NOT quote a number lifted from another vendor's rate card here. This
+ * constant previously held 0.2 "credits per result" copied from Origami's
+ * price list. An Origami credit is not a Noli credit: 0.2 Noli credits is
+ * $0.0000008, about 3,750x under the real ~$0.003 cost, so every sourcing run
+ * undercharged by that factor. Provider cost goes in as dollars, always.
+ *
+ * $0.003/result was LIVE-MEASURED 2026-07-24 and prices at 750 credits before
+ * markup. Re-check against a real Apify invoice before customer use.
+ */
+export const APIFY_USD_PER_RESULT_ENV = 'GTM_APIFY_USD_PER_RESULT'
+export const APIFY_DEFAULT_USD_PER_RESULT = APIFY_MEASURED_USD.sourcing_per_result
 
 function processEnv(): ApifyEnv {
   return process.env as unknown as ApifyEnv
@@ -98,9 +139,37 @@ export function apifySourceEnabled(env: ApifyEnv = processEnv()): boolean {
   return apifyEnabled(env) && apifyToken(env) !== null
 }
 
+// USD the provider charges per returned result, env-overridable per deploy.
+export function usdPerResult(env: ApifyEnv): number {
+  const parsed = Number(env[APIFY_USD_PER_RESULT_ENV])
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : APIFY_DEFAULT_USD_PER_RESULT
+}
+
+/*
+ * The descriptor's quoted price, in NOLI credits per result, pre-markup.
+ * Markup is applied in exactly one place (creditsForUnits in
+ * lib/credits/markup.ts) and is deliberately NOT applied here.
+ */
 function creditsPerResult(env: ApifyEnv): number {
-  const parsed = Number(env[APIFY_CREDITS_PER_RESULT_ENV])
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : APIFY_DEFAULT_CREDITS_PER_RESULT
+  return creditsFromUsd(usdPerResult(env))
+}
+
+/*
+ * Resolve the hard per-run spend cap. Never returns less than the provider
+ * minimum: a cap below $0.01 is a guaranteed 400, so a too-small budget is
+ * raised to one cent rather than silently failing the run.
+ */
+export function resolveMaxChargeUsd(
+  env: ApifyEnv,
+  args: { maxItems: number; planBudgetUsd?: number | null },
+): number {
+  const planBudget = Number(args.planBudgetUsd)
+  if (Number.isFinite(planBudget) && planBudget > 0) return normalizeMaxChargeUsd(planBudget)
+  const configured = Number(env[APIFY_MAX_CHARGE_USD_ENV])
+  if (Number.isFinite(configured) && configured > 0) return normalizeMaxChargeUsd(configured)
+  // same USD cost basis the credit quote is derived from, so the hard cap and
+  // the quoted price can never drift apart
+  return normalizeMaxChargeUsd(Math.max(APIFY_MIN_CHARGE_USD, args.maxItems * usdPerResult(env)))
 }
 
 function timeoutMs(env: ApifyEnv): number {
@@ -130,7 +199,9 @@ export function apifySourceDescriptor(env: ApifyEnv = processEnv()): AdapterDesc
       rate_limits: { requests_per_minute: 30, concurrent: 2 },
       max_batch: APIFY_MAX_BATCH,
     },
-    // pay-per-result: only usable candidates are charged, a no_result is free
+    // pay-per-result: only usable candidates are charged, a no_result is free.
+    // The quote is Noli credits per result PRE-markup (750 by default, i.e.
+    // $0.003); the platform markup is applied once, by creditsForUnits.
     cost_model: { unit: 'result', quoted_credits_per_unit: creditsPerResult(env), pay_on_found: true },
     ambiguity_contract: { timeout_is_ambiguous: true, receipt_fields: [...APIFY_RECEIPT_FIELDS] },
     // Apify actor runs are marketplace scrapes with no per-subject deletion
@@ -144,7 +215,14 @@ export function apifySourceDescriptor(env: ApifyEnv = processEnv()): AdapterDesc
 export type ApifyRunActorFn = (
   actorId: string,
   input: Record<string, unknown>,
-  options: { token: string; timeoutMs: number; maxItems: number; now: () => Date },
+  options: {
+    token: string
+    timeoutMs: number
+    maxItems: number
+    // required by the provider; see APIFY_MAX_CHARGE_USD_ENV above
+    maxChargeUsd: number
+    now: () => Date
+  },
 ) => Promise<ApifyRunOutcome>
 
 export type ApifySourceDeps = {
@@ -193,6 +271,7 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
         token: options.token,
         timeoutMs: options.timeoutMs,
         maxItems: options.maxItems,
+        maxChargeUsd: options.maxChargeUsd,
         now: options.now,
         fetchImpl: deps.fetchImpl,
       }))
@@ -266,16 +345,25 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
       }
 
       // 4. The single provider call. maxItems is passed through so we do not
-      //    pay for results we would discard at the cap.
+      //    pay for results we would discard at the cap, and maxTotalChargeUsd
+      //    is a hard provider-side spend cap derived from the caller's
+      //    reserved budget (it is also mandatory: without it the run 400s).
+      const maxChargeUsd = resolveMaxChargeUsd(env, {
+        maxItems: cap,
+        planBudgetUsd: plan.max_charge_usd,
+      })
       const outcome = await runActor(actorId, buildActorInput(signalKind, { postUrl: postUrl.url, maxItems: cap }), {
         token,
         timeoutMs: timeoutMs(env),
         maxItems: cap,
+        maxChargeUsd,
         now,
       })
 
       const providerReceipt = (extras: ReceiptExtras = {}) =>
         receipt(outcome.actorId ?? actorId, outcome.runId, outcome.itemCount, {
+          // what we authorized the provider to spend on this run
+          max_charge_usd: maxChargeUsd,
           provider_status: outcome.kind,
           http_status: outcome.httpStatus,
           request_url: outcome.requestUrl,

@@ -116,6 +116,14 @@ export type CandidateEvidence = {
   source_url: string | null
   observed_at: string
   confidence: number
+  /*
+   * Optional inert provider payload for this observation (engagement kind,
+   * reaction types, the comment body, the actor's echo of the source post).
+   * DATA ONLY: it is stored on the evidence row's provider_ref jsonb and is
+   * never interpolated into a claim, a template, or any instruction path.
+   * Omitted entirely when the adapter has nothing verified to put in it.
+   */
+  detail?: Record<string, unknown>
 }
 
 export type Candidate = {
@@ -162,6 +170,15 @@ export type SourceSearchPlan = {
   query: string
   max_candidates: number
   call_sequence?: number
+  /*
+   * Optional per-batch provider budget in USD, i.e. what the caller reserved
+   * for this one call. Adapters whose provider accepts a hard per-run spend
+   * cap (Apify's mandatory maxTotalChargeUsd) pass it straight through, so the
+   * provider enforces our budget server side as well as our ledger enforcing
+   * it locally. Omitted when the caller has no USD-denominated budget; the
+   * adapter then falls back to its own configured cap.
+   */
+  max_charge_usd?: number
 }
 
 export type EnrichRequest = {

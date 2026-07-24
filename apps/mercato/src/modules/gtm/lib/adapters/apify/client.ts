@@ -19,15 +19,29 @@ import type { AdapterResultStatus } from '../types'
  * - Every outcome carries actor_id / run_id / item_count material so the
  *   ledger can settle on the units actually returned (pay-per-result).
  *
- * VERIFY-ON-FIRST-RUN (Apify API shape assumptions, none of them tested
- * against the live API; see the return report):
+ * LIVE-VERIFIED 2026-07-24 against the real Apify API
+ * (`Software Strategy/gtm-apify-verified-contract-2026-07-24.md`). These are
+ * facts now, not assumptions:
  * - endpoint: POST /v2/acts/{actorId}/run-sync-get-dataset-items
  * - actor ids of the form `username/actor-name` are addressed in the API path
- *   as `username~actor-name`
- * - a 2xx body is a JSON ARRAY of dataset items
- * - the run id is surfaced on a response header; we probe a few candidate
- *   header names and fall back to null rather than inventing one
- * - `timeout` (seconds) and `maxItems` are accepted as query parameters
+ *   as `username~actor-name` (confirmed)
+ * - SUCCESS IS HTTP 201, not 200. The classifier below therefore treats any
+ *   2xx carrying a JSON array as success and never special-cases 200.
+ * - a 2xx body is a bare JSON ARRAY of dataset items (no envelope)
+ * - `timeout` (seconds), `maxItems` and `maxTotalChargeUsd` are accepted as
+ *   query parameters
+ * - `maxTotalChargeUsd` is MANDATORY: a run without it is rejected with HTTP
+ *   400 `max-total-charge-usd-below-minimum` ("Maximum cost per run is less
+ *   than the allowed minimum of $0.01"). It doubles as a free hard per-run
+ *   spend cap, so we always send it, derived from the caller's reserved
+ *   budget and floored at the provider minimum.
+ * - NO run id is returned by this endpoint. No `x-apify-run-id` header (or any
+ *   variant) exists on the response; the only Apify headers observed are
+ *   `x-apify-pagination-*` and `x-ratelimit-limit`. `runId` is therefore
+ *   always null here, on purpose, and reconciliation leans on
+ *   actor_id + item_count + our org-scoped idempotency key instead.
+ * - `x-apify-pagination-total` is UNRELIABLE (it read 0 while 5 items came
+ *   back), so item counts always come from the returned array length.
  */
 
 export const APIFY_API_BASE = 'https://api.apify.com/v2'
@@ -36,8 +50,14 @@ export const APIFY_DEFAULT_TIMEOUT_MS = 60_000
 // stored jsonb and read by humans, not a place for a full provider payload.
 export const APIFY_BODY_SNIPPET_LIMIT = 500
 
-// Header names probed for the run id, most specific first. VERIFY-ON-FIRST-RUN.
-export const APIFY_RUN_ID_HEADERS = ['x-apify-run-id', 'x-apify-actor-run-id', 'x-apify-run'] as const
+/*
+ * Apify's own documented floor for `maxTotalChargeUsd`. Anything below this
+ * (including omitting the param) is a hard HTTP 400, so this is both a
+ * validation floor and the smallest cap we can legally send.
+ */
+export const APIFY_MIN_CHARGE_USD = 0.01
+// Safe small default when the caller passes no budget: one cent per run.
+export const APIFY_DEFAULT_MAX_CHARGE_USD = APIFY_MIN_CHARGE_USD
 
 // ---------------------------------------------------------------------------
 // Injectable fetch surface (structural slice only, so tests pass a plain fn)
@@ -112,6 +132,11 @@ export type ApifyRunOptions = {
   token: string
   timeoutMs?: number
   maxItems?: number
+  // Hard per-run provider spend cap in USD. REQUIRED by the API (see the
+  // header note); defaults to APIFY_DEFAULT_MAX_CHARGE_USD and is always
+  // floored at APIFY_MIN_CHARGE_USD so a run can never be rejected for an
+  // under-minimum cap, and can never exceed what the caller reserved.
+  maxChargeUsd?: number
   // 'header' (default) keeps the token out of the URL entirely; 'query' is
   // the documented `?token=` form. Either way the token is redacted from
   // anything we store or return.
@@ -124,8 +149,7 @@ export type ApifyRunOptions = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// `username/actor-name` -> `username~actor-name` for the API path.
-// VERIFY-ON-FIRST-RUN.
+// `username/actor-name` -> `username~actor-name` for the API path (VERIFIED).
 export function encodeActorId(actorId: string): string {
   return actorId.trim().replace(/\//g, '~')
 }
@@ -147,14 +171,6 @@ function readHeader(headers: ApifyFetchHeaders | null | undefined, name: string)
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
-function readRunId(headers: ApifyFetchHeaders | null | undefined): string | null {
-  for (const name of APIFY_RUN_ID_HEADERS) {
-    const value = readHeader(headers, name)
-    if (value) return value
-  }
-  return null
-}
-
 function readRetryAfter(headers: ApifyFetchHeaders | null | undefined): number | null {
   const raw = readHeader(headers, 'retry-after')
   if (!raw) return null
@@ -169,9 +185,29 @@ function isAbortLike(err: unknown): boolean {
   return /abort|timed?\s?out|timeout|etimedout/i.test(message)
 }
 
+/*
+ * Clamp a caller-supplied USD cap onto Apify's accepted range. Anything
+ * missing, non-finite, or under the $0.01 minimum becomes the minimum: sending
+ * a too-small cap is a hard 400, so silently failing the run would be worse
+ * than spending at most one cent.
+ */
+export function normalizeMaxChargeUsd(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(parsed) || parsed <= APIFY_MIN_CHARGE_USD) return APIFY_MIN_CHARGE_USD
+  // round UP to cents-of-a-cent so float noise can never land us under the
+  // minimum, and so the value we send is the value we can show on a receipt
+  return Math.ceil(parsed * 10_000) / 10_000
+}
+
 export function buildRunSyncUrl(
   actorId: string,
-  options: { token: string; tokenTransport: 'header' | 'query'; timeoutMs: number; maxItems?: number },
+  options: {
+    token: string
+    tokenTransport: 'header' | 'query'
+    timeoutMs: number
+    maxItems?: number
+    maxChargeUsd?: number
+  },
 ): { url: string; redactedUrl: string } {
   const params: string[] = []
   // Apify's own run timeout, in seconds, kept just under our client deadline
@@ -180,6 +216,10 @@ export function buildRunSyncUrl(
   if (typeof options.maxItems === 'number' && options.maxItems > 0) {
     params.push(`maxItems=${Math.floor(options.maxItems)}`)
   }
+  // ALWAYS sent. Omitting it is HTTP 400 max-total-charge-usd-below-minimum
+  // (verified live), and it is a free hard spend cap on top of our ledger
+  // reservation.
+  params.push(`maxTotalChargeUsd=${normalizeMaxChargeUsd(options.maxChargeUsd)}`)
   const base = `${APIFY_API_BASE}/acts/${encodeActorId(actorId)}/run-sync-get-dataset-items`
   const redactedUrl = `${base}?${[...params, 'token=[redacted]'].join('&')}`
   const url =
@@ -210,10 +250,19 @@ export async function runActorSync(
     tokenTransport,
     timeoutMs,
     maxItems: options.maxItems,
+    maxChargeUsd: options.maxChargeUsd,
   })
 
   const base = {
     actorId,
+    /*
+     * ALWAYS null on this endpoint, verified live: run-sync-get-dataset-items
+     * returns the dataset only and surfaces no run id in any header or in the
+     * body. We do not pretend otherwise. Ledger reconciliation therefore keys
+     * on actor_id + item_count + our org-scoped idempotency key. If a provider
+     * run id ever becomes a hard requirement, the fix is the two-step
+     * run-then-fetch-dataset flow, not a header probe.
+     */
     runId: null as string | null,
     itemCount: 0,
     httpStatus: null as number | null,
@@ -265,7 +314,8 @@ export async function runActorSync(
   }
 
   const httpStatus = typeof response.status === 'number' ? response.status : null
-  const runId = readRunId(response.headers)
+  // No run id exists on this endpoint (see `base.runId` above); nothing to read.
+  const runId: string | null = null
   const retryAfterSeconds = readRetryAfter(response.headers)
 
   let bodyText = ''
@@ -327,6 +377,10 @@ export async function runActorSync(
       error: `provider_5xx: Apify returned HTTP ${httpStatus}`,
     }
   }
+  // Everything left that is not 2xx is a definitive client-side rejection.
+  // Live-verified examples: 400 max-total-charge-usd-below-minimum (cap missing
+  // or under $0.01) and 400 invalid-input (e.g. a capitalized
+  // profileScraperMode). Both are our bug, not a retryable provider blip.
   if (httpStatus == null || httpStatus < 200 || httpStatus >= 300) {
     return {
       ...withBody,
@@ -336,6 +390,12 @@ export async function runActorSync(
       error: `provider_error: Apify returned HTTP ${httpStatus ?? 'unknown'}`,
     }
   }
+
+  /*
+   * From here down we are on a 2xx. The live API answers this endpoint with
+   * HTTP 201, not 200, so success is defined as "any 2xx whose body parses as
+   * a JSON array" and 200 is never special-cased.
+   */
 
   let parsed: unknown
   try {
@@ -375,6 +435,8 @@ export async function runActorSync(
     kind: 'ok',
     status: APIFY_STATUS_MAP.ok,
     items: parsed,
+    // Counted from the array, never from x-apify-pagination-total: that header
+    // was observed reading 0 while five items were returned (verified live).
     itemCount: parsed.length,
     error: null,
   }
