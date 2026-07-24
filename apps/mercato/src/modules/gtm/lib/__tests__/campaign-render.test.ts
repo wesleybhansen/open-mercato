@@ -1,8 +1,14 @@
 import crypto from 'crypto'
 import { FakeEm } from './support/fake-em'
-import { ctx, seedCandidate, seedPlay, seedRun, WORKSPACE } from './support/campaign-fixtures'
+import { ctx, POSTAL_ADDRESS, seedCandidate, seedPlay, seedRun, WORKSPACE } from './support/campaign-fixtures'
 import { createCampaign } from '../campaign/build'
-import { messageContentHash, renderMessages, sanitizeMergeValue } from '../campaign/render'
+import {
+  messageContentHash,
+  renderMessages,
+  sanitizeMergeValue,
+  substituteUnsubscribeUrl,
+  UNSUBSCRIBE_URL_TOKEN,
+} from '../campaign/render'
 import type { GtmCampaign, GtmCandidate, GtmPlay, GtmResearchRun } from '../../data/entities'
 
 async function setup(): Promise<{
@@ -35,7 +41,7 @@ describe('renderMessages (deterministic per-recipient rendering)', () => {
       company: 'Looply Labs',
       evidenceClaim: 'they opened two new offices in Fresno',
     })
-    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE)
+    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
     expect(row.subject).toBe('Hello Ada at Looply Labs')
     expect(row.bodyText).toContain('Hi Ada,')
     expect(row.bodyText).toContain('Saw they opened two new offices in Fresno.')
@@ -51,7 +57,7 @@ describe('renderMessages (deterministic per-recipient rendering)', () => {
       company: null,
       evidenceClaim: null,
     })
-    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE)
+    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
     expect(row.subject).toContain('[[missing:company]]')
     expect(row.bodyText).toContain('[[missing:signal]]')
     expect(row.needsReview).toBe(true)
@@ -61,8 +67,8 @@ describe('renderMessages (deterministic per-recipient rendering)', () => {
   it('is deterministic: identical inputs produce identical content hashes', async () => {
     const { em, run, campaign } = await setup()
     const candidate = await seedCandidate(em, run, { name: 'Ada Synthetic', company: 'Looply' })
-    const [first] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE)
-    const [second] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE)
+    const [first] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
+    const [second] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
     expect(first.contentHash).toBe(second.contentHash)
     expect(first.contentHash).toBe(
       crypto.createHash('sha256').update(`${first.subject}\n${first.bodyHtml}`).digest('hex'),
@@ -77,7 +83,7 @@ describe('renderMessages (deterministic per-recipient rendering)', () => {
       company: 'Braces {{evil}} Inc',
       evidenceClaim: 'claim with {{first_name}} inside',
     })
-    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE)
+    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
     // Braces are stripped from values, so no candidate-sourced token survives
     // and nothing gets a second expansion pass.
     expect(row.subject).toBe('Hello Evil at Braces evil Inc')
@@ -116,6 +122,63 @@ describe('renderMessages (deterministic per-recipient rendering)', () => {
     expect(row.bodyText).toContain('<script>')
     expect(row.bodyHtml).toContain('&lt;script&gt;')
     expect(row.bodyHtml).toContain('<br/>')
+  })
+})
+
+describe('compliance footer (CAN-SPAM sender address + unsubscribe token)', () => {
+  it('appends the org postal address and the [[unsubscribe_url]] token to both bodies', async () => {
+    const { em, run, campaign } = await setup()
+    const candidate = await seedCandidate(em, run, { name: 'Ada Synthetic', company: 'Looply' })
+    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
+    expect(row.bodyText).toContain(POSTAL_ADDRESS)
+    expect(row.bodyHtml).toContain(POSTAL_ADDRESS)
+    expect(row.bodyText).toContain(`Unsubscribe: ${UNSUBSCRIBE_URL_TOKEN}`)
+    expect(row.bodyHtml).toContain(`Unsubscribe: ${UNSUBSCRIBE_URL_TOKEN}`)
+    // The footer ends the message.
+    expect(row.bodyText.endsWith(`Unsubscribe: ${UNSUBSCRIBE_URL_TOKEN}`)).toBe(true)
+    expect(row.needsReview).toBe(false)
+  })
+
+  it('HTML-escapes the address in body_html', async () => {
+    const { em, run, campaign } = await setup()
+    const candidate = await seedCandidate(em, run, { name: 'Ada Synthetic', company: 'Looply' })
+    const hostile = '12 <b>Main</b> & Co St'
+    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, hostile)
+    expect(row.bodyText).toContain(hostile)
+    expect(row.bodyHtml).not.toContain('<b>Main</b>')
+    expect(row.bodyHtml).toContain('12 &lt;b&gt;Main&lt;/b&gt; &amp; Co St')
+  })
+
+  it('the frozen content hash covers the footer address', async () => {
+    const { em, run, campaign } = await setup()
+    const candidate = await seedCandidate(em, run, { name: 'Ada Synthetic', company: 'Looply' })
+    const [withA] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, POSTAL_ADDRESS)
+    const [withB] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, '1 Other Rd, Reno, NV 89501')
+    expect(withA.contentHash).not.toBe(withB.contentHash)
+    // The hash is over the footer-carrying body, token included.
+    expect(withA.contentHash).toBe(messageContentHash(withA.subject, withA.bodyHtml))
+    expect(withA.bodyHtml).toContain(UNSUBSCRIBE_URL_TOKEN)
+  })
+
+  it('a missing postal address renders an honest token and flags review, never silence', async () => {
+    const { em, run, campaign } = await setup()
+    const candidate = await seedCandidate(em, run, { name: 'Ada Synthetic', company: 'Looply' })
+    const [row] = await renderMessages(em, ctx, campaign, [candidate], TEMPLATE, null)
+    expect(row.bodyText).toContain('[[missing:postal_address]]')
+    expect(row.needsReview).toBe(true)
+    expect(row.missingFields).toContain('postal_address')
+    // The unsubscribe token is still present even without the address.
+    expect(row.bodyText).toContain(UNSUBSCRIBE_URL_TOKEN)
+  })
+})
+
+describe('substituteUnsubscribeUrl', () => {
+  it('replaces every token occurrence and leaves other text alone', () => {
+    const content = `a ${UNSUBSCRIBE_URL_TOKEN} b ${UNSUBSCRIBE_URL_TOKEN}`
+    expect(substituteUnsubscribeUrl(content, 'https://x.example/u?token=t')).toBe(
+      'a https://x.example/u?token=t b https://x.example/u?token=t',
+    )
+    expect(substituteUnsubscribeUrl('no token here', 'https://x.example')).toBe('no token here')
   })
 })
 

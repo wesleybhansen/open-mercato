@@ -6,6 +6,7 @@ import {
   GtmEvidence,
   GtmPlay,
   GtmResearchRun,
+  GtmWorkspace,
 } from '../../../data/entities'
 
 /*
@@ -26,7 +27,36 @@ export const ctx: GtmCtx = {
   requestId: 'test-request',
 }
 
+// Synthetic org postal address (CAN-SPAM sender address in the footer).
+export const POSTAL_ADDRESS = '500 Synthetic Way, Suite 12, Fresno, CA 93650'
+
 let seq = 0
+
+// Idempotent: reuses an existing workspace row with the same id so multiple
+// seedPlay calls share one workspace. postalAddress: null seeds a workspace
+// WITHOUT the CAN-SPAM address (for the approval-gate tests).
+export async function seedWorkspace(
+  em: FakeEm,
+  overrides: Partial<{ id: string; postalAddress: string | null }> = {},
+): Promise<GtmWorkspace> {
+  const id = overrides.id ?? WORKSPACE
+  const existing = await em.findOne(GtmWorkspace, { id })
+  if (existing) return existing
+  const workspace = em.create(GtmWorkspace, {
+    id,
+    organizationId: ORG,
+    tenantId: TENANT,
+    name: 'Fixture workspace',
+    status: 'active',
+    settings:
+      overrides.postalAddress === null
+        ? {}
+        : { postal_address: overrides.postalAddress ?? POSTAL_ADDRESS },
+  })
+  em.persist(workspace)
+  await em.flush()
+  return workspace
+}
 
 export async function seedPlay(
   em: FakeEm,
@@ -38,6 +68,7 @@ export async function seedPlay(
     signal: string | null
   }> = {},
 ): Promise<GtmPlay> {
+  await seedWorkspace(em, { id: overrides.workspaceId ?? WORKSPACE })
   const play = em.create(GtmPlay, {
     organizationId: ORG,
     tenantId: TENANT,

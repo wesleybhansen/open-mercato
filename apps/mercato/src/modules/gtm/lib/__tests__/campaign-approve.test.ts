@@ -2,12 +2,15 @@ import { FakeEm } from './support/fake-em'
 import {
   ctx,
   ORG,
+  POSTAL_ADDRESS,
   seedCandidate,
   seedPlay,
   seedRun,
+  seedWorkspace,
   TENANT,
   WORKSPACE,
 } from './support/campaign-fixtures'
+import { updateWorkspacePostalAddress } from '../workspace-settings'
 import { createCampaign } from '../campaign/build'
 import { hashAddress } from '../campaign/exclusions'
 import {
@@ -379,6 +382,66 @@ describe('invalidation (immutable versions, mutable campaign pointer)', () => {
     })
     expect(draft.rendered.map((r) => r.candidateId)).not.toContain(target.candidateId)
     expect(candidates).toHaveLength(2)
+  })
+})
+
+describe('postal address approval gate (CAN-SPAM: sender is the org, not Noli)', () => {
+  async function setupWithoutAddress() {
+    const em = new FakeEm()
+    // Seed the workspace WITHOUT a postal address before seedPlay reuses it.
+    await seedWorkspace(em, { postalAddress: null })
+    const play = await seedPlay(em)
+    const run = await seedRun(em, play)
+    await seedCandidate(em, run)
+    const { campaign } = await createCampaign(em, ctx, {
+      workspaceId: WORKSPACE,
+      playId: play.id,
+      name: 'Postal gate test',
+    })
+    return { em, campaign }
+  }
+
+  it('approval fails typed postal_address_required while the address is unset', async () => {
+    const { em, campaign } = await setupWithoutAddress()
+    await expect(approveCampaign(em, ctx, { campaignId: campaign.id })).rejects.toMatchObject({
+      code: 'postal_address_required',
+    })
+    // Nothing was frozen.
+    expect(em.table(GtmCampaignVersion)).toHaveLength(0)
+    expect(em.table(GtmEnrollment)).toHaveLength(0)
+    expect(em.table(GtmCampaign)[0].status).toBe('draft')
+  })
+
+  it('draft-state exposes postal address presence so the UI can prompt', async () => {
+    const { em, campaign } = await setupWithoutAddress()
+    const before = await computeDraftState(em, ctx, campaign)
+    expect(before.postalAddress).toBeNull()
+    // Every preview honestly flags the missing footer address.
+    expect(before.rendered.every((row) => row.missingFields.includes('postal_address'))).toBe(true)
+
+    await updateWorkspacePostalAddress(em, ctx, WORKSPACE, POSTAL_ADDRESS)
+    const after = await computeDraftState(em, ctx, campaign)
+    expect(after.postalAddress).toBe(POSTAL_ADDRESS)
+    expect(after.rendered.every((row) => !row.missingFields.includes('postal_address'))).toBe(true)
+    // Setting the address changes the reviewed content (footer + settings).
+    expect(after.contentHash).not.toBe(before.contentHash)
+  })
+
+  it('approval passes once the address is set and freezes it into footer and snapshot', async () => {
+    const { em, campaign } = await setupWithoutAddress()
+    await updateWorkspacePostalAddress(em, ctx, WORKSPACE, POSTAL_ADDRESS)
+    const draft = await computeDraftState(em, ctx, campaign)
+    const result = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: draft.contentHash,
+    })
+    expect(result.version.version).toBe(1)
+    const snapshot = result.version.snapshot as Record<string, unknown>
+    expect((snapshot.settings as Record<string, unknown>).postal_address).toBe(POSTAL_ADDRESS)
+    const frozen = em.table(GtmRenderedMessage)
+    expect(frozen.length).toBeGreaterThan(0)
+    expect(frozen.every((row) => (row.bodyText ?? '').includes(POSTAL_ADDRESS))).toBe(true)
+    expect(frozen.every((row) => (row.bodyText ?? '').includes('[[unsubscribe_url]]'))).toBe(true)
   })
 })
 

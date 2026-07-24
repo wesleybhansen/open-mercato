@@ -14,6 +14,7 @@ import {
 } from './build'
 import { computeExclusions, type ComputeExclusionsResult } from './exclusions'
 import { renderMessages, type RenderedPreview } from './render'
+import { readWorkspacePostalAddress } from '../workspace-settings'
 import { projectCampaignCredits, type CreditProjection } from './project-credits'
 import { computeExecutionEligibility, type EligibilityResult } from '../eligibility'
 import {
@@ -26,6 +27,7 @@ import {
   GtmRenderedMessage,
   GtmResearchRun,
   GtmStep,
+  GtmWorkspace,
 } from '../../data/entities'
 
 /*
@@ -99,6 +101,9 @@ export type CampaignDraftState = {
   recipients: DraftRecipient[]
   // rendered previews for recipients only (frozen at approval)
   rendered: RenderedPreview[]
+  // workspace settings.postal_address (CAN-SPAM sender address; null = unset,
+  // which blocks approval and lets the UI prompt from draft-state)
+  postalAddress: string | null
   // AMS asset references attached to the draft (frozen at approval)
   assetRefs: AssetRef[]
   projectedCredits: CreditProjection
@@ -134,6 +139,17 @@ export async function computeDraftState(
     deletedAt: null,
   })
   if (!play) throw new GtmCampaignError('play_not_found', 'The campaign play no longer exists')
+
+  // The org's business postal address (workspace settings): rendered into
+  // every compliance footer and required for approval (CAN-SPAM; the sender
+  // is the customer's org, not Noli).
+  const workspace = await em.findOne(GtmWorkspace, {
+    id: campaign.workspaceId,
+    organizationId: ctx.organizationId,
+    tenantId: ctx.tenantId,
+    deletedAt: null,
+  })
+  const postalAddress = readWorkspacePostalAddress(workspace)
 
   // Recomputed from the play row's CURRENT state, never from stored columns
   // or caller input (section 7).
@@ -202,7 +218,14 @@ export async function computeDraftState(
     }
   })
 
-  const rendered = await renderMessages(em, ctx, campaign, recipientCandidates, mix.template)
+  const rendered = await renderMessages(
+    em,
+    ctx,
+    campaign,
+    recipientCandidates,
+    mix.template,
+    postalAddress,
+  )
   const assetRefs = parseAssetRefs(campaign)
   const projectedCredits = projectCampaignCredits({
     recipientCount: recipients.length,
@@ -230,6 +253,10 @@ export async function computeDraftState(
       jitter_minutes: settings.jitter_minutes,
       sender_mailbox_id: settings.mailbox_connection_id,
       duplicate_override: settings.duplicate_override,
+      // CAN-SPAM sender address frozen into the snapshot: the reviewer
+      // approves the exact footer address, and setting or changing it
+      // invalidates the reviewed draft hash.
+      postal_address: postalAddress,
     },
     recipients: recipients.map((recipient) => ({
       candidate_id: recipient.candidateId,
@@ -276,6 +303,7 @@ export async function computeDraftState(
     exclusions,
     recipients,
     rendered,
+    postalAddress,
     assetRefs,
     projectedCredits,
     canonical,
@@ -350,6 +378,24 @@ export async function approveCampaign(
   const now = new Date()
 
   const version = await em.transactional(async (tem) => {
+    // CAN-SPAM gate, checked INSIDE the approve transaction: the workspace
+    // must carry the org's business postal address (the sender is the
+    // customer's org, not Noli) or the footer of every frozen message would
+    // ship without a sender address. Re-read here so a concurrent clear
+    // between draft computation and approval still fails closed.
+    const workspaceRow = await tem.findOne(GtmWorkspace, {
+      id: campaign.workspaceId,
+      organizationId: ctx.organizationId,
+      tenantId: ctx.tenantId,
+      deletedAt: null,
+    })
+    if (!readWorkspacePostalAddress(workspaceRow)) {
+      throw new GtmCampaignError(
+        'postal_address_required',
+        'Set your business postal address in workspace settings before approving outreach (required by CAN-SPAM)',
+      )
+    }
+
     const existingVersions = await tem.find(GtmCampaignVersion, {
       campaignId: campaign.id,
       organizationId: ctx.organizationId,

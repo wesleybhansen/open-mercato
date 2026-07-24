@@ -7,6 +7,8 @@ import { GtmExecutionError, parseVersionSettings } from './schedule'
 import type { GtmSendTransport } from './transport'
 import { GtmSendTimeoutError } from './transport'
 import { buildUnsubscribeUrl } from '../unsubscribe'
+import { substituteUnsubscribeUrl } from '../campaign/render'
+import { readWorkspacePostalAddress } from '../workspace-settings'
 import {
   GtmCampaign,
   GtmCampaignVersion,
@@ -16,6 +18,7 @@ import {
   GtmRenderedMessage,
   GtmSendAttempt,
   GtmSuppression,
+  GtmWorkspace,
 } from '../../data/entities'
 import { EmailConnection } from '../../../email/data/schema'
 
@@ -169,6 +172,18 @@ export async function executeClaimedAttempt(
   })
   if (eligibility.execution_eligibility !== 'executable') return fail('play_not_executable')
 
+  // CAN-SPAM defense in depth: approval already required the org's postal
+  // address, but the workspace setting may have been cleared since. The
+  // frozen footer would then carry a stale address the org disowned, so the
+  // send fails closed with an explicit reason.
+  const workspace = await em.findOne(GtmWorkspace, {
+    id: campaign.workspaceId,
+    organizationId: ctx.organizationId,
+    tenantId: ctx.tenantId,
+    deletedAt: null,
+  })
+  if (!readWorkspacePostalAddress(workspace)) return fail('postal_address_missing')
+
   // Sender connection exists, belongs to this org/tenant, and is active.
   const connection = await em.findOne(EmailConnection, {
     id: attempt.mailboxConnectionId,
@@ -241,6 +256,18 @@ export async function executeClaimedAttempt(
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   }
 
+  // Substitute the [[unsubscribe_url]] compliance-footer token on a COPY of
+  // the frozen content, right before transport. The stored rendered row is
+  // never mutated: its content hash deliberately covers the TOKEN (the
+  // reviewer approved the token, and the hash must stay verifiable), while
+  // the real URL is per-enrollment and signed, so it can only exist here at
+  // send time. Without a signable URL we fall back to the mailto unsubscribe
+  // already carried in the List-Unsubscribe header.
+  const unsubscribeHref =
+    unsubscribeUrl ?? `mailto:${connection.emailAddress}?subject=unsubscribe`
+  const outboundHtml = substituteUnsubscribeUrl(rendered.bodyHtml ?? '', unsubscribeHref)
+  const outboundText = substituteUnsubscribeUrl(rendered.bodyText ?? '', unsubscribeHref)
+
   // -------------------------------------------------------------------------
   // Rules 3-4: transport contact + outcome mapping.
   // -------------------------------------------------------------------------
@@ -250,8 +277,8 @@ export async function executeClaimedAttempt(
       from: connection.emailAddress,
       to: address,
       subject: rendered.subject ?? '',
-      html: rendered.bodyHtml ?? '',
-      text: rendered.bodyText ?? '',
+      html: outboundHtml,
+      text: outboundText,
       headers,
       messageId: rfcMessageId,
     })

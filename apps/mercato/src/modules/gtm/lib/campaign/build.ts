@@ -47,6 +47,8 @@ export class GtmCampaignError extends Error {
       | 'play_not_executable'
       | 'campaign_not_found'
       | 'candidate_not_found'
+      | 'workspace_not_found'
+      | 'postal_address_required'
       | 'stale_draft'
       | 'daily_cap_exceeds_ceiling'
       | 'invalid_settings'

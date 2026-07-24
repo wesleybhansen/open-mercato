@@ -35,6 +35,9 @@ import type { CampaignDraftState } from '../../../lib/campaign/approve'
  *                     version's hash returns that version idempotently
  * - 'invalidate'      explicit invalidation with a caller-supplied reason
  * - 'status'          campaign + current version summary
+ * - 'update-workspace-settings'  writes the workspace's CAN-SPAM sender
+ *                     postal address (lib/workspace-settings.ts); approval
+ *                     requires it and send rechecks it
  *
  * Audit events are written on create (build.ts), approve, and invalidate
  * (approve.ts), always inside the owning transaction.
@@ -77,6 +80,9 @@ function draftShape(draft: CampaignDraftState) {
       jitter_minutes: draft.settings.jitter_minutes,
       mailbox_connection_id: draft.settings.mailbox_connection_id,
       duplicate_override: draft.settings.duplicate_override,
+      // CAN-SPAM sender address presence so the UI can prompt before approve
+      postal_address: draft.postalAddress,
+      postal_address_set: draft.postalAddress != null,
     },
     recipients: draft.recipients.map((recipient) => ({
       candidate_id: recipient.candidateId,
@@ -106,7 +112,8 @@ function errorResponse(err: GtmCampaignError) {
   if (
     err.code === 'campaign_not_found' ||
     err.code === 'play_not_found' ||
-    err.code === 'candidate_not_found'
+    err.code === 'candidate_not_found' ||
+    err.code === 'workspace_not_found'
   ) {
     return opaqueNotFound()
   }
@@ -179,6 +186,25 @@ export async function POST(req: Request) {
         settings: body.settings ?? null,
       })
       return NextResponse.json({ ok: true, campaign: campaignShape(result.campaign) })
+    }
+
+    if (body.op === 'update-workspace-settings') {
+      if (!isUuid(body.workspaceId)) return opaqueNotFound()
+      const { updateWorkspacePostalAddress } = await import('../../../lib/workspace-settings')
+      const result = await updateWorkspacePostalAddress(
+        em,
+        ctx,
+        body.workspaceId,
+        body.postal_address ?? null,
+      )
+      return NextResponse.json({
+        ok: true,
+        workspace: {
+          id: result.workspace.id,
+          postal_address: result.postalAddress,
+          postal_address_set: result.postalAddress != null,
+        },
+      })
     }
 
     // Every other op targets an existing campaign.

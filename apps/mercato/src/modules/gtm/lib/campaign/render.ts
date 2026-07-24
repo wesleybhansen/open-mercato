@@ -29,6 +29,18 @@ import { GtmCampaign, GtmCandidate, GtmEvidence, GtmPlay } from '../../data/enti
  * content_hash = sha256(subject + '\n' + body_html), the per-message hash
  * frozen onto gtm_rendered_messages at approval and folded into the draft
  * content hash (approve.ts).
+ *
+ * Compliance footer: every rendered body (html + text) ends with a
+ * standardized footer carrying the sending ORG's business postal address
+ * (CAN-SPAM: the sender is the customer's org, not Noli; read from workspace
+ * settings and passed in by the caller) and an unsubscribe line holding the
+ * literal token [[unsubscribe_url]]. The footer, address included, is part
+ * of the frozen rendered content and therefore hash-covered. The token stays
+ * a token in the stored row: the execution layer substitutes the real
+ * per-enrollment URL on a copy at send time (lib/execute/send.ts). A missing
+ * postal address renders the honest [[missing:postal_address]] token and
+ * flags the row for review; approval is blocked separately until the address
+ * is set (lib/campaign/approve.ts).
  */
 
 export type RenderedPreview = {
@@ -46,6 +58,14 @@ type MergeField = (typeof MERGE_FIELDS)[number]
 
 const MERGE_TOKEN = /\{\{\s*(first_name|company|signal|why_now)\s*\}\}/g
 const ANY_TOKEN = /\{\{[^}]*\}\}/
+
+// Literal token stored in the frozen rendered content; replaced with the real
+// per-enrollment unsubscribe URL only on the send-time copy (execute/send.ts).
+export const UNSUBSCRIBE_URL_TOKEN = '[[unsubscribe_url]]'
+
+export function substituteUnsubscribeUrl(content: string, url: string): string {
+  return content.split(UNSUBSCRIBE_URL_TOKEN).join(url)
+}
 
 export function messageContentHash(subject: string, bodyHtml: string): string {
   return crypto.createHash('sha256').update(`${subject}\n${bodyHtml}`).digest('hex')
@@ -89,17 +109,28 @@ export function renderForCandidate(
   template: CampaignTemplate,
   values: MergeValues,
   candidateId: string,
+  postalAddress: string | null = null,
 ): RenderedPreview {
   const missing = new Set<string>()
   const identity = (value: string) => value
   const subject = substitute(template.subject, values, missing, identity)
-  const bodyText = substitute(template.body, values, missing, identity)
+  let bodyText = substitute(template.body, values, missing, identity)
   // Escape the template body first (braces survive escaping), substitute
   // HTML-escaped values, then turn newlines into breaks.
-  const bodyHtml = substitute(escapeHtml(template.body), values, missing, escapeHtml).replace(
+  let bodyHtml = substitute(escapeHtml(template.body), values, missing, escapeHtml).replace(
     /\n/g,
     '<br/>',
   )
+
+  // Standardized compliance footer on EVERY rendered body: the sending org's
+  // postal address (CAN-SPAM) plus the unsubscribe token. Hash-covered as
+  // part of the frozen content; a missing address is an honest review token,
+  // never omitted silently.
+  const address = typeof postalAddress === 'string' && postalAddress.trim() ? postalAddress.trim() : null
+  if (!address) missing.add('postal_address')
+  const addressText = address ?? '[[missing:postal_address]]'
+  bodyText += `\n\n--\n${addressText}\nUnsubscribe: ${UNSUBSCRIBE_URL_TOKEN}`
+  bodyHtml += `<br/><br/>--<br/>${address ? escapeHtml(address) : addressText}<br/>Unsubscribe: ${UNSUBSCRIBE_URL_TOKEN}`
 
   // Unsupported {{...}} tokens left in the output (typed into the template;
   // sanitized values can never contain braces) force a human review pass.
@@ -122,6 +153,9 @@ export async function renderMessages(
   campaign: GtmCampaign,
   candidates: GtmCandidate[],
   template: CampaignTemplate,
+  // The sending org's business postal address from workspace settings
+  // (lib/workspace-settings.ts), passed in by the caller.
+  postalAddress: string | null = null,
 ): Promise<RenderedPreview[]> {
   const play = await em.findOne(GtmPlay, {
     id: campaign.playId,
@@ -162,6 +196,6 @@ export async function renderMessages(
       signal: sanitizeMergeValue(topClaim.get(candidate.id)?.claim ?? null),
       why_now: whyNow,
     }
-    return renderForCandidate(template, values, candidate.id)
+    return renderForCandidate(template, values, candidate.id, postalAddress)
   })
 }

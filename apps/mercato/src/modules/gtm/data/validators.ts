@@ -227,6 +227,15 @@ export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
     noliUserId: idString,
     campaignId: idString,
   }),
+  // Workspace-level settings write (CAN-SPAM sender postal address). Length
+  // is bounded loosely here; the 300-char cap after trimming is enforced by
+  // lib/workspace-settings.ts with a typed error. Empty / null = unset.
+  z.object({
+    op: z.literal('update-workspace-settings'),
+    noliUserId: idString,
+    workspaceId: idString,
+    postal_address: z.string().max(2000).optional().nullable(),
+  }),
 ])
 
 export type GtmCampaignsBody = z.infer<typeof gtmCampaignsBodySchema>

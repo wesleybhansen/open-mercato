@@ -13,10 +13,13 @@ import {
 import { claimDueAttempts } from '../execute/claim'
 import { executeClaimedAttempt } from '../execute/send'
 import { hashAddress } from '../campaign/exclusions'
+import { messageContentHash, UNSUBSCRIBE_URL_TOKEN } from '../campaign/render'
 import {
   GtmContactPoint,
+  GtmRenderedMessage,
   GtmSendAttempt,
   GtmSuppression,
+  GtmWorkspace,
 } from '../../data/entities'
 import type { Clock } from '../execute/schedule'
 
@@ -247,6 +250,47 @@ describe('executeClaimedAttempt (SPEC-066 section 6 rules 2-5, section 8)', () =
       const outcome = await executeClaimedAttempt(em, ctx, claimed, { transport, clock })
       expect(outcome.outcome).toBe('accepted')
     })
+  })
+
+  it('substitutes the per-enrollment unsubscribe URL on the outbound COPY; the frozen row keeps the token', async () => {
+    const { em, clock, claimed, transport } = await prepare()
+    const outcome = await executeClaimedAttempt(em, ctx, claimed, { transport, clock })
+    expect(outcome.outcome).toBe('accepted')
+
+    // The transport received a real https URL in both bodies, no token left.
+    const args = transport.calls[0]
+    const urlPattern = /https:\/\/crm\.fixture\.example\/api\/gtm\/unsubscribe\?token=/
+    expect(args.html).toMatch(urlPattern)
+    expect(args.text).toMatch(urlPattern)
+    expect(args.html).not.toContain(UNSUBSCRIBE_URL_TOKEN)
+    expect(args.text).not.toContain(UNSUBSCRIBE_URL_TOKEN)
+
+    // The stored rendered row is untouched: token still present and the
+    // frozen content hash still verifies over the stored body.
+    const stored = (await em.findOne(GtmRenderedMessage, { id: claimed.renderedMessageId }))!
+    expect(stored.bodyHtml).toContain(UNSUBSCRIBE_URL_TOKEN)
+    expect(stored.bodyText).toContain(UNSUBSCRIBE_URL_TOKEN)
+    expect(stored.bodyHtml).not.toMatch(urlPattern)
+    expect(messageContentHash(stored.subject ?? '', stored.bodyHtml ?? '')).toBe(
+      stored.contentHash,
+    )
+
+    // The frozen footer carries the org postal address end to end.
+    expect(args.text).toContain('Fresno, CA')
+  })
+
+  it('postal address cleared after approval fails the pre-send recheck (defense in depth)', async () => {
+    const { em, clock, claimed, transport } = await prepare()
+    const workspace = (await em.findOne(GtmWorkspace, {
+      organizationId: ORG,
+      tenantId: TENANT,
+    }))!
+    workspace.settings = {}
+    const outcome = await executeClaimedAttempt(em, ctx, claimed, { transport, clock })
+    expect(outcome).toMatchObject({ outcome: 'failed', reason: 'postal_address_missing' })
+    expect(claimed.state).toBe('failed')
+    expect(claimed.failureReason).toBe('postal_address_missing')
+    expect(transport.calls).toHaveLength(0)
   })
 
   it('a delayed writer with a stale claim token/fence is fenced out everywhere', async () => {
