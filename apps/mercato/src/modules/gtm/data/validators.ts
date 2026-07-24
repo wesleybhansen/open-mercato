@@ -311,3 +311,89 @@ export const gtmInboxBodySchema = z.discriminatedUnion('op', [
 ])
 
 export type GtmInboxBody = z.infer<typeof gtmInboxBodySchema>
+
+// ---------------------------------------------------------------------------
+// Tranche 7: manual social tasks + campaign timeline (SPEC-066 sections 9,
+// 10, 12) and AMS/KB handoff (section 13)
+// ---------------------------------------------------------------------------
+
+// task keys are `task:{versionId}:{enrollmentId}:{stepId}`; malformed keys
+// resolve to the same opaque task_not_found the routes return for missing
+// rows (never a distinguishable 400).
+const taskKeyString = z.string().trim().min(1).max(300)
+
+export const gtmTasksBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('list'),
+    noliUserId: idString,
+    campaignId: idString,
+  }),
+  z.object({
+    op: z.literal('mark'),
+    noliUserId: idString,
+    taskKey: taskKeyString,
+    outcome: z.enum(['sent', 'skipped', 'replied', 'requested', 'accepted']),
+    note: z.string().trim().max(4000).optional().nullable(),
+  }),
+  z.object({
+    op: z.literal('override-dependency'),
+    noliUserId: idString,
+    taskKey: taskKeyString,
+    reason: z.string().trim().min(1).max(2000),
+  }),
+  z.object({
+    op: z.literal('timeline'),
+    noliUserId: idString,
+    campaignId: idString,
+    enrollmentId: idString.optional(),
+  }),
+])
+
+export type GtmTasksBody = z.infer<typeof gtmTasksBodySchema>
+
+const assetRefSchema = z.object({
+  id: idString,
+  kind: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(500),
+  publishedUrl: z.string().trim().min(1).max(2000),
+  frozen_url: z.string().trim().max(2000).optional().nullable(),
+})
+
+export const gtmHandoffBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('assets-list'),
+    noliUserId: idString,
+  }),
+  z.object({
+    op: z.literal('asset-request'),
+    noliUserId: idString,
+    kind: z.string().trim().min(1).max(100),
+    brief: z.string().trim().min(1).max(4000),
+    platform: z.string().trim().max(100).optional().nullable(),
+    play_context: z.record(z.string(), z.unknown()),
+  }),
+  z.object({
+    op: z.literal('asset-status'),
+    noliUserId: idString,
+    requestId: z.string().trim().min(1).max(200),
+  }),
+  z.object({
+    op: z.literal('attach-asset'),
+    noliUserId: idString,
+    campaignId: idString,
+    assetRef: assetRefSchema,
+  }),
+  z.object({
+    op: z.literal('kb-mirror-icp'),
+    noliUserId: idString,
+    workspaceId: idString,
+    icpVersionId: idString,
+  }),
+  z.object({
+    op: z.literal('kb-mirror-campaign'),
+    noliUserId: idString,
+    campaignId: idString,
+  }),
+])
+
+export type GtmHandoffBody = z.infer<typeof gtmHandoffBodySchema>

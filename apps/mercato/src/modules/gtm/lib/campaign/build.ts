@@ -277,6 +277,44 @@ export function parseSettings(campaign: GtmCampaign): CampaignSettings {
 }
 
 // ---------------------------------------------------------------------------
+// AMS asset references (blog-ops gtm-asset-handoff-contract-2026-07-23,
+// SPEC-066 section 13). GTM stores REFERENCES only: AMS stays the asset
+// system of record. References live in channel_mix.asset_refs on the draft
+// and freeze into the approval snapshot (lib/campaign/approve.ts includes
+// them in the canonical draft object).
+// ---------------------------------------------------------------------------
+
+export type AssetRef = {
+  id: string
+  kind: string
+  title: string
+  publishedUrl: string
+  // Resolved URL frozen at attach time; the approval snapshot preserves it so
+  // a later unpublish in AMS never mutates an approved version (contract
+  // item 4).
+  frozen_url: string | null
+}
+
+export function parseAssetRefs(campaign: GtmCampaign): AssetRef[] {
+  const raw = (campaign.channelMix ?? {}) as Record<string, unknown>
+  if (!Array.isArray(raw.asset_refs)) return []
+  const out: AssetRef[] = []
+  for (const entry of raw.asset_refs) {
+    if (!entry || typeof entry !== 'object') continue
+    const record = entry as Record<string, unknown>
+    if (typeof record.id !== 'string' || !record.id) continue
+    out.push({
+      id: record.id,
+      kind: typeof record.kind === 'string' ? record.kind : 'unknown',
+      title: typeof record.title === 'string' ? record.title : '',
+      publishedUrl: typeof record.publishedUrl === 'string' ? record.publishedUrl : '',
+      frozen_url: typeof record.frozen_url === 'string' ? record.frozen_url : null,
+    })
+  }
+  return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+}
+
+// ---------------------------------------------------------------------------
 // createCampaign
 // ---------------------------------------------------------------------------
 

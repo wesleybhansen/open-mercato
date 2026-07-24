@@ -2,8 +2,10 @@ import crypto from 'crypto'
 import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import {
   GtmCampaignError,
+  parseAssetRefs,
   parseDraftMix,
   parseSettings,
+  type AssetRef,
   type CampaignEm,
   type CampaignSettings,
   type CampaignTemplate,
@@ -97,6 +99,8 @@ export type CampaignDraftState = {
   recipients: DraftRecipient[]
   // rendered previews for recipients only (frozen at approval)
   rendered: RenderedPreview[]
+  // AMS asset references attached to the draft (frozen at approval)
+  assetRefs: AssetRef[]
   projectedCredits: CreditProjection
   // deterministic canonical draft object; contentHash = sha256 of it
   canonical: Record<string, unknown>
@@ -199,6 +203,7 @@ export async function computeDraftState(
   })
 
   const rendered = await renderMessages(em, ctx, campaign, recipientCandidates, mix.template)
+  const assetRefs = parseAssetRefs(campaign)
   const projectedCredits = projectCampaignCredits({
     recipientCount: recipients.length,
     steps: mix.steps,
@@ -247,6 +252,16 @@ export async function computeDraftState(
         source: entry.source,
         address_hash: entry.addressHash,
       })),
+    // AMS asset references: frozen into the snapshot at approval so a later
+    // channel_mix edit or an AMS unpublish never changes an approved version
+    // (asset-handoff contract item 4).
+    asset_refs: assetRefs.map((ref) => ({
+      id: ref.id,
+      kind: ref.kind,
+      title: ref.title,
+      published_url: ref.publishedUrl,
+      frozen_url: ref.frozen_url,
+    })),
     projected_credits: projectedCredits.projected_credits,
   }
 
@@ -261,6 +276,7 @@ export async function computeDraftState(
     exclusions,
     recipients,
     rendered,
+    assetRefs,
     projectedCredits,
     canonical,
     contentHash: canonicalHash(canonical),
