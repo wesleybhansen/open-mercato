@@ -97,7 +97,37 @@ export const gtmResearchRunsBodySchema = z.discriminatedUnion('op', [
     noliUserId: idString,
     runId: idString,
   }),
+  // Tranche 4: retention sweep exposed as a service-caller op (no in-app
+  // worker convention exists; see lib/retention/sweep.ts).
+  z.object({
+    op: z.literal('retention-sweep'),
+    noliUserId: idString,
+  }),
 ])
+
+// ---------------------------------------------------------------------------
+// Tranche 4: enrichment + verification waterfall (SPEC-066 sections 4, 11.2)
+// ---------------------------------------------------------------------------
+
+// Exactly one of runId | workspaceId scopes the operation; the route enforces
+// the at-least-one rule so both shapes share the union discriminator.
+export const gtmEnrichBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('run'),
+    noliUserId: idString,
+    runId: idString.optional(),
+    workspaceId: idString.optional(),
+    maxCredits: z.number().int().min(1).optional(),
+  }),
+  z.object({
+    op: z.literal('status'),
+    noliUserId: idString,
+    runId: idString.optional(),
+    workspaceId: idString.optional(),
+  }),
+])
+
+export type GtmEnrichBody = z.infer<typeof gtmEnrichBodySchema>
 
 export const gtmCandidatesBodySchema = z.object({
   noliUserId: idString,

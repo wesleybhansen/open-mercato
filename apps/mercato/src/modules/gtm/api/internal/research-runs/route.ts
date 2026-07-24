@@ -116,6 +116,22 @@ export async function POST(req: Request) {
     const { sourceAdapterList, sourceAdapterRegistry } = await import('../../../lib/adapters/registry')
     const requestId = req.headers.get('x-request-id')
 
+    if (body.op === 'retention-sweep') {
+      // Tranche 4 retention sweep (SPEC-066 section 4): hard-deletes expired
+      // never-promoted, never-enrolled candidates plus their evidence and
+      // contact points, one audit event per swept batch. Self-scoped to the
+      // resolved org; service callers trigger it on whatever cadence they
+      // like - the sweep is idempotent. Exposed here instead of a queue
+      // worker because apps/mercato modules have no worker convention (see
+      // lib/retention/sweep.ts).
+      const { sweepExpiredCandidates } = await import('../../../lib/retention/sweep')
+      const sweep = await sweepExpiredCandidates(
+        em as unknown as import('../../../lib/retention/sweep').RetentionEm,
+        { orgId: organizationId },
+      )
+      return NextResponse.json({ ok: true, sweep })
+    }
+
     if (body.op === 'plan' || body.op === 'create') {
       // Opaque 404 for malformed, missing, foreign, or soft-deleted plays.
       if (!isUuid(body.playId)) return opaqueNotFound()
