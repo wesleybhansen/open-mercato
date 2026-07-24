@@ -1026,6 +1026,97 @@ export class GtmProviderOperation {
   deletedAt?: Date | null
 }
 
+// Durable Strategist chat state (GTM-SPEC-04 section 2.3). A thread is
+// workspace-scoped; messages are an append-only, gap-free sequence keyed by
+// (thread_id, seq). The hub runs the agent loop statelessly and persists each
+// turn here through the /internal/gtm/chat ops.
+@Entity({ tableName: 'gtm_chat_threads' })
+@Index({ name: 'gtm_chat_threads_org_tenant_idx', properties: ['organizationId', 'tenantId'] })
+@Index({ name: 'gtm_chat_threads_org_tenant_workspace_idx', properties: ['organizationId', 'tenantId', 'workspaceId'] })
+export class GtmChatThread {
+  [OptionalProps]?: 'id' | 'status' | 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  // -> gtm_workspaces.id
+  @Property({ name: 'workspace_id', type: 'uuid' })
+  workspaceId!: string
+
+  @Property({ type: 'text', nullable: true })
+  title?: string | null
+
+  // active | archived
+  @Property({ type: 'text', default: 'active' })
+  status: string = 'active'
+
+  @Property({ name: 'last_message_at', type: 'timestamptz', nullable: true })
+  lastMessageAt?: Date | null
+
+  @Property({ name: 'created_at', type: 'timestamptz', defaultRaw: 'now()' })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: 'timestamptz', defaultRaw: 'now()', onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt?: Date | null
+}
+
+// Append-only turn log. seq is a gap-free 1-based counter within a thread; the
+// (thread_id, seq) unique index makes the append-safe allocation race-proof
+// (a losing concurrent insert collides and retries). content is the structured
+// turn payload (message text plus, for assistant turns, proposed actions).
+@Entity({ tableName: 'gtm_chat_messages' })
+@Index({ name: 'gtm_chat_messages_org_tenant_idx', properties: ['organizationId', 'tenantId'] })
+@Index({ name: 'gtm_chat_messages_org_tenant_thread_idx', properties: ['organizationId', 'tenantId', 'threadId'] })
+@Unique({ name: 'gtm_chat_messages_thread_seq_unique', properties: ['threadId', 'seq'] })
+export class GtmChatMessage {
+  [OptionalProps]?: 'id' | 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  // -> gtm_chat_threads.id
+  @Property({ name: 'thread_id', type: 'uuid' })
+  threadId!: string
+
+  // user | assistant | tool
+  @Property({ type: 'text' })
+  role!: string
+
+  @Property({ type: 'jsonb' })
+  content!: Record<string, unknown>
+
+  // optional pointer to the op/tool the turn is about (e.g. a research run id)
+  @Property({ name: 'tool_ref', type: 'text', nullable: true })
+  toolRef?: string | null
+
+  @Property({ type: 'integer' })
+  seq!: number
+
+  @Property({ name: 'created_at', type: 'timestamptz', defaultRaw: 'now()' })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: 'timestamptz', defaultRaw: 'now()', onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt?: Date | null
+}
+
 @Entity({ tableName: 'gtm_audit_events' })
 @Index({ name: 'gtm_audit_events_org_tenant_idx', properties: ['organizationId', 'tenantId'] })
 @Index({ name: 'gtm_audit_events_org_tenant_object_idx', properties: ['organizationId', 'tenantId', 'objectType', 'objectId'] })

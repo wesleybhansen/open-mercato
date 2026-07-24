@@ -538,3 +538,35 @@ export const gtmStrategyBodySchema = z.discriminatedUnion('op', [
 ])
 
 export type GtmStrategyBody = z.infer<typeof gtmStrategyBodySchema>
+
+// ---------------------------------------------------------------------------
+// GTM Strategist chat persistence (GTM-SPEC-04 section 2.3). The hub runs the
+// agent loop and persists each turn through these ops; all ops re-resolve
+// identity server-side and self-scope by org+tenant.
+// ---------------------------------------------------------------------------
+
+// Turn payload is an arbitrary JSON object (message text plus, for assistant
+// turns, the structured proposed actions the UI renders as confirm buttons).
+// The store guards object-ness; shape is product-defined.
+const chatContentSchema = z.record(z.string(), z.unknown())
+
+export const gtmChatBodySchema = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('thread-list'), noliUserId: idString, workspaceId: idString }),
+  z.object({
+    op: z.literal('thread-create'),
+    noliUserId: idString,
+    workspaceId: idString,
+    title: z.string().trim().max(200).optional().nullable(),
+  }),
+  z.object({ op: z.literal('messages'), noliUserId: idString, threadId: idString }),
+  z.object({
+    op: z.literal('append-message'),
+    noliUserId: idString,
+    threadId: idString,
+    role: z.enum(['user', 'assistant', 'tool']),
+    content: chatContentSchema,
+    toolRef: z.string().trim().max(200).optional().nullable(),
+  }),
+])
+
+export type GtmChatBody = z.infer<typeof gtmChatBodySchema>

@@ -3,6 +3,7 @@ import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import {
   GtmCampaignVersion,
   GtmCandidate,
+  GtmChatMessage,
   GtmEnrollment,
   GtmIcpVersion,
   GtmRenderedMessage,
@@ -177,6 +178,14 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm,
           GtmVoiceVersion,
           (row) => row.workspaceId === entity.workspaceId && row.version === entity.version,
           'gtm_voice_versions_workspace_version_unique',
+        )
+      }
+      if (entity instanceof GtmChatMessage) {
+        this.assertUnique(
+          entity,
+          GtmChatMessage,
+          (row) => row.threadId === entity.threadId && row.seq === entity.seq,
+          'gtm_chat_messages_thread_seq_unique',
         )
       }
       if (entity instanceof GtmSendAttempt) {
