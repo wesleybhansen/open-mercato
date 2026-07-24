@@ -75,6 +75,14 @@ const researchLimitsSchema = z.object({
 })
 
 export const gtmResearchRunsBodySchema = z.discriminatedUnion('op', [
+  // Workspace-wide run history for the hub UI: org+tenant self-scoped,
+  // soft-deleted excluded, capped at 50, newest first (lib/listing.ts).
+  z.object({
+    op: z.literal('list'),
+    noliUserId: idString,
+    workspaceId: idString.optional(),
+    playId: idString.optional(),
+  }),
   z.object({
     op: z.literal('plan'),
     noliUserId: idString,
@@ -178,6 +186,13 @@ const campaignSettingsSchema = z.object({
 })
 
 export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
+  // Workspace-wide campaign list for the hub UI: org+tenant self-scoped,
+  // soft-deleted excluded, capped at 50, newest first (lib/listing.ts).
+  z.object({
+    op: z.literal('list'),
+    noliUserId: idString,
+    workspaceId: idString.optional(),
+  }),
   z.object({
     op: z.literal('create'),
     noliUserId: idString,

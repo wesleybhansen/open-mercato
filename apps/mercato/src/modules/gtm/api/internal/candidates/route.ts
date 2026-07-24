@@ -18,7 +18,10 @@ import type { GtmCandidate } from '../../../data/entities'
  *
  * Ops (body.op, default 'list'):
  * - 'list'   filtered by runId and/or workspaceId and/or fitStatus, capped at
- *            100 rows, ordered fit_score desc
+ *            100 rows, ordered fit_score desc. Each row also carries
+ *            has_verified_email (a verified email contact point exists) and
+ *            evidence_count, computed via two grouped queries over the page's
+ *            candidate ids (lib/listing.ts; never one query per candidate)
  * - 'review' manual verdict override for one candidate; the change writes a
  *            gtm_audit_events row in the same transaction
  *
@@ -155,9 +158,25 @@ export async function POST(req: Request) {
       limit: LIST_CAP,
     })
 
+    // Additive per-row rollup: verified-email presence + evidence count, one
+    // grouped query per table over this page's candidate ids (no N+1).
+    const { candidateEnrichment } = await import('../../../lib/listing')
+    const rollup = await candidateEnrichment(
+      em as unknown as import('../../../lib/listing').ListEm,
+      { organizationId, tenantId },
+      candidates.map((candidate) => candidate.id),
+    )
+
     return NextResponse.json({
       ok: true,
-      candidates: candidates.map((candidate) => shapeCandidate(candidate)),
+      candidates: candidates.map((candidate) => {
+        const extra = rollup.get(candidate.id)
+        return {
+          ...shapeCandidate(candidate),
+          has_verified_email: extra?.hasVerifiedEmail ?? false,
+          evidence_count: extra?.evidenceCount ?? 0,
+        }
+      }),
       cap: LIST_CAP,
     })
   } catch (err) {

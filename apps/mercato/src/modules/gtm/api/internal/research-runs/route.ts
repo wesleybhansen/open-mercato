@@ -17,6 +17,9 @@ import type { GtmResearchRun } from '../../../data/entities'
  * caller's claims about org/tenant ownership are never trusted.
  *
  * Ops (body.op):
+ * - 'list'    workspace-wide run history (optionally filtered by workspaceId
+ *             and/or playId), org+tenant self-scoped, soft-deleted excluded,
+ *             capped at 50, newest first (lib/listing.ts)
  * - 'plan'    prices a source plan for a play WITHOUT creating a run
  * - 'create'  persists a GtmResearchRun in status 'priced' with the frozen
  *             input snapshot, provider plan, limits, and estimated credits
@@ -115,6 +118,30 @@ export async function POST(req: Request) {
     const { GtmPlay, GtmResearchRun, GtmCandidate, GtmProviderOperation, GtmAuditEvent } = entities
     const { sourceAdapterList, sourceAdapterRegistry } = await import('../../../lib/adapters/registry')
     const requestId = req.headers.get('x-request-id')
+
+    if (body.op === 'list') {
+      // Opaque 404 for malformed filters, same as a missing row.
+      if (body.workspaceId != null && !isUuid(body.workspaceId)) return opaqueNotFound()
+      if (body.playId != null && !isUuid(body.playId)) return opaqueNotFound()
+      const { listResearchRuns, GTM_LIST_CAP } = await import('../../../lib/listing')
+      const runs = await listResearchRuns(
+        em as unknown as import('../../../lib/listing').ListEm,
+        { organizationId, tenantId },
+        { workspaceId: body.workspaceId ?? null, playId: body.playId ?? null },
+      )
+      return NextResponse.json({
+        ok: true,
+        runs: runs.map((run) => ({
+          id: run.id,
+          play_id: run.playId,
+          status: run.status,
+          estimated_credits: run.estimatedCredits != null ? Number(run.estimatedCredits) : null,
+          reconciled_credits: run.reconciledCredits != null ? Number(run.reconciledCredits) : null,
+          created_at: run.createdAt,
+        })),
+        cap: GTM_LIST_CAP,
+      })
+    }
 
     if (body.op === 'retention-sweep') {
       // Tranche 4 retention sweep (SPEC-066 section 4): hard-deletes expired

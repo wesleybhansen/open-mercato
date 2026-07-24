@@ -19,6 +19,9 @@ import type { CampaignDraftState } from '../../../lib/campaign/approve'
  * self-scopes by organization_id + tenant_id.
  *
  * Ops (body.op):
+ * - 'list'            workspace-wide campaign summaries (optionally filtered
+ *                     by workspaceId), org+tenant self-scoped, soft-deleted
+ *                     excluded, capped at 50, newest first (lib/listing.ts)
  * - 'create'          drafts a campaign on an EXECUTABLE play (section 7
  *                     boundary 4; strategy_only plays fail closed)
  * - 'draft-state'     recipients + rendered previews + exclusions +
@@ -174,6 +177,29 @@ export async function POST(req: Request) {
     const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
     const container = await createRequestContainer()
     const em = container.resolve('em') as EntityManager as unknown as CampaignEm
+
+    if (body.op === 'list') {
+      // Opaque 404 for a malformed workspace filter, same as a missing row.
+      if (body.workspaceId != null && !isUuid(body.workspaceId)) return opaqueNotFound()
+      const { listCampaigns, GTM_LIST_CAP } = await import('../../../lib/listing')
+      const campaigns = await listCampaigns(
+        em as unknown as import('../../../lib/listing').ListEm,
+        ctx,
+        { workspaceId: body.workspaceId ?? null },
+      )
+      return NextResponse.json({
+        ok: true,
+        campaigns: campaigns.map((campaign) => ({
+          id: campaign.id,
+          name: campaign.name,
+          status: campaign.status,
+          current_version_id: campaign.currentVersionId ?? null,
+          created_at: campaign.createdAt,
+          play_id: campaign.playId,
+        })),
+        cap: GTM_LIST_CAP,
+      })
+    }
 
     if (body.op === 'create') {
       if (!isUuid(body.workspaceId) || !isUuid(body.playId)) return opaqueNotFound()

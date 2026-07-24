@@ -12,6 +12,7 @@ import type { ResearchEm } from '../../research/execute'
 import type { RetentionEm } from '../../retention/sweep'
 import type { CampaignEm } from '../../campaign/build'
 import type { ExecutionEm } from '../../execute/schedule'
+import type { ListEm } from '../../listing'
 
 /*
  * In-memory structural stand-in for MikroORM's EntityManager, covering
@@ -35,7 +36,7 @@ import type { ExecutionEm } from '../../execute/schedule'
  * statement provides. The Tranche 6 claim/fence machinery is exercised
  * against these semantics.
  */
-export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm {
+export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm, ListEm {
   private rows = new Map<Function, object[]>()
   private pending: object[] = []
   private pendingRemovals: object[] = []
@@ -74,8 +75,29 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm 
     return this
   }
 
-  async find<T extends object>(Ctor: new () => T, where: Record<string, unknown>): Promise<T[]> {
-    return this.table(Ctor).filter((row) => matchesWhere(row, where))
+  // Optional orderBy/limit mirror the MikroORM find options the list helpers
+  // use (lib/listing.ts); callers that omit them behave exactly as before.
+  async find<T extends object>(
+    Ctor: new () => T,
+    where: Record<string, unknown>,
+    options?: { orderBy?: Record<string, 'asc' | 'desc'>; limit?: number },
+  ): Promise<T[]> {
+    let rows = this.table(Ctor).filter((row) => matchesWhere(row, where))
+    if (options?.orderBy) {
+      const keys = Object.entries(options.orderBy)
+      rows = [...rows].sort((a, b) => {
+        for (const [key, direction] of keys) {
+          const cmp = compareBound(
+            (a as Record<string, unknown>)[key],
+            (b as Record<string, unknown>)[key],
+          )
+          if (cmp != null && cmp !== 0) return direction === 'desc' ? -cmp : cmp
+        }
+        return 0
+      })
+    }
+    if (options?.limit != null) rows = rows.slice(0, options.limit)
+    return rows
   }
 
   async findOne<T extends object>(
