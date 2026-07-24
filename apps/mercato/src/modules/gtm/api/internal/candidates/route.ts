@@ -1,0 +1,167 @@
+import crypto from 'crypto'
+import { NextResponse } from 'next/server'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import { gtmEnabled } from '../../../lib/flags'
+import { gtmCandidatesBodySchema } from '../../../data/validators'
+import { isUuid } from '../../../lib/play-shape'
+import type { GtmCandidate } from '../../../data/entities'
+
+/*
+ * Internal GTM candidates (SPEC-066 sections 5 and 14 Tranche 3).
+ *
+ * The Noli hub calls this server-to-server - proven by the shared
+ * NOLI_INTERNAL_SERVICE_SECRET - to list sourced candidates and record
+ * manual review overrides. Identity is re-resolved at this boundary
+ * (noliUserId -> Clerk -> Mercato auth context, gated on the 'crm'
+ * entitlement); the caller's claims about org/tenant ownership are never
+ * trusted and every query self-scopes by organization_id + tenant_id.
+ *
+ * Ops (body.op, default 'list'):
+ * - 'list'   filtered by runId and/or workspaceId and/or fitStatus, capped at
+ *            100 rows, ordered fit_score desc
+ * - 'review' manual verdict override for one candidate; the change writes a
+ *            gtm_audit_events row in the same transaction
+ *
+ * Public at the dispatcher level (requireAuth: false) - we authenticate with
+ * the shared secret instead of a Clerk/JWT session, mirroring
+ * internal/import-audience-play.
+ */
+export const metadata = {
+  path: '/internal/gtm/candidates',
+  POST: { requireAuth: false },
+}
+
+const LIST_CAP = 100
+
+function opaqueNotFound() {
+  return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 })
+}
+
+function shapeCandidate(candidate: GtmCandidate) {
+  return {
+    id: candidate.id,
+    researchRunId: candidate.researchRunId,
+    workspaceId: candidate.workspaceId,
+    entity_kind: candidate.entityKind,
+    identity: candidate.identity,
+    dedupe_key: candidate.dedupeKey,
+    fit_status: candidate.fitStatus,
+    fit_score: candidate.fitScore != null ? Number(candidate.fitScore) : null,
+    reject_reason: candidate.rejectReason ?? null,
+    promoted_contact_id: candidate.promotedContactId ?? null,
+    retention_expires_at: candidate.retentionExpiresAt ?? null,
+    created_at: candidate.createdAt,
+  }
+}
+
+export async function POST(req: Request) {
+  // 0. Feature gate: the GTM Engineer ships dark; flag-off fails closed.
+  if (!gtmEnabled()) {
+    return opaqueNotFound()
+  }
+
+  // 1. Shared-secret auth (length-guarded constant-time compare)
+  const secret = process.env.NOLI_INTERNAL_SERVICE_SECRET
+  const authHeader = (req.headers.get('authorization') || '').trim()
+  const expected = secret ? `Bearer ${secret}` : ''
+  if (
+    !secret ||
+    authHeader.length !== expected.length ||
+    !crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected))
+  ) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // 2. Body
+  const raw = await req.json().catch(() => ({}))
+  const parsed = gtmCandidatesBodySchema.safeParse(raw)
+  if (!parsed.success) {
+    const first = parsed.error.issues[0]
+    const where = first?.path?.length ? `${first.path.join('.')}: ` : ''
+    return NextResponse.json({ ok: false, error: `${where}${first?.message ?? 'Invalid body'}` }, { status: 400 })
+  }
+  const body = parsed.data
+
+  try {
+    // 3. noli-core user -> Clerk id
+    const { findNoliUserById } = await import('@open-mercato/shared/lib/noli/core-client')
+    const noliUser = await findNoliUserById(body.noliUserId)
+    if (!noliUser?.clerk_user_id) {
+      return NextResponse.json({ ok: false, error: 'Noli user not found' }, { status: 404 })
+    }
+
+    // 4. Resolve to a Mercato auth context (provisions on first contact and
+    //    gates on the 'crm' entitlement - same path a Clerk session takes).
+    const { resolveClerkUserToAuthContext } = await import('@open-mercato/shared/lib/auth/clerk')
+    const auth = await resolveClerkUserToAuthContext(noliUser.clerk_user_id)
+    if (!auth || !auth.userId || !auth.orgId || !auth.tenantId) {
+      return NextResponse.json({ ok: false, error: 'User has no CRM access' }, { status: 403 })
+    }
+    const organizationId = auth.orgId as string
+    const tenantId = auth.tenantId as string
+    const userId = auth.userId as string
+
+    const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const { GtmCandidate } = await import('../../../data/entities')
+
+    if (body.op === 'review') {
+      if (!body.candidateId || !body.verdict) {
+        return NextResponse.json(
+          { ok: false, error: 'review requires candidateId and verdict' },
+          { status: 400 },
+        )
+      }
+      // Opaque 404 for malformed, missing, foreign, or soft-deleted rows.
+      if (!isUuid(body.candidateId)) return opaqueNotFound()
+      const candidate = await em.findOne(GtmCandidate, {
+        id: body.candidateId,
+        organizationId,
+        tenantId,
+        deletedAt: null,
+      })
+      if (!candidate) return opaqueNotFound()
+
+      const { reviewCandidate } = await import('../../../lib/research/review')
+      const result = await reviewCandidate({
+        em: em as unknown as import('../../../lib/research/execute').ResearchEm,
+        candidate,
+        verdict: body.verdict,
+        reason: body.reason ?? null,
+        userId,
+        requestId: req.headers.get('x-request-id'),
+      })
+
+      return NextResponse.json({ ok: true, candidate: shapeCandidate(result.candidate) })
+    }
+
+    // list
+    const where: Record<string, unknown> = { organizationId, tenantId, deletedAt: null }
+    if (body.runId != null) {
+      if (!isUuid(body.runId)) return opaqueNotFound()
+      where.researchRunId = body.runId
+    }
+    if (body.workspaceId != null) {
+      if (!isUuid(body.workspaceId)) return opaqueNotFound()
+      where.workspaceId = body.workspaceId
+    }
+    if (body.fitStatus) {
+      where.fitStatus = body.fitStatus
+    }
+
+    const candidates = await em.find(GtmCandidate, where, {
+      orderBy: { fitScore: 'desc', createdAt: 'desc' },
+      limit: LIST_CAP,
+    })
+
+    return NextResponse.json({
+      ok: true,
+      candidates: candidates.map((candidate) => shapeCandidate(candidate)),
+      cap: LIST_CAP,
+    })
+  } catch (err) {
+    console.error('[internal.gtm.candidates]', err)
+    return NextResponse.json({ ok: false, error: 'Candidates operation failed' }, { status: 500 })
+  }
+}

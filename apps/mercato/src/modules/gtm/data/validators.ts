@@ -60,3 +60,57 @@ export const gtmPlayDetailBodySchema = z.object({
 
 export type GtmOverviewBody = z.infer<typeof gtmOverviewBodySchema>
 export type GtmPlayDetailBody = z.infer<typeof gtmPlayDetailBodySchema>
+
+// ---------------------------------------------------------------------------
+// Tranche 3: research runs + candidates (SPEC-066 sections 5, 11, 14)
+// ---------------------------------------------------------------------------
+
+// Ids are NOT format-validated here: a malformed id must produce the same
+// opaque 404 as a missing/foreign row (checked in the route via isUuid).
+const idString = z.string().trim().min(1).max(200)
+
+const researchLimitsSchema = z.object({
+  maxCandidates: z.number().int().min(1).max(100).optional(),
+  maxCredits: z.number().int().min(1).optional(),
+})
+
+export const gtmResearchRunsBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('plan'),
+    noliUserId: idString,
+    playId: idString,
+    limits: researchLimitsSchema.optional(),
+  }),
+  z.object({
+    op: z.literal('create'),
+    noliUserId: idString,
+    playId: idString,
+    limits: researchLimitsSchema.optional(),
+  }),
+  z.object({
+    op: z.literal('execute'),
+    noliUserId: idString,
+    runId: idString,
+  }),
+  z.object({
+    op: z.literal('status'),
+    noliUserId: idString,
+    runId: idString,
+  }),
+])
+
+export const gtmCandidatesBodySchema = z.object({
+  noliUserId: idString,
+  op: z.enum(['list', 'review']).optional().default('list'),
+  // list filters
+  runId: idString.optional(),
+  workspaceId: idString.optional(),
+  fitStatus: z.enum(['unscored', 'accepted', 'rejected']).optional(),
+  // review op
+  candidateId: idString.optional(),
+  verdict: z.enum(['accepted', 'rejected']).optional(),
+  reason: z.string().trim().max(2000).optional(),
+})
+
+export type GtmResearchRunsBody = z.infer<typeof gtmResearchRunsBodySchema>
+export type GtmCandidatesBody = z.infer<typeof gtmCandidatesBodySchema>
