@@ -1,20 +1,29 @@
 import crypto from 'crypto'
 import { UniqueConstraintViolationException } from '@mikro-orm/core'
-import { GtmCandidate } from '../../../data/entities'
+import {
+  GtmCampaignVersion,
+  GtmCandidate,
+  GtmEnrollment,
+  GtmRenderedMessage,
+} from '../../../data/entities'
 import type { ResearchEm } from '../../research/execute'
 import type { RetentionEm } from '../../retention/sweep'
+import type { CampaignEm } from '../../campaign/build'
 
 /*
  * In-memory structural stand-in for MikroORM's EntityManager, covering
- * exactly the slices the gtm library code uses (ResearchEm + RetentionEm).
- * It enforces the one constraint the executor must handle race-safely: the
- * unique (organization_id, workspace_id, dedupe_key) index on gtm_candidates
- * throws UniqueConstraintViolationException at flush time, before anything
- * in the pending batch is inserted (mirroring a Postgres transaction abort).
- * `find` supports the narrow where-operator vocabulary the sweep uses:
+ * exactly the slices the gtm library code uses (ResearchEm + RetentionEm +
+ * CampaignEm). It enforces the constraints the library code must handle
+ * race-safely: the unique (organization_id, workspace_id, dedupe_key) index
+ * on gtm_candidates, (campaign_id, candidate_id) on gtm_enrollments,
+ * (enrollment_id, step_id) on gtm_rendered_messages, and (campaign_id,
+ * version) on gtm_campaign_versions all throw
+ * UniqueConstraintViolationException at flush time, before anything in the
+ * pending batch is inserted (mirroring a Postgres transaction abort).
+ * `find` supports the narrow where-operator vocabulary the libraries use:
  * equality, null, { $in: [...] }, and { $lte: Date }.
  */
-export class FakeEm implements ResearchEm, RetentionEm {
+export class FakeEm implements ResearchEm, RetentionEm, CampaignEm {
   private rows = new Map<Function, object[]>()
   private pending: object[] = []
   private pendingRemovals: object[] = []
@@ -57,6 +66,13 @@ export class FakeEm implements ResearchEm, RetentionEm {
     return this.table(Ctor).filter((row) => matchesWhere(row, where))
   }
 
+  async findOne<T extends object>(
+    Ctor: new () => T,
+    where: Record<string, unknown>,
+  ): Promise<T | null> {
+    return this.table(Ctor).find((row) => matchesWhere(row, where)) ?? null
+  }
+
   async flush(): Promise<void> {
     // Validate the whole pending batch first so a violation inserts nothing.
     for (const entity of this.pending) {
@@ -75,6 +91,30 @@ export class FakeEm implements ResearchEm, RetentionEm {
           )
         }
       }
+      if (entity instanceof GtmEnrollment) {
+        this.assertUnique(
+          entity,
+          GtmEnrollment,
+          (row) => row.campaignId === entity.campaignId && row.candidateId === entity.candidateId,
+          'gtm_enrollments_campaign_candidate_unique',
+        )
+      }
+      if (entity instanceof GtmRenderedMessage) {
+        this.assertUnique(
+          entity,
+          GtmRenderedMessage,
+          (row) => row.enrollmentId === entity.enrollmentId && row.stepId === entity.stepId,
+          'gtm_rendered_messages_enrollment_step_unique',
+        )
+      }
+      if (entity instanceof GtmCampaignVersion) {
+        this.assertUnique(
+          entity,
+          GtmCampaignVersion,
+          (row) => row.campaignId === entity.campaignId && row.version === entity.version,
+          'gtm_campaign_versions_campaign_version_unique',
+        )
+      }
     }
     for (const entity of this.pending) {
       const Ctor = entity.constructor as new () => object
@@ -91,6 +131,21 @@ export class FakeEm implements ResearchEm, RetentionEm {
       this.rows.set(Ctor, arr)
     }
     this.pendingRemovals = []
+  }
+
+  private assertUnique<T extends object>(
+    entity: T,
+    Ctor: new () => T,
+    conflicts: (row: T) => boolean,
+    constraint: string,
+  ): void {
+    const duplicate = this.table(Ctor).some((row) => row !== entity && conflicts(row))
+    if (duplicate) {
+      this.pending = []
+      throw new UniqueConstraintViolationException(
+        new Error(`duplicate key value violates unique constraint "${constraint}"`),
+      )
+    }
   }
 }
 

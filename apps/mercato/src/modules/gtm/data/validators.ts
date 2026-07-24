@@ -144,3 +144,89 @@ export const gtmCandidatesBodySchema = z.object({
 
 export type GtmResearchRunsBody = z.infer<typeof gtmResearchRunsBodySchema>
 export type GtmCandidatesBody = z.infer<typeof gtmCandidatesBodySchema>
+
+// ---------------------------------------------------------------------------
+// Tranche 5: campaign drafting + immutable batch approval (SPEC-066
+// sections 4, 7, 8, 12)
+// ---------------------------------------------------------------------------
+
+const campaignTemplateSchema = z.object({
+  subject: z.string().trim().min(1).max(500),
+  body: z.string().min(1).max(20000),
+})
+
+const campaignChannelMixSchema = z.object({
+  emails: z.number().int().min(1).max(3).optional(),
+  linkedin: z.boolean().optional(),
+  x: z.boolean().optional(),
+})
+
+// daily_cap is deliberately NOT capped here: the campaign library rejects
+// values above the hard ceiling with an explicit, testable error code.
+const campaignSettingsSchema = z.object({
+  daily_cap: z.number().int().min(1).max(10000).optional(),
+  send_window: z
+    .object({
+      start_hour: z.number().int().min(0).max(23).optional(),
+      end_hour: z.number().int().min(1).max(24).optional(),
+      timezone: z.string().trim().min(1).max(100).optional(),
+    })
+    .optional(),
+  jitter_minutes: z.number().int().min(0).max(120).optional(),
+  mailbox_connection_id: idString.optional().nullable(),
+  duplicate_override: z.boolean().optional(),
+})
+
+export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('create'),
+    noliUserId: idString,
+    workspaceId: idString,
+    playId: idString,
+    name: z.string().trim().min(1).max(200),
+    channelMix: campaignChannelMixSchema.optional(),
+    settings: campaignSettingsSchema.optional(),
+  }),
+  z.object({
+    op: z.literal('draft-state'),
+    noliUserId: idString,
+    campaignId: idString,
+  }),
+  z.object({
+    op: z.literal('update-template'),
+    noliUserId: idString,
+    campaignId: idString,
+    template: campaignTemplateSchema,
+  }),
+  z.object({
+    op: z.literal('exclude'),
+    noliUserId: idString,
+    campaignId: idString,
+    candidateId: idString,
+  }),
+  z.object({
+    op: z.literal('include'),
+    noliUserId: idString,
+    campaignId: idString,
+    candidateId: idString,
+  }),
+  z.object({
+    op: z.literal('approve'),
+    noliUserId: idString,
+    campaignId: idString,
+    expected_content_hash: z.string().trim().min(16).max(128).optional(),
+  }),
+  z.object({
+    op: z.literal('invalidate'),
+    noliUserId: idString,
+    campaignId: idString,
+    reason: z.string().trim().min(1).max(200),
+  }),
+  z.object({
+    op: z.literal('status'),
+    noliUserId: idString,
+    campaignId: idString,
+  }),
+])
+
+export type GtmCampaignsBody = z.infer<typeof gtmCampaignsBodySchema>
