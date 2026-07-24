@@ -279,6 +279,44 @@ export function parseSettings(campaign: GtmCampaign): CampaignSettings {
 }
 
 // ---------------------------------------------------------------------------
+// Stored per-recipient AI drafts (channel_mix.ai_drafts[candidateId]).
+//
+// When a recipient has been re-drafted with AI (lib/campaign/ai-draft.ts) the
+// resulting copy is stored on the draft jsonb keyed by candidate id. body_text
+// is the canonical source; render.ts rebuilds the html + compliance footer and
+// the frozen content hash from it, exactly like a template body, so an AI
+// draft freezes into an approved version identically to a template render.
+// provenance is kept loose here (author + model + version refs) to avoid a
+// type cycle with ai-draft.ts.
+// ---------------------------------------------------------------------------
+
+export type StoredAiDraft = {
+  subject: string
+  body_text: string
+  provenance: Record<string, unknown> | null
+}
+
+export function parseStoredAiDrafts(campaign: GtmCampaign): Record<string, StoredAiDraft> {
+  const raw = (campaign.channelMix ?? {}) as Record<string, unknown>
+  const drafts = raw.ai_drafts
+  if (!drafts || typeof drafts !== 'object' || Array.isArray(drafts)) return {}
+  const out: Record<string, StoredAiDraft> = {}
+  for (const [candidateId, value] of Object.entries(drafts as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') continue
+    const record = value as Record<string, unknown>
+    const subject = typeof record.subject === 'string' ? record.subject : ''
+    const bodyText = typeof record.body_text === 'string' ? record.body_text : ''
+    if (!subject || !bodyText) continue
+    out[candidateId] = {
+      subject,
+      body_text: bodyText,
+      provenance: (record.provenance ?? null) as Record<string, unknown> | null,
+    }
+  }
+  return out
+}
+
+// ---------------------------------------------------------------------------
 // AMS asset references (blog-ops gtm-asset-handoff-contract-2026-07-23,
 // SPEC-066 section 13). GTM stores REFERENCES only: AMS stays the asset
 // system of record. References live in channel_mix.asset_refs on the draft

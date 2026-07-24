@@ -4,9 +4,11 @@ import {
   GtmCampaignVersion,
   GtmCandidate,
   GtmEnrollment,
+  GtmIcpVersion,
   GtmRenderedMessage,
   GtmSendAttempt,
   GtmSuppression,
+  GtmVoiceVersion,
 } from '../../../data/entities'
 import type { ResearchEm } from '../../research/execute'
 import type { RetentionEm } from '../../retention/sweep'
@@ -159,6 +161,22 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm,
           GtmCampaignVersion,
           (row) => row.campaignId === entity.campaignId && row.version === entity.version,
           'gtm_campaign_versions_campaign_version_unique',
+        )
+      }
+      if (entity instanceof GtmIcpVersion) {
+        this.assertUnique(
+          entity,
+          GtmIcpVersion,
+          (row) => row.workspaceId === entity.workspaceId && row.version === entity.version,
+          'gtm_icp_versions_workspace_version_unique',
+        )
+      }
+      if (entity instanceof GtmVoiceVersion) {
+        this.assertUnique(
+          entity,
+          GtmVoiceVersion,
+          (row) => row.workspaceId === entity.workspaceId && row.version === entity.version,
+          'gtm_voice_versions_workspace_version_unique',
         )
       }
       if (entity instanceof GtmSendAttempt) {

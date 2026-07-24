@@ -242,6 +242,16 @@ export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
     noliUserId: idString,
     campaignId: idString,
   }),
+  // Re-draft a single recipient with AI in the workspace's locked voice
+  // (lib/campaign/ai-draft.ts). Invalidates an approved version like any other
+  // draft mutation; falls back to the deterministic template when no locked
+  // voice exists or drafting fails.
+  z.object({
+    op: z.literal('regenerate-message'),
+    noliUserId: idString,
+    campaignId: idString,
+    candidateId: idString,
+  }),
   // Workspace-level settings write (CAN-SPAM sender postal address). Length
   // is bounded loosely here; the 300-char cap after trimming is enforced by
   // lib/workspace-settings.ts with a typed error. Empty / null = unset.
@@ -421,3 +431,81 @@ export const gtmHandoffBodySchema = z.discriminatedUnion('op', [
 ])
 
 export type GtmHandoffBody = z.infer<typeof gtmHandoffBodySchema>
+
+// ---------------------------------------------------------------------------
+// ICP + Voice Profile version CRUD, locks, and voice derivation (SPEC-066
+// section 4, 4.3). All ops re-resolve identity server-side and self-scope.
+// ---------------------------------------------------------------------------
+
+// A version document is an arbitrary JSON object (the reviewable ICP / voice
+// content). The library guards object-ness; shape is product-defined.
+const versionContentSchema = z.record(z.string(), z.unknown())
+const versionProvenanceSchema = z.record(z.string(), z.unknown())
+const versionAuthorSchema = z.enum(['user', 'agent'])
+
+// Voice derivation sources: a website URL and/or pasted sample messages. The
+// route enforces at least one non-empty source.
+const voiceDeriveSourcesSchema = z.object({
+  website: z.string().trim().max(2000).optional().nullable(),
+  samples: z.array(z.string().trim().min(1).max(20000)).max(20).optional().nullable(),
+})
+
+export const gtmStrategyBodySchema = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('icp-list'), noliUserId: idString, workspaceId: idString }),
+  z.object({ op: z.literal('icp-get'), noliUserId: idString, workspaceId: idString, versionId: idString }),
+  z.object({
+    op: z.literal('icp-create'),
+    noliUserId: idString,
+    workspaceId: idString,
+    content: versionContentSchema,
+    provenance: versionProvenanceSchema.optional(),
+    author: versionAuthorSchema.optional(),
+  }),
+  z.object({
+    op: z.literal('icp-lock'),
+    noliUserId: idString,
+    workspaceId: idString,
+    versionId: idString,
+    locked: z.boolean(),
+  }),
+  z.object({
+    op: z.literal('icp-revert'),
+    noliUserId: idString,
+    workspaceId: idString,
+    sourceVersionId: idString,
+    author: versionAuthorSchema.optional(),
+  }),
+  z.object({ op: z.literal('voice-list'), noliUserId: idString, workspaceId: idString }),
+  z.object({ op: z.literal('voice-get'), noliUserId: idString, workspaceId: idString, versionId: idString }),
+  z.object({
+    op: z.literal('voice-create'),
+    noliUserId: idString,
+    workspaceId: idString,
+    content: versionContentSchema,
+    provenance: versionProvenanceSchema.optional(),
+    author: versionAuthorSchema.optional(),
+    derivedFrom: versionProvenanceSchema.optional().nullable(),
+  }),
+  z.object({
+    op: z.literal('voice-lock'),
+    noliUserId: idString,
+    workspaceId: idString,
+    versionId: idString,
+    locked: z.boolean(),
+  }),
+  z.object({
+    op: z.literal('voice-revert'),
+    noliUserId: idString,
+    workspaceId: idString,
+    sourceVersionId: idString,
+    author: versionAuthorSchema.optional(),
+  }),
+  z.object({
+    op: z.literal('voice-derive'),
+    noliUserId: idString,
+    workspaceId: idString,
+    sources: voiceDeriveSourcesSchema,
+  }),
+])
+
+export type GtmStrategyBody = z.infer<typeof gtmStrategyBodySchema>

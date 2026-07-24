@@ -100,6 +100,9 @@ function draftShape(draft: CampaignDraftState) {
       content_hash: row.contentHash,
       needs_review: row.needsReview,
       missing_fields: row.missingFields,
+      // template merge vs AI draft (locked voice); display metadata for the
+      // reviewer, both freeze identically.
+      provenance: row.provenance,
     })),
     exclusions: {
       entries: draft.exclusions.entries.filter((entry) => entry.excluded),
@@ -291,6 +294,40 @@ export async function POST(req: Request) {
           approved_at: result.version.approvedAt ?? null,
           approved_by_user_id: result.version.approvedByUserId ?? null,
         },
+      })
+    }
+
+    if (body.op === 'regenerate-message') {
+      if (!isUuid(body.candidateId)) return opaqueNotFound()
+      // AI drafting is opt-in and gated on a LOCKED voice profile. Resolve the
+      // model + metering through the existing CRM AI usage path; the library
+      // returns an honest template fallback when no locked voice exists or the
+      // model call/parse fails (never a hard failure).
+      const { checkCustomersAiAllowance } = await import('@/lib/usage/allowance')
+      const { meterCustomersAi } = await import('@/lib/usage/meter')
+      const gate = await checkCustomersAiAllowance({ orgId: ctx.organizationId })
+      if (!gate.allowed) {
+        return NextResponse.json({ ok: false, error: gate.message, code: 'ai_allowance' }, { status: 402 })
+      }
+      const apiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+      if (!apiKey) {
+        return NextResponse.json({ ok: false, error: 'AI is not configured', code: 'ai_unconfigured' }, { status: 400 })
+      }
+      const { createGeminiDraftModel } = await import('../../../lib/ai/model')
+      const { regenerateMessageForCandidate } = await import('../../../lib/campaign/ai-draft')
+      const model = createGeminiDraftModel(apiKey)
+      const meter = (usage: { model: string; tokensIn: number; tokensOut: number; feature: string }) =>
+        void meterCustomersAi({ orgId: ctx.organizationId }, { ...usage, byoKey: !!gate.byoApiKey })
+      const result = await regenerateMessageForCandidate(em, ctx, { model, meter }, {
+        campaignId: body.campaignId,
+        candidateId: body.candidateId,
+      })
+      return NextResponse.json({
+        ok: true,
+        provenance: result.provenance,
+        invalidated: result.invalidated,
+        reason: result.provenance === 'template' ? result.reason : null,
+        draft: result.provenance === 'ai' ? result.draft : null,
       })
     }
 
