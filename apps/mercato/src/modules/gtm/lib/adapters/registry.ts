@@ -1,19 +1,29 @@
 import type { EnrichAdapter, SourceAdapter, VerifyAdapter } from './types'
 import { fixtureEnrichAdapter, fixtureSourceAdapter, fixtureVerifyAdapter } from './fixture'
+import { apifySourceEnabled, createApifySourceAdapter } from './apify/source'
 
 /*
  * Adapter registries (SPEC-066 Tranches 3/4, fixtures-first).
  *
- * Real provider adapters (Crustdata, DataForSEO, FullEnrich, ...) do not
- * exist yet; when they land they register here behind the same layer
- * contracts, in waterfall priority order. Until then every execution path
- * resolves the deterministic fixture adapters, so no provider or network
- * call is possible by construction.
+ * The deterministic fixture adapters are always registered and always first:
+ * with every provider gate off, this registry is byte-identical to the
+ * fixtures-only registry and no provider or network call is possible by
+ * construction.
+ *
+ * Real provider adapters register ADDITIVELY behind their own env gate, in
+ * waterfall priority order. The Apify social-engagement source ships DARK
+ * (GTM_APIFY_ENABLED plus a token, default off) because that source is
+ * legally gated pending review; see lib/adapters/apify/source.ts.
  */
 export function sourceAdapterRegistry(): Record<string, SourceAdapter> {
-  return {
+  const registry: Record<string, SourceAdapter> = {
     [fixtureSourceAdapter.descriptor.adapter_id]: fixtureSourceAdapter,
   }
+  if (apifySourceEnabled()) {
+    const apify = createApifySourceAdapter()
+    registry[apify.descriptor.adapter_id] = apify
+  }
+  return registry
 }
 
 export function sourceAdapterList(): SourceAdapter[] {
