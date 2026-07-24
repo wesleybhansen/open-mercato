@@ -314,6 +314,17 @@ export const gtmInboxBodySchema = z.discriminatedUnion('op', [
     op: z.literal('list'),
     noliUserId: idString,
     filter: z.enum(['all', 'unread', 'interested']).optional(),
+    // Case-insensitive search over the reply + counterparty fields (route
+    // self-scopes; a blank/absent query returns the unfiltered list).
+    query: z.string().trim().max(200).optional(),
+  }),
+  // Full correlated conversation for one reply: the reply plus the linked
+  // inbound email_messages and the enrollment's outbound GTM sends,
+  // chronologically ordered (lib/replies/thread.ts).
+  z.object({
+    op: z.literal('thread'),
+    noliUserId: idString,
+    replyId: idString,
   }),
   z.object({
     op: z.literal('classify'),
@@ -336,6 +347,14 @@ export const gtmInboxBodySchema = z.discriminatedUnion('op', [
       subject: z.string().trim().max(500).optional().nullable(),
       body: z.string().min(1).max(20000),
     }),
+  }),
+  // AI-suggested reply grounded in the thread + classification + the
+  // workspace locked voice (lib/replies/ai-reply.ts); stores draft_status
+  // 'drafted' with an honest minimal-template fallback.
+  z.object({
+    op: z.literal('draft-response-ai'),
+    noliUserId: idString,
+    replyId: idString,
   }),
   z.object({
     op: z.literal('approve-draft'),

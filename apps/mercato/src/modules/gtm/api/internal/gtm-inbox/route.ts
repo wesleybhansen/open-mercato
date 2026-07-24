@@ -6,22 +6,35 @@ import { gtmInboxBodySchema } from '../../../data/validators'
 import { isUuid } from '../../../lib/play-shape'
 import { GtmExecutionError, type ExecutionEm } from '../../../lib/execute/schedule'
 import type { GtmReply } from '../../../data/entities'
+import { EmailMessage } from '../../../../email/data/schema'
 
 /*
- * Internal GTM inbox (SPEC-066 sections 5, 9, 14 Tranche 6).
+ * Internal GTM inbox (SPEC-066 sections 5, 6, 8, 9, 14; inbox completeness).
  *
  * Ops (body.op):
- * - 'list'                replies with enrollment context
- *                         (filter: all | unread | interested; unread =
- *                         not yet classified)
+ * - 'list'                replies with enrollment context + an inbound summary
+ *                         (filter: all | unread | interested; unread = not yet
+ *                         classified). Optional `query` is a self-scoped,
+ *                         case-insensitive match over the reply + counterparty
+ *                         fields.
+ * - 'thread'              the full correlated conversation for one reply: the
+ *                         reply, the linked inbound email_messages, and the
+ *                         enrollment's outbound GTM sends, chronologically
+ *                         ordered (lib/replies/thread.ts)
  * - 'classify'            user override of a reply classification;
  *                         'unsubscribe' also suppresses in-transaction
  * - 'record-social-reply' user-recorded LinkedIn/X reply; takes the SAME
  *                         atomic-stop transaction path as correlated email
  *                         replies (section 9)
- * - 'draft-response'      store a draft answer (draft_status 'drafted')
- * - 'approve-draft'       'drafted' -> 'approved' with audit; NO send path
- *                         exists for drafts in this tranche
+ * - 'draft-response'      store a manual draft answer (draft_status 'drafted')
+ * - 'draft-response-ai'   AI-suggested reply grounded in the thread +
+ *                         classification + locked voice, metered once, with an
+ *                         honest template fallback (lib/replies/ai-reply.ts)
+ * - 'approve-draft'       'drafted' -> 'approved' AND send the approved reply as
+ *                         a durable one-off GtmSendAttempt through the full send
+ *                         machine (lib/replies/send.ts). Honors the
+ *                         GTM_EXECUTION_ENABLED double-lock (dry-run when off)
+ *                         and is fully idempotent.
  *
  * Auth/identity mirrors internal/campaigns: shared-secret bearer, noliUserId
  * re-resolved server-side, every query self-scoped by org + tenant.
@@ -104,7 +117,8 @@ export async function POST(req: Request) {
 
     if (body.op === 'list') {
       const filter = body.filter ?? 'all'
-      const replies = (
+      const query = (body.query ?? '').trim().toLowerCase()
+      let replies = (
         await em.find(entities.GtmReply, {
           organizationId: ctx.organizationId,
           tenantId: ctx.tenantId,
@@ -126,12 +140,38 @@ export async function POST(req: Request) {
           })
         : []
       const enrollmentById = new Map(enrollments.map((row) => [row.id, row]))
+
+      // Linked inbound emails power both the search haystack and the per-reply
+      // summary; loaded once, org+tenant scoped.
+      const emailIds = [
+        ...new Set(replies.map((reply) => reply.emailMessageId).filter((id): id is string => !!id)),
+      ]
+      const emails = emailIds.length
+        ? await em.find(EmailMessage, {
+            organizationId: ctx.organizationId,
+            tenantId: ctx.tenantId,
+            id: { $in: emailIds },
+            deletedAt: null,
+          })
+        : []
+      const emailById = new Map(emails.map((row) => [row.id, row]))
+      const emailFor = (reply: GtmReply) =>
+        reply.emailMessageId ? emailById.get(reply.emailMessageId) ?? null : null
+
+      const { replyMatchesQuery, inboundSummary } = await import('../../../lib/replies/search')
+      if (query) {
+        replies = replies.filter((reply) =>
+          replyMatchesQuery(reply, enrollmentById.get(reply.enrollmentId), emailFor(reply), query),
+        )
+      }
+
       return NextResponse.json({
         ok: true,
         replies: replies.map((reply) => {
           const enrollment = enrollmentById.get(reply.enrollmentId)
           return {
             ...replyShape(reply),
+            inbound: inboundSummary(reply, emailFor(reply)),
             enrollment: enrollment
               ? {
                   id: enrollment.id,
@@ -144,6 +184,25 @@ export async function POST(req: Request) {
               : null,
           }
         }),
+      })
+    }
+
+    if (body.op === 'thread') {
+      if (!isUuid(body.replyId)) return opaqueNotFound()
+      const { buildThread } = await import('../../../lib/replies/thread')
+      const result = await buildThread(em, ctx, { replyId: body.replyId })
+      return NextResponse.json({
+        ok: true,
+        reply: replyShape(result.reply),
+        enrollment: {
+          id: result.enrollment.id,
+          campaign_id: result.enrollment.campaignId,
+          candidate_id: result.enrollment.candidateId,
+          contact_id: result.enrollment.contactId ?? null,
+          status: result.enrollment.status,
+          stop_reason: result.enrollment.stopReason ?? null,
+        },
+        messages: result.messages,
       })
     }
 
@@ -186,11 +245,54 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, reply: replyShape(reply) })
     }
 
-    // approve-draft
+    if (body.op === 'draft-response-ai') {
+      if (!isUuid(body.replyId)) return opaqueNotFound()
+      // Grounded reply drafting through the existing CRM AI usage path; the
+      // library returns an honest template fallback when there is no locked
+      // voice or the model call/parse fails (never a hard failure).
+      const { checkCustomersAiAllowance } = await import('@/lib/usage/allowance')
+      const { meterCustomersAi } = await import('@/lib/usage/meter')
+      const gate = await checkCustomersAiAllowance({ orgId: ctx.organizationId })
+      if (!gate.allowed) {
+        return NextResponse.json({ ok: false, error: gate.message, code: 'ai_allowance' }, { status: 402 })
+      }
+      const apiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+      if (!apiKey) {
+        return NextResponse.json({ ok: false, error: 'AI is not configured', code: 'ai_unconfigured' }, { status: 400 })
+      }
+      const { createGeminiDraftModel } = await import('../../../lib/ai/model')
+      const { draftReplyWithAi } = await import('../../../lib/replies/ai-reply')
+      const model = createGeminiDraftModel(apiKey)
+      const meter = (usage: { model: string; tokensIn: number; tokensOut: number; feature: string }) =>
+        void meterCustomersAi({ orgId: ctx.organizationId }, { ...usage, byoKey: !!gate.byoApiKey })
+      const result = await draftReplyWithAi(em, ctx, { model, meter }, { replyId: body.replyId })
+      return NextResponse.json({
+        ok: true,
+        reply: replyShape(result.reply),
+        provenance: result.provenance,
+        reason: result.provenance === 'template' ? result.reason : null,
+      })
+    }
+
+    // approve-draft: approve AND send the reply as a durable one-off attempt
+    // through the full send machine (dry-run when execution is disabled).
     if (!isUuid(body.replyId)) return opaqueNotFound()
-    const { approveDraft } = await import('../../../lib/replies/classify')
-    const reply = await approveDraft(em, ctx, { replyId: body.replyId })
-    return NextResponse.json({ ok: true, reply: replyShape(reply) })
+    const executionEnabled = process.env.GTM_EXECUTION_ENABLED === 'true'
+    const { approveAndSendReply } = await import('../../../lib/replies/send')
+    let transport
+    if (executionEnabled) {
+      const { smtpTransport } = await import('../../../lib/execute/transport')
+      transport = smtpTransport
+    }
+    const result = await approveAndSendReply(em, ctx, { replyId: body.replyId }, { executionEnabled, transport })
+    return NextResponse.json({
+      ok: true,
+      reply: replyShape(result.reply),
+      dry_run: result.dryRun,
+      already_sent: result.alreadySent,
+      outcome: result.outcome,
+      attempt_id: result.attempt?.id ?? null,
+    })
   } catch (err) {
     if (err instanceof GtmExecutionError) {
       if (
