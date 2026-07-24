@@ -5,25 +5,37 @@ import {
   GtmCandidate,
   GtmEnrollment,
   GtmRenderedMessage,
+  GtmSendAttempt,
+  GtmSuppression,
 } from '../../../data/entities'
 import type { ResearchEm } from '../../research/execute'
 import type { RetentionEm } from '../../retention/sweep'
 import type { CampaignEm } from '../../campaign/build'
+import type { ExecutionEm } from '../../execute/schedule'
 
 /*
  * In-memory structural stand-in for MikroORM's EntityManager, covering
  * exactly the slices the gtm library code uses (ResearchEm + RetentionEm +
- * CampaignEm). It enforces the constraints the library code must handle
- * race-safely: the unique (organization_id, workspace_id, dedupe_key) index
- * on gtm_candidates, (campaign_id, candidate_id) on gtm_enrollments,
- * (enrollment_id, step_id) on gtm_rendered_messages, and (campaign_id,
- * version) on gtm_campaign_versions all throw
+ * CampaignEm + ExecutionEm). It enforces the constraints the library code
+ * must handle race-safely: the unique (organization_id, workspace_id,
+ * dedupe_key) index on gtm_candidates, (campaign_id, candidate_id) on
+ * gtm_enrollments, (enrollment_id, step_id) on gtm_rendered_messages,
+ * (campaign_id, version) on gtm_campaign_versions, (organization_id,
+ * idempotency_key) on gtm_send_attempts, and (organization_id, channel,
+ * address_hash) on gtm_suppressions all throw
  * UniqueConstraintViolationException at flush time, before anything in the
  * pending batch is inserted (mirroring a Postgres transaction abort).
  * `find` supports the narrow where-operator vocabulary the libraries use:
- * equality, null, { $in: [...] }, and { $lte: Date }.
+ * equality, null, { $in }, { $nin }, { $lte }, { $lt }, { $gte }, { $ne },
+ * and a top-level { $or: [...] }.
+ *
+ * `nativeUpdate` mirrors MikroORM's conditional UPDATE ... WHERE semantics:
+ * the match + assignment happens synchronously in one step (no awaited gap),
+ * which is exactly the compare-and-swap atomicity a single Postgres UPDATE
+ * statement provides. The Tranche 6 claim/fence machinery is exercised
+ * against these semantics.
  */
-export class FakeEm implements ResearchEm, RetentionEm, CampaignEm {
+export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm {
   private rows = new Map<Function, object[]>()
   private pending: object[] = []
   private pendingRemovals: object[] = []
@@ -73,6 +85,18 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm {
     return this.table(Ctor).find((row) => matchesWhere(row, where)) ?? null
   }
 
+  // Conditional UPDATE ... WHERE, atomic per call (single-threaded JS: no
+  // awaited gap between match and assignment), mirroring one SQL statement.
+  async nativeUpdate<T extends object>(
+    Ctor: new () => T,
+    where: Record<string, unknown>,
+    data: Record<string, unknown>,
+  ): Promise<number> {
+    const matched = this.table(Ctor).filter((row) => matchesWhere(row, where))
+    for (const row of matched) Object.assign(row, data)
+    return matched.length
+  }
+
   async flush(): Promise<void> {
     // Validate the whole pending batch first so a violation inserts nothing.
     for (const entity of this.pending) {
@@ -115,6 +139,27 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm {
           'gtm_campaign_versions_campaign_version_unique',
         )
       }
+      if (entity instanceof GtmSendAttempt) {
+        this.assertUnique(
+          entity,
+          GtmSendAttempt,
+          (row) =>
+            row.organizationId === entity.organizationId &&
+            row.idempotencyKey === entity.idempotencyKey,
+          'gtm_send_attempts_org_idempotency_unique',
+        )
+      }
+      if (entity instanceof GtmSuppression) {
+        this.assertUnique(
+          entity,
+          GtmSuppression,
+          (row) =>
+            row.organizationId === entity.organizationId &&
+            row.channel === entity.channel &&
+            row.addressHash === entity.addressHash,
+          'gtm_suppressions_org_channel_address_unique',
+        )
+      }
     }
     for (const entity of this.pending) {
       const Ctor = entity.constructor as new () => object
@@ -149,23 +194,49 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm {
   }
 }
 
-// Narrow where matcher: equality, null, { $in: [...] }, { $lte: Date }.
+// Narrow where matcher: equality, null, { $in }, { $nin }, { $lte }, { $lt },
+// { $gte }, { $ne }, plus a top-level { $or: [subWhere, ...] }.
+function compareBound(value: unknown, bound: unknown): number | null {
+  if (value == null || bound == null) return null
+  if (value instanceof Date && bound instanceof Date) {
+    return value.getTime() - bound.getTime()
+  }
+  const a = value as number | string
+  const b = bound as number | string
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 function matchesWhere(row: object, where: Record<string, unknown>): boolean {
   for (const [key, condition] of Object.entries(where)) {
+    if (key === '$or') {
+      const branches = Array.isArray(condition) ? (condition as Record<string, unknown>[]) : []
+      if (!branches.some((branch) => matchesWhere(row, branch))) return false
+      continue
+    }
     const value = (row as Record<string, unknown>)[key]
     if (condition !== null && typeof condition === 'object' && !(condition instanceof Date)) {
       const ops = condition as Record<string, unknown>
       if ('$in' in ops) {
         if (!Array.isArray(ops.$in) || !ops.$in.includes(value)) return false
       }
+      if ('$nin' in ops) {
+        if (Array.isArray(ops.$nin) && ops.$nin.includes(value)) return false
+      }
+      if ('$ne' in ops) {
+        if (value === ops.$ne) return false
+        if (ops.$ne === null && value == null) return false
+      }
       if ('$lte' in ops) {
-        const bound = ops.$lte
-        if (value == null) return false
-        if (value instanceof Date && bound instanceof Date) {
-          if (value.getTime() > bound.getTime()) return false
-        } else if ((value as number | string) > (bound as number | string)) {
-          return false
-        }
+        const cmp = compareBound(value, ops.$lte)
+        if (cmp === null || cmp > 0) return false
+      }
+      if ('$lt' in ops) {
+        const cmp = compareBound(value, ops.$lt)
+        if (cmp === null || cmp >= 0) return false
+      }
+      if ('$gte' in ops) {
+        const cmp = compareBound(value, ops.$gte)
+        if (cmp === null || cmp < 0) return false
       }
       continue
     }

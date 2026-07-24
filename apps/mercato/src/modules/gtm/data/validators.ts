@@ -230,3 +230,84 @@ export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
 ])
 
 export type GtmCampaignsBody = z.infer<typeof gtmCampaignsBodySchema>
+
+// ---------------------------------------------------------------------------
+// Tranche 6: durable execution, replies, atomic stop (SPEC-066 sections 6,
+// 8, 9, 12)
+// ---------------------------------------------------------------------------
+
+export const gtmExecutionBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('launch'),
+    noliUserId: idString,
+    campaignId: idString,
+  }),
+  z.object({
+    op: z.literal('tick'),
+    noliUserId: idString,
+    limit: z.number().int().min(1).max(100).optional(),
+  }),
+  z.object({
+    op: z.literal('recover-stuck'),
+    noliUserId: idString,
+  }),
+  z.object({
+    op: z.literal('correlate-replies'),
+    noliUserId: idString,
+    sinceMinutes: z.number().int().min(1).max(60 * 24 * 30).optional(),
+  }),
+  z.object({
+    op: z.literal('status'),
+    noliUserId: idString,
+    campaignId: idString,
+  }),
+])
+
+export type GtmExecutionBody = z.infer<typeof gtmExecutionBodySchema>
+
+const replyClassificationSchema = z.enum([
+  'interested',
+  'neutral_question',
+  'not_now',
+  'referral',
+  'unsubscribe',
+  'wrong_person',
+  'negative',
+])
+
+export const gtmInboxBodySchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('list'),
+    noliUserId: idString,
+    filter: z.enum(['all', 'unread', 'interested']).optional(),
+  }),
+  z.object({
+    op: z.literal('classify'),
+    noliUserId: idString,
+    replyId: idString,
+    classification: replyClassificationSchema,
+  }),
+  z.object({
+    op: z.literal('record-social-reply'),
+    noliUserId: idString,
+    enrollmentId: idString,
+    stepId: idString,
+    note: z.string().trim().max(4000).optional().nullable(),
+  }),
+  z.object({
+    op: z.literal('draft-response'),
+    noliUserId: idString,
+    replyId: idString,
+    draft: z.object({
+      subject: z.string().trim().max(500).optional().nullable(),
+      body: z.string().min(1).max(20000),
+    }),
+  }),
+  z.object({
+    op: z.literal('approve-draft'),
+    noliUserId: idString,
+    replyId: idString,
+  }),
+])
+
+export type GtmInboxBody = z.infer<typeof gtmInboxBodySchema>
