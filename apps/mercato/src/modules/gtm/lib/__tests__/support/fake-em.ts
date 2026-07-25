@@ -31,7 +31,9 @@ import type { ListEm } from '../../listing'
  * pending batch is inserted (mirroring a Postgres transaction abort).
  * `find` supports the narrow where-operator vocabulary the libraries use:
  * equality, null, { $in }, { $nin }, { $lte }, { $lt }, { $gte }, { $ne },
- * and a top-level { $or: [...] }.
+ * { $ilike } (Postgres ILIKE semantics: % and _ are wildcards unless
+ * backslash-escaped, comparison case-insensitive), and a top-level
+ * { $or: [...] }.
  *
  * `nativeUpdate` mirrors MikroORM's conditional UPDATE ... WHERE semantics:
  * the match + assignment happens synchronously in one step (no awaited gap),
@@ -244,7 +246,27 @@ export class FakeEm implements ResearchEm, RetentionEm, CampaignEm, ExecutionEm,
 }
 
 // Narrow where matcher: equality, null, { $in }, { $nin }, { $lte }, { $lt },
-// { $gte }, { $ne }, plus a top-level { $or: [subWhere, ...] }.
+// { $gte }, { $ne }, { $ilike }, plus a top-level { $or: [subWhere, ...] }.
+
+// Postgres ILIKE: `%` matches any run, `_` any single char, `\` escapes the
+// next character (the default ESCAPE), comparison is case-insensitive.
+function ilikeMatches(value: unknown, pattern: unknown): boolean {
+  if (typeof value !== 'string' || typeof pattern !== 'string') return false
+  let regex = '^'
+  for (let i = 0; i < pattern.length; i += 1) {
+    const char = pattern[i]
+    if (char === '\\') {
+      i += 1
+      if (i < pattern.length) regex += pattern[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      continue
+    }
+    if (char === '%') regex += '.*'
+    else if (char === '_') regex += '.'
+    else regex += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+  return new RegExp(`${regex}$`, 'i').test(value)
+}
+
 function compareBound(value: unknown, bound: unknown): number | null {
   if (value == null || bound == null) return null
   if (value instanceof Date && bound instanceof Date) {
@@ -286,6 +308,9 @@ function matchesWhere(row: object, where: Record<string, unknown>): boolean {
       if ('$gte' in ops) {
         const cmp = compareBound(value, ops.$gte)
         if (cmp === null || cmp < 0) return false
+      }
+      if ('$ilike' in ops) {
+        if (!ilikeMatches(value, ops.$ilike)) return false
       }
       continue
     }

@@ -51,6 +51,9 @@ export type ExclusionReason =
   | 'manual'
   | 'duplicate'
   | 'legal'
+  // Public prospect-removal request (privacy policy 3.8). Always written at
+  // scope 'global', so it excludes the address in every org.
+  | 'removal_request'
 
 export type ExclusionEntry = {
   candidateId: string
