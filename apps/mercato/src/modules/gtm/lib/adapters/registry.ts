@@ -1,6 +1,7 @@
 import type { EnrichAdapter, SourceAdapter, VerifyAdapter } from './types'
 import { fixtureEnrichAdapter, fixtureSourceAdapter, fixtureVerifyAdapter } from './fixture'
 import { apifySourceEnabled, createApifySourceAdapter } from './apify/source'
+import { apifyEnrichEnabled, createApifyEnrichAdapter } from './apify/enrich'
 
 /*
  * Adapter registries (SPEC-066 Tranches 3/4, fixtures-first).
@@ -30,10 +31,20 @@ export function sourceAdapterList(): SourceAdapter[] {
   return Object.values(sourceAdapterRegistry())
 }
 
-// Registry ORDER is the enrichment waterfall order (SPEC-066 section 4.1
-// step 6): the first adapter that yields contact points wins.
+/*
+ * Registry ORDER is the enrichment waterfall order (SPEC-066 section 4.1
+ * step 6): the first adapter that yields contact points wins.
+ *
+ * The Apify profile+email adapter appends behind the SAME dark gate as the
+ * Apify source (GTM_APIFY_ENABLED plus a token, default off). With the gate off
+ * this list is byte-identical to the fixtures-only list, so no provider call is
+ * possible by construction. Note it is the only pay-per-ATTEMPT adapter in the
+ * stack: see lib/adapters/apify/enrich.ts.
+ */
 export function enrichAdapterList(): EnrichAdapter[] {
-  return [fixtureEnrichAdapter]
+  const list: EnrichAdapter[] = [fixtureEnrichAdapter]
+  if (apifyEnrichEnabled()) list.push(createApifyEnrichAdapter())
+  return list
 }
 
 // Registry ORDER is the verification order: the first adapter that returns a

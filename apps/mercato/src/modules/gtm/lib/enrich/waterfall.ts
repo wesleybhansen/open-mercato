@@ -9,7 +9,11 @@ import {
   type VerifyAdapter,
 } from '../adapters/types'
 import { GtmCreditLedgerError, type GtmCreditLedger } from '../credits/ledger'
-import { creditsForUnits, defaultMarkupMultiplier } from '../credits/markup'
+import {
+  creditsForUnits,
+  defaultMarkupMultiplier,
+  providerSpendCapUsd,
+} from '../credits/markup'
 import type { ResearchEm } from '../research/execute'
 import { GtmCandidate, GtmContactPoint, GtmProviderOperation } from '../../data/entities'
 
@@ -150,7 +154,13 @@ async function invokeWithLedger<T>(
     fingerprint: Record<string, unknown>
     markup: number
     now: () => Date
-    call: () => Promise<AdapterResult<T>>
+    /*
+     * Receives the per-call PROVIDER spend cap in USD, derived from the
+     * reservation this wrapper just made (see providerSpendCapUsd below).
+     * Adapters that can pass a hard cap to their provider forward it; the rest
+     * ignore the argument.
+     */
+    call: (maxChargeUsd: number) => Promise<AdapterResult<T>>
   },
 ): Promise<WrappedInvoke<T>> {
   const { em, ledger, budget, descriptor, markup, now } = deps
@@ -218,7 +228,14 @@ async function invokeWithLedger<T>(
 
   await ledger.start(operationId)
 
-  const result = await deps.call()
+  /*
+   * Belt and braces on the money path: the provider's own hard spend cap is
+   * computed from THIS reservation, with our markup divided back out (the
+   * customer's reserved credits include markup; the provider bills raw cost).
+   * Our ledger escrows the credits, the provider refuses to bill past the
+   * dollars, and neither number is an adapter-side default.
+   */
+  const result = await deps.call(providerSpendCapUsd(estimate, markup))
 
   const receipt = (result.receipt ?? null) as Record<string, unknown> | null
   let ledgerStatus: string
@@ -374,7 +391,8 @@ export async function runEnrichmentWaterfall(
             },
             markup,
             now,
-            call: () => adapter.enrich(request),
+            // the reserved-credits-derived cap travels with the request
+            call: (maxChargeUsd) => adapter.enrich({ ...request, max_charge_usd: maxChargeUsd }),
           },
         )
 
@@ -475,6 +493,9 @@ export async function runEnrichmentWaterfall(
             },
             markup,
             now,
+            // no verify adapter accepts a provider-side USD cap yet; the
+            // wrapper still computes one so adding a paid verifier is a
+            // one-line change rather than a metering gap.
             call: () => adapter.verify(request),
           },
         )

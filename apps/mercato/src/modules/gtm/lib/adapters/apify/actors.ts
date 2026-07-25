@@ -1,4 +1,4 @@
-import type { Candidate, CandidateIdentity } from '../types'
+import type { Candidate, CandidateIdentity, ContactPoint } from '../types'
 
 /*
  * Apify actor registry: our capability kinds -> a marketplace actor id, an
@@ -100,6 +100,85 @@ export const APIFY_MEASURED_USD = {
   // full-profile-with-email event on the reactions actor
   profile_with_email: 0.01,
 } as const
+
+// ---------------------------------------------------------------------------
+// ENRICHMENT actor: profile + email (SPEC-066 section 11.1, enrich layer)
+// ---------------------------------------------------------------------------
+
+/*
+ * Step 2 of the verified pipeline: the sourcing actors hand us a LinkedIn
+ * profile URL with no company and no email; this actor turns that URL into a
+ * full profile plus an email SEARCH.
+ *
+ * VERIFIED 2026-07-24 (`gtm-apify-verified-contract-2026-07-24.md`, section
+ * "THE FULL PIPELINE IS VERIFIED"): actor id, the `queries` input, the
+ * profileScraperMode label strings, and the output key set.
+ */
+export type ApifyEnrichActorConfig = {
+  defaultActorId: string
+  // documented alternative if the default degrades; NOT auto-selected, because
+  // silently switching provider supply hides a real failure
+  fallbackActorId: string
+  envVar: string
+  // hostnames an input profile URL must belong to (fail closed on anything else)
+  allowedHosts: string[]
+}
+
+export const APIFY_ENRICH_ACTOR: ApifyEnrichActorConfig = {
+  // id + input schema + output key set VERIFIED 2026-07-24
+  defaultActorId: 'harvestapi/linkedin-profile-scraper',
+  // VERIFY-ON-FIRST-RUN (documented fallback, not auto-selected)
+  fallbackActorId: 'apimaestro/linkedin-profile-detail',
+  envVar: 'GTM_APIFY_ACTOR_LINKEDIN_PROFILE_ENRICH',
+  allowedHosts: ['linkedin.com'],
+}
+
+export function resolveEnrichActorId(env: ApifyEnv): string {
+  const override = (env[APIFY_ENRICH_ACTOR.envVar] ?? '').trim()
+  return override || APIFY_ENRICH_ACTOR.defaultActorId
+}
+
+/*
+ * profileScraperMode on THIS actor is NOT the ["short","main"] enum the
+ * sourcing actors use. Its enum members are the FULL LABEL STRINGS below,
+ * verbatim, price included. Sending anything else is HTTP 400 invalid-input.
+ *
+ * VERIFIED values and their per-profile cost:
+ *   "Profile details no email ($4 per 1k)"        -> $0.004 / profile
+ *   "Profile details + email search ($10 per 1k)" -> $0.01  / profile
+ */
+export const APIFY_PROFILE_ENRICH_MODES = {
+  without_email: 'Profile details no email ($4 per 1k)',
+  with_email: 'Profile details + email search ($10 per 1k)',
+} as const
+
+export type ApifyProfileEnrichMode =
+  (typeof APIFY_PROFILE_ENRICH_MODES)[keyof typeof APIFY_PROFILE_ENRICH_MODES]
+
+export function profileEnrichMode(withEmail: boolean): ApifyProfileEnrichMode {
+  return withEmail
+    ? APIFY_PROFILE_ENRICH_MODES.with_email
+    : APIFY_PROFILE_ENRICH_MODES.without_email
+}
+
+/*
+ * The actor accepts `queries`, `urls`, `publicIdentifiers` and `profileIds`
+ * (all verified as accepted inputs). `queries` is what we send, because it is
+ * what takes the LinkedIn profile URL the sourcing step produced.
+ *
+ * We deliberately send NOTHING else in the body. `maxItems` is a verified
+ * ENDPOINT query parameter (the client appends it), but it is not a verified
+ * body key for this actor, so it is not invented here.
+ */
+export function buildProfileEnrichInput(args: {
+  profileUrl: string
+  withEmail: boolean
+}): Record<string, unknown> {
+  return {
+    queries: [args.profileUrl],
+    profileScraperMode: profileEnrichMode(args.withEmail),
+  }
+}
 
 export type ApifyEnv = Record<string, string | undefined>
 
@@ -592,4 +671,205 @@ export function normalizeItems(
     else dropped += 1
   }
   return { candidates, dropped }
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment: input profile URL handling (fail closed: no LinkedIn URL, no run)
+// ---------------------------------------------------------------------------
+
+export type ProfileUrlResult =
+  | { ok: true; url: string }
+  | { ok: false; reason: string }
+
+/*
+ * The candidate identity carries the profile URLs the SOURCING step captured.
+ * We pick the first one that is a LinkedIn PROFILE url and refuse everything
+ * else, so a crafted candidate url can never aim the profile actor at another
+ * host (or at a feed post) and spend the customer's money there.
+ *
+ * Checks, all of them fail-closed:
+ * - http(s) only
+ * - host must be linkedin.com or a subdomain of it
+ * - path must be a profile path ('/in/' or the legacy '/pub/'), never a feed,
+ *   company, or search url
+ */
+export function extractProfileUrl(urls: unknown): ProfileUrlResult {
+  const list = Array.isArray(urls) ? urls : []
+  if (list.length === 0) {
+    return { ok: false, reason: 'missing_profile_url: the candidate carries no profile URL' }
+  }
+  let sawUrl = false
+  for (const entry of list) {
+    const raw = str(entry)
+    if (!raw || !/^https?:\/\//i.test(raw)) continue
+    let parsed: URL
+    try {
+      parsed = new URL(raw)
+    } catch {
+      continue
+    }
+    sawUrl = true
+    const host = parsed.hostname.toLowerCase()
+    const allowed = APIFY_ENRICH_ACTOR.allowedHosts.some(
+      (entryHost) => host === entryHost || host.endsWith(`.${entryHost}`),
+    )
+    if (!allowed) continue
+    if (!/\/(in|pub)\//i.test(parsed.pathname)) continue
+    return { ok: true, url: parsed.toString() }
+  }
+  return {
+    ok: false,
+    reason: sawUrl
+      ? 'invalid_profile_url: no LinkedIn profile URL among the candidate URLs'
+      : 'missing_profile_url: the candidate carries no usable profile URL',
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment normalizer -> our ContactPoint shape
+// ---------------------------------------------------------------------------
+
+/*
+ * VERIFIED output keys (live probe 2026-07-24): id, publicIdentifier,
+ * linkedinUrl, firstName, lastName, emails, companyWebsites, headline,
+ * location, currentPosition, experience, education, skills, connectionsCount,
+ * followerCount, about.
+ *
+ * `emails` is an ARRAY and is `[]` when no address was found. The ELEMENT shape
+ * was not captured (the verified run found none), so both a bare string and an
+ * object carrying the address are accepted below and anything else is dropped.
+ *
+ * COMPANY LEGITIMATELY COMES FROM HERE. The sourcing actor returns no company
+ * at all, so `currentPosition` / `experience` / `companyWebsites` are the first
+ * place a company name or domain honestly exists. Their ELEMENT shapes are not
+ * individually verified, so the readers below try a small alias set and omit
+ * the field when nothing matches. Nothing is invented and nothing is defaulted.
+ */
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/
+
+const COMPANY_NAME_KEYS = ['companyName', 'company', 'organizationName', 'organization', 'name']
+const POSITION_TITLE_KEYS = ['position', 'title', 'jobTitle', 'role']
+const COMPANY_URL_KEYS = ['url', 'website', 'domain', 'link', 'companyWebsite']
+
+function firstOf(value: unknown): unknown {
+  return Array.isArray(value) ? value[0] : value
+}
+
+// Reads the first meaningful string among `keys` on an object-ish value.
+// Placeholder fillers ("--", dots, whitespace) count as ABSENT, reusing the
+// same filter the sourcing normalizer uses.
+function readKey(value: unknown, keys: string[]): string | null {
+  if (value === null || typeof value !== 'object') return null
+  for (const key of keys) {
+    const found = meaningful(str((value as Record<string, unknown>)[key]))
+    if (found) return found
+  }
+  return null
+}
+
+function readEmail(entry: unknown): string | null {
+  const direct = meaningful(str(entry))
+  if (direct) return EMAIL_PATTERN.test(direct) ? direct.toLowerCase() : null
+  const nested = readKey(entry, ['email', 'value', 'address', 'emailAddress'])
+  if (!nested) return null
+  return EMAIL_PATTERN.test(nested) ? nested.toLowerCase() : null
+}
+
+export type ApifyProfileNormalization = {
+  // the first usable address, or null when `emails` was empty (the verified
+  // no-hit shape) or carried nothing parseable
+  email: string | null
+  // how many parseable addresses the actor returned (0 = the not_found case)
+  emailsFound: number
+  /*
+   * Business facts about the person, keys OMITTED when the actor did not return
+   * them. This is what fills the company gap the sourcing step leaves.
+   */
+  profile: Record<string, unknown>
+}
+
+export function normalizeProfileItem(item: unknown): ApifyProfileNormalization {
+  const rawEmails = at(item, ['emails'])
+  const emails: string[] = []
+  if (Array.isArray(rawEmails)) {
+    for (const entry of rawEmails) {
+      const email = readEmail(entry)
+      if (email && !emails.includes(email)) emails.push(email)
+    }
+  }
+
+  const current = firstOf(at(item, ['currentPosition']))
+  const experience = firstOf(at(item, ['experience']))
+  const company = readKey(current, COMPANY_NAME_KEYS) ?? readKey(experience, COMPANY_NAME_KEYS)
+  // Job title only from a position record. The verified `headline` field is a
+  // self-written strapline, not a title, so it is kept as its own key and never
+  // promoted into `title`.
+  const title = readKey(current, POSITION_TITLE_KEYS) ?? readKey(experience, POSITION_TITLE_KEYS)
+
+  const websites = at(item, ['companyWebsites'])
+  let companyDomain: string | null = null
+  let validEmailServer: boolean | null = null
+  if (Array.isArray(websites)) {
+    for (const entry of websites) {
+      const url = meaningful(str(entry)) ?? readKey(entry, COMPANY_URL_KEYS)
+      if (!url) continue
+      companyDomain = url
+      const flag = entry !== null && typeof entry === 'object'
+        ? (entry as Record<string, unknown>).validEmailServer
+        : undefined
+      // upstream domain validation, recorded only when the actor stated it
+      if (typeof flag === 'boolean') validEmailServer = flag
+      break
+    }
+  }
+
+  const profile: Record<string, unknown> = {}
+  const publicIdentifier = meaningful(str(at(item, ['publicIdentifier'])))
+  if (publicIdentifier) profile.public_identifier = publicIdentifier
+  const linkedinUrl = meaningful(str(at(item, ['linkedinUrl'])))
+  if (linkedinUrl && /^https?:\/\//i.test(linkedinUrl)) profile.linkedin_url = linkedinUrl
+  const name = [
+    meaningful(str(at(item, ['firstName']))),
+    meaningful(str(at(item, ['lastName']))),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+  if (name) profile.name = name
+  const headline = meaningful(str(at(item, ['headline'])))
+  if (headline) profile.headline = headline
+  const location = meaningful(str(at(item, ['location'])))
+  if (location) profile.location = location
+  if (company) profile.company = company
+  if (title) profile.title = title
+  if (companyDomain) profile.company_domain = companyDomain
+  if (validEmailServer !== null) profile.valid_email_server = validEmailServer
+
+  return { email: emails[0] ?? null, emailsFound: emails.length, profile }
+}
+
+/*
+ * Build the email ContactPoint for a normalized profile, or null when the
+ * actor found no address.
+ *
+ * verification_state is 'found', NEVER 'verified'. Apify's email SEARCH is a
+ * lookup, not an independent mailbox verification; promoting it to 'verified'
+ * would let unverified addresses skip our verify layer, which is the only
+ * thing entitled to set that state.
+ */
+export function profileContactPoint(
+  normalized: ApifyProfileNormalization,
+  provenance: Record<string, unknown>,
+): ContactPoint | null {
+  if (!normalized.email) return null
+  return {
+    channel: 'email',
+    value: normalized.email,
+    provenance: {
+      ...provenance,
+      ...normalized.profile,
+      verification_state: 'found',
+    },
+  }
 }

@@ -188,6 +188,15 @@ export type EnrichRequest = {
   channel: AdapterChannel
   candidate: Pick<Candidate, 'entity_kind' | 'identity'>
   call_sequence?: number
+  /*
+   * Optional per-call provider budget in USD, i.e. what the caller reserved for
+   * this one enrichment. Same contract as SourceSearchPlan.max_charge_usd:
+   * adapters whose provider accepts a hard per-run spend cap (Apify's mandatory
+   * maxTotalChargeUsd) pass it straight through so the provider enforces our
+   * reservation server side too. Omitted when the caller has no USD-denominated
+   * budget; the adapter then falls back to its own configured cap.
+   */
+  max_charge_usd?: number
 }
 
 export type VerifyRequest = {

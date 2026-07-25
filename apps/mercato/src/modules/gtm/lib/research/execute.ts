@@ -5,7 +5,11 @@ import {
   GtmCreditLedgerError,
   type GtmCreditLedger,
 } from '../credits/ledger'
-import { creditsForUnits, defaultMarkupMultiplier } from '../credits/markup'
+import {
+  creditsForUnits,
+  defaultMarkupMultiplier,
+  providerSpendCapUsd,
+} from '../credits/markup'
 import type { SourcePlanBatch } from './plan'
 import { ruleBasedFitScorer, type FitScorer } from './qualify'
 import { GtmCandidate, GtmEvidence, GtmProviderOperation, GtmResearchRun } from '../../data/entities'
@@ -263,19 +267,22 @@ export async function executeResearchRun(
     await ledger.start(operationId)
 
     /*
-     * NOTE on max_charge_usd: the wrapper reserves in CREDITS, and this module
-     * has no credits-to-USD rate (markup.ts prices credits, it does not price
-     * dollars). Rather than invent a conversion, the plan omits the field and
-     * the Apify adapter falls back to its own configured per-run USD cap. When
-     * a real credits-to-USD rate exists, pass it here and the provider-side
-     * hard cap becomes the same number as the reservation.
+     * The provider spend cap is DERIVED FROM THE RESERVATION we just made, not
+     * from an adapter default. The reservation carries our markup and the
+     * provider bills raw cost, so the markup is divided back out first
+     * (providerSpendCapUsd). Adapters whose provider accepts a hard per-run cap
+     * pass this straight through as maxTotalChargeUsd, so the provider itself
+     * refuses to bill past what our ledger escrowed. Adapters without such a
+     * cap simply ignore the field.
      */
+    const maxChargeUsd = providerSpendCapUsd(batchEstimatedCredits, markup)
     const result = await adapter.search({
       signal_kind: planned.capability.signal_kind,
       entity_unit: planned.capability.entity_unit,
       geography: planned.capability.geography,
       query,
       max_candidates: requestUnits,
+      max_charge_usd: maxChargeUsd,
     })
 
     // 4. Outcome handling (exactly one ledger settlement path per batch).

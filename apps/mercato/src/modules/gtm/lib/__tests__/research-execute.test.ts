@@ -1,6 +1,11 @@
 import { FakeEm } from './support/fake-em'
 import { FixtureLedger } from '../credits/ledger'
-import { creditsForUnits } from '../credits/markup'
+import {
+  PROVIDER_MIN_CHARGE_USD,
+  creditsForUnits,
+  creditsFromUsd,
+  providerSpendCapUsd,
+} from '../credits/markup'
 import { fixtureSourceAdapter, fixtureSourceDescriptor } from '../adapters/fixture'
 import type { SourceAdapter, SourceSearchPlan } from '../adapters/types'
 import {
@@ -145,6 +150,56 @@ describe('executeResearchRun', () => {
     const op = ledger.getOperation(shadows[0].noliCoreOperationId)!
     expect(op.status).toBe('charged')
     expect(op.chargedCredits).toBe(6)
+  })
+
+  it('bounds the provider run by the credits it just reserved, markup divided back out', async () => {
+    const em = new FakeEm()
+    const ledger = new FixtureLedger({ poolBalance: 1_000_000 })
+    const adapter = spyAdapter()
+    // Apify sourcing economics: 25 results at the measured $0.003 each.
+    const quoted = creditsFromUsd(0.003)
+    const run = makeRun(em, {
+      adapterPlan: [
+        {
+          adapter_id: 'fixture-source',
+          capability: { signal_kind: 'hiring_activity', entity_unit: 'companies', geography: 'US' },
+          estimatedUnits: 25,
+          quotedCreditsPerUnit: quoted,
+          estimatedCredits: creditsForUnits(25, quoted, 2),
+        },
+      ],
+      query: 'companies hiring revenue operations leads',
+      maxCandidates: 25,
+      maxCredits: 1_000_000,
+    })
+
+    await executeResearchRun(deps(em, ledger, run, [adapter]))
+
+    // the ledger escrowed 37,500 credits ($0.15 with our 2x markup) ...
+    const reserved = ledger.listOperations()[0].estimatedCredits
+    expect(reserved).toBe(37_500)
+    // ... and the provider was authorized exactly the raw $0.075 it costs
+    const plan = adapter.search.mock.calls[0][0]
+    expect(plan.max_charge_usd).toBe(0.075)
+    expect(plan.max_charge_usd).toBe(providerSpendCapUsd(reserved, 2))
+    expect(plan.max_charge_usd).toBeCloseTo(25 * 0.003, 10)
+  })
+
+  it('never sends a provider cap under the $0.01 minimum for a tiny reservation', async () => {
+    const em = new FakeEm()
+    const ledger = new FixtureLedger({ poolBalance: 100 })
+    const adapter = spyAdapter()
+    const run = makeRun(em, {
+      // 2 units x 1 quoted x 2 markup = 4 credits = $0.000008 of provider spend
+      adapterPlan: [plannedBatch('fixture-source', 2)],
+      query: 'companies hiring revenue operations leads',
+      maxCandidates: 10,
+      maxCredits: 100,
+    })
+
+    await executeResearchRun(deps(em, ledger, run, [adapter]))
+
+    expect(adapter.search.mock.calls[0][0].max_charge_usd).toBe(PROVIDER_MIN_CHARGE_USD)
   })
 
   it('fails closed on insufficient credits BEFORE any adapter call', async () => {

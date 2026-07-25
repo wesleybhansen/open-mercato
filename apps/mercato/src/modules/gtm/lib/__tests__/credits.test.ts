@@ -4,7 +4,16 @@ import {
   deterministicOperationId,
   type GtmReserveInput,
 } from '../credits/ledger'
-import { creditsForUnits, defaultMarkupMultiplier } from '../credits/markup'
+import {
+  CREDITS_PER_USD,
+  PROVIDER_MIN_CHARGE_USD,
+  creditsForUnits,
+  creditsFromUsd,
+  defaultMarkupMultiplier,
+  providerSpendCapUsd,
+  usdFromCredits,
+} from '../credits/markup'
+import { APIFY_MIN_CHARGE_USD } from '../adapters/apify/client'
 
 const ORG = 'org-11111111'
 const USER = 'user-22222222'
@@ -56,6 +65,87 @@ describe('creditsForUnits markup', () => {
     expect(() => creditsForUnits(-1, 1, 2)).toThrow(TypeError)
     expect(() => creditsForUnits(1, -1, 2)).toThrow(TypeError)
     expect(() => creditsForUnits(1, 1, 0)).toThrow(TypeError)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Reservation -> provider spend cap (the metering-safety link)
+// ---------------------------------------------------------------------------
+
+describe('usdFromCredits', () => {
+  it('is the exact inverse of creditsFromUsd on the same basis', () => {
+    expect(CREDITS_PER_USD).toBe(250_000)
+    expect(usdFromCredits(250_000)).toBe(1)
+    expect(usdFromCredits(2_500)).toBe(0.01)
+    expect(usdFromCredits(0)).toBe(0)
+    for (const usd of [0.003, 0.004, 0.01, 0.075, 0.25, 1.5]) {
+      expect(usdFromCredits(creditsFromUsd(usd))).toBeCloseTo(usd, 10)
+    }
+  })
+
+  it('rejects invalid inputs instead of silently producing a cap', () => {
+    expect(() => usdFromCredits(-1)).toThrow(TypeError)
+    expect(() => usdFromCredits(Number.NaN)).toThrow(TypeError)
+  })
+})
+
+describe('providerSpendCapUsd', () => {
+  it('turns a 25-result sourcing reservation into exactly the raw provider cost', () => {
+    // 25 results x $0.003 = 750 credits each, pre-markup.
+    const quoted = creditsFromUsd(0.003)
+    expect(quoted).toBe(750)
+    const reserved = creditsForUnits(25, quoted, 2)
+    // the customer is reserved 37,500 credits ($0.15 at 2x markup)
+    expect(reserved).toBe(37_500)
+    // but the PROVIDER is only ever authorized the raw $0.075
+    expect(providerSpendCapUsd(reserved, 2)).toBe(0.075)
+    expect(providerSpendCapUsd(reserved, 2)).toBeCloseTo(25 * 0.003, 10)
+  })
+
+  it('divides the markup back out rather than authorizing the marked-up figure', () => {
+    const reserved = creditsForUnits(25, 750, 2)
+    // the naive (wrong) conversion would authorize double the real cost
+    expect(usdFromCredits(reserved)).toBe(0.15)
+    expect(providerSpendCapUsd(reserved, 2)).toBe(0.075)
+    // and it tracks whatever markup the caller actually reserved at
+    expect(providerSpendCapUsd(creditsForUnits(25, 750, 3), 3)).toBe(0.075)
+    expect(providerSpendCapUsd(creditsForUnits(25, 750, 1), 1)).toBe(0.075)
+  })
+
+  it('floors tiny reservations at the provider minimum, which a sub-minimum cap would 400 on', () => {
+    // the fixture enrich reserve (1 unit x 2 quoted x 2 markup = 4 credits) is
+    // $0.000008 of provider spend: far under the $0.01 Apify floor
+    expect(usdFromCredits(4 / 2)).toBeCloseTo(0.000008, 10)
+    expect(providerSpendCapUsd(4, 2)).toBe(PROVIDER_MIN_CHARGE_USD)
+    expect(providerSpendCapUsd(0, 2)).toBe(PROVIDER_MIN_CHARGE_USD)
+    expect(providerSpendCapUsd(1, 2)).toBe(PROVIDER_MIN_CHARGE_USD)
+    // one Apify profile-with-email reserve (2,500 quoted x 2) sits exactly on
+    // the raw $0.01 cost, which is also the floor
+    expect(providerSpendCapUsd(creditsForUnits(1, 2_500, 2), 2)).toBe(0.01)
+  })
+
+  it('keeps the floor in parity with the Apify client minimum', () => {
+    // markup.ts stays pure and owns its own copy of the floor; this assertion
+    // is what stops the two drifting apart.
+    expect(PROVIDER_MIN_CHARGE_USD).toBe(APIFY_MIN_CHARGE_USD)
+  })
+
+  it('rejects invalid inputs instead of silently producing a cap', () => {
+    expect(() => providerSpendCapUsd(-1, 2)).toThrow(TypeError)
+    expect(() => providerSpendCapUsd(100, 0)).toThrow(TypeError)
+    expect(() => providerSpendCapUsd(100, Number.NaN)).toThrow(TypeError)
+  })
+
+  it('defaults the markup to the configured platform multiplier', () => {
+    const saved = process.env.GTM_CREDIT_MARKUP
+    process.env.GTM_CREDIT_MARKUP = '2'
+    try {
+      expect(defaultMarkupMultiplier()).toBe(2)
+      expect(providerSpendCapUsd(37_500)).toBe(0.075)
+    } finally {
+      if (saved === undefined) delete process.env.GTM_CREDIT_MARKUP
+      else process.env.GTM_CREDIT_MARKUP = saved
+    }
   })
 })
 
