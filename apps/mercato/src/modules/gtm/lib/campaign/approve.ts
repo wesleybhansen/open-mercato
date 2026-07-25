@@ -329,6 +329,26 @@ export async function approveCampaign(
 ): Promise<ApproveCampaignResult> {
   const campaign = await loadCampaign(em, ctx, input.campaignId)
 
+  // A LAUNCHED campaign is never re-approvable. launchCampaign sets status
+  // 'active', which fell straight through the double-approve guard below
+  // (that guard only recognises 'approved'), so a bare re-approve - no body
+  // change, no hash required - minted a second version, repointed every
+  // enrollment at it, silently deactivated the running campaign, and armed a
+  // duplicate send batch.
+  //
+  // Editing a live campaign is still supported and unchanged: the edit ops go
+  // through mutateDraft -> invalidateCurrentVersion, which puts the campaign
+  // back to 'draft' first. This only rejects re-approving something that is
+  // still live.
+  if (campaign.status !== 'draft' && campaign.status !== 'in_review') {
+    if (!(campaign.status === 'approved' && campaign.currentVersionId)) {
+      throw new GtmCampaignError(
+        'campaign_not_editable',
+        `Campaign status '${campaign.status}' cannot be approved; invalidate the current version first`,
+      )
+    }
+  }
+
   // Double-approve: a second approve carrying the hash of the live approved
   // version is idempotent and returns the existing version; anything else
   // against an approved campaign is a stale draft.

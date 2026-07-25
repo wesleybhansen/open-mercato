@@ -85,13 +85,36 @@ export class GtmExecutionError extends Error {
   }
 }
 
+/*
+ * Deliberately keyed on the enrollment and the step's STABLE key, NOT on the
+ * campaign version or the per-version GtmStep uuid.
+ *
+ * Approving mints brand-new GtmStep rows every time, so a key carrying either
+ * of those changed on every re-approval and the (organization_id,
+ * idempotency_key) unique index stopped deduping. Editing a typo on day 2 and
+ * relaunching therefore materialised a second full set of attempts with
+ * byte-identical content and mailed step 1 to every still-active recipient
+ * again.
+ *
+ * Keyed this way, a logical step can be sent to an enrollment exactly once no
+ * matter how many times the campaign is invalidated, edited, re-approved and
+ * relaunched. Re-approving a campaign that was never launched is unaffected -
+ * no attempts exist yet, so nothing collides.
+ */
 export function buildSendIdempotencyKey(
-  campaignVersionId: string,
   enrollmentId: string,
-  stepId: string,
+  stepKey: string,
   attemptNo: number,
 ): string {
-  return `send:${campaignVersionId}:${enrollmentId}:${stepId}:${attemptNo}`
+  return `send:${enrollmentId}:${stepKey}:${attemptNo}`
+}
+
+// The stable per-step identity, written by approveCampaign into
+// sendWindow.step_key. Falls back to the row id only for defensive safety on
+// legacy rows written before step_key existed.
+export function readStepKey(step: { id: string; sendWindow?: unknown }): string {
+  const key = (step.sendWindow as Record<string, unknown> | null | undefined)?.step_key
+  return typeof key === 'string' && key.trim() ? key.trim() : step.id
 }
 
 // ---------------------------------------------------------------------------
@@ -310,12 +333,7 @@ export async function materializeSendAttempts(
       const rendered = renderedByEnrollmentStep.get(`${enrollment.id}:${step.id}`)
       // No frozen message means the pair was never approved; nothing to send.
       if (!rendered) continue
-      const idempotencyKey = buildSendIdempotencyKey(
-        campaignVersion.id,
-        enrollment.id,
-        step.id,
-        1,
-      )
+      const idempotencyKey = buildSendIdempotencyKey(enrollment.id, readStepKey(step), 1)
       const already = await em.findOne(GtmSendAttempt, {
         organizationId: ctx.organizationId,
         idempotencyKey,

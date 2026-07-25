@@ -12,6 +12,7 @@ import { approveCampaign } from '../campaign/approve'
 import {
   GtmExecutionError,
   buildSendIdempotencyKey,
+  readStepKey,
   clampToBusinessWindow,
   computeScheduledFor,
   deterministicJitterMinutes,
@@ -50,12 +51,39 @@ describe('materializeSendAttempts + launchCampaign (SPEC-066 section 6 rule 6)',
       expect(attempt.mailboxConnectionId).toBe(MAILBOX)
       expect(emailStepIds.has(attempt.stepId)).toBe(true)
       expect(socialStepIds.has(attempt.stepId)).toBe(false)
+      // Keyed on the STABLE step key, never the version or the per-version
+      // step uuid: both are re-minted on every approval, which is what let a
+      // re-approve + relaunch re-send step 1 to everyone.
+      const step = fixture.steps.find((row) => row.id === attempt.stepId)!
       expect(attempt.idempotencyKey).toBe(
-        buildSendIdempotencyKey(fixture.version.id, attempt.enrollmentId, attempt.stepId, 1),
+        buildSendIdempotencyKey(attempt.enrollmentId, readStepKey(step), 1),
       )
+      expect(attempt.idempotencyKey).not.toContain(fixture.version.id)
       expect(attempt.scheduledFor).toBeInstanceOf(Date)
     }
     expect(fixture.campaign.status).toBe('active')
+  })
+
+  it('refuses to re-approve a LAUNCHED campaign (the duplicate-send path)', async () => {
+    const em = new FakeEm()
+    const clock = fixedClock(LAUNCH_ISO)
+    const fixture = await seedLaunchedCampaign(em, { clock, recipients: 2, emails: 2 })
+    expect(fixture.campaign.status).toBe('active')
+    const before = (await em.find(GtmSendAttempt, { organizationId: ctx.organizationId })).length
+
+    // No body change, no expected_content_hash: exactly the "fix a typo on day
+    // 2 and hit approve again" / double-click / replayed-agent-action shape.
+    // 'active' fell through the double-approve guard, so this used to mint v2,
+    // repoint every enrollment at it, silently deactivate the running
+    // campaign, and arm a second full send batch.
+    await expect(
+      approveCampaign(em, ctx, { campaignId: fixture.campaign.id }),
+    ).rejects.toMatchObject({ code: 'campaign_not_editable' })
+
+    expect(fixture.campaign.status).toBe('active')
+    expect(await em.find(GtmSendAttempt, { organizationId: ctx.organizationId })).toHaveLength(
+      before,
+    )
   })
 
   it('schedules by delay_days with a business-window clamp: day-0 fires at launch, day-3 skips the weekend', async () => {
