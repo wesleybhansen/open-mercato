@@ -106,7 +106,12 @@ export const APIFY_STATUS_MAP: Record<ApifyOutcomeKind, AdapterResultStatus> = {
   rate_limited: 'error',
   server_error: 'error',
   client_error: 'error',
-  invalid_schema: 'error',
+  // 'invalid_schema' is only reachable BELOW the 2xx gate, which means the
+  // actor ran and Apify billed us for it. Mapping it to 'error' would settle
+  // the ledger operation as 'refunded': we would pay the provider and charge
+  // the customer nothing, silently, every time a marketplace actor changes
+  // its output shape (which they do without notice). Park it instead.
+  invalid_schema: 'ambiguous',
   // never a silent retry: parked for reconciliation
   timeout: 'ambiguous',
   transport_unknown: 'ambiguous',

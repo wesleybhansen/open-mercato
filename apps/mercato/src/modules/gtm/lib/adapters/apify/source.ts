@@ -413,8 +413,34 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
       })
       const capped = normalized.candidates.slice(0, cap)
       if (capped.length === 0) {
-        // The actor returned rows but none carried a usable identity. That is
-        // a definitive empty answer for us; we do not invent names to bill.
+        // The actor returned rows but none carried a usable identity.
+        //
+        // This is NOT the same as a zero-item run. Apify's pay-per-event
+        // billing charges per item RETURNED, so a run that handed back 25
+        // unusable rows was billed for 25 while a genuine zero-item run costs
+        // $0.00 (live-verified). Settling this as 'no_result' sent it down the
+        // pay_on_found refund path: we paid the provider and recorded the
+        // operation as free, silently, with nothing to reconcile against.
+        //
+        // Park it instead. 'ambiguous' holds the escrow, charges nothing,
+        // refunds nothing, and flags reconciliation_required - which is the
+        // honest description of "we spent money and produced no usable
+        // result". Recurring hits here mean an actor changed its output shape
+        // or the target is bad, and both want a human, not a silent write-off.
+        const billedItems = Array.isArray(outcome.items) ? outcome.items.length : 0
+        if (billedItems > 0) {
+          return {
+            status: 'ambiguous',
+            data: null,
+            receipt: providerReceipt({
+              returned_count: 0,
+              dropped_items: normalized.dropped,
+            }),
+            error: `no_usable_identity: Apify billed ${billedItems} item(s) but none carried a usable identity`,
+            cost_units: null,
+          }
+        }
+        // A genuine zero-item run: pay_on_found makes this actually free.
         return {
           status: 'no_result',
           data: null,

@@ -490,13 +490,15 @@ describe('apify enrich status mapping', () => {
     expect(result.cost_units).toBeNull()
   })
 
-  it('malformed JSON and a non-array 2xx body -> error (invalid_schema), zero units', async () => {
+  // Reachable only on a 2xx, so the actor ran and Apify billed - and this
+  // adapter is pay-per-ATTEMPT, so the charge lands even with no emails found.
+  // 'error' would refund the reservation and swallow real spend.
+  it('malformed JSON and a non-array 2xx body -> ambiguous (invalid_schema), parked not refunded', async () => {
     for (const body of ['[{"emails": ', '{"data":[]}']) {
       const { adapter } = adapterWith({ status: 201, body })
       const result = await adapter.enrich(baseRequest)
-      expect(result.status).toBe('error')
+      expect(result.status).toBe('ambiguous')
       expect(result.error).toContain('invalid_schema')
-      expect(result.cost_units).toBe(0)
     }
   })
 })

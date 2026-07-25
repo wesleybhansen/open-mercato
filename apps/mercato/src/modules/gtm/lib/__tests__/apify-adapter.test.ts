@@ -400,7 +400,9 @@ describe('apify status mapping', () => {
       rate_limited: 'error',
       server_error: 'error',
       client_error: 'error',
-      invalid_schema: 'error',
+      // Only reachable below the 2xx gate, so the actor ran and Apify billed:
+      // 'error' would settle the operation 'refunded' and eat the cost.
+      invalid_schema: 'ambiguous',
       timeout: 'ambiguous',
       transport_unknown: 'ambiguous',
     })
@@ -471,15 +473,25 @@ describe('apify status mapping', () => {
     expect(result.receipt).toMatchObject({ item_count: 0, provider_status: 'no_result' })
   })
 
-  it('201 with rows that carry no usable identity -> no_result, zero units', async () => {
+  it('201 with billed rows but no usable identity -> ambiguous, parked for reconciliation', async () => {
     const { adapter } = adapterWith({
       status: 201,
       body: JSON.stringify([{ actor: { position: 'Nameless' } }]),
     })
     const result = await adapter.search(basePlan)
+    // Apify bills per item RETURNED, so this run cost real money. Settling it
+    // 'no_result' sent it down the pay_on_found refund path and recorded a
+    // billed run as free. Park it so the spend is visible instead.
+    expect(result.status).toBe('ambiguous')
+    expect(result.error).toContain('no_usable_identity')
+    expect(result.receipt).toMatchObject({ item_count: 1, dropped_items: 1, returned_count: 0 })
+  })
+
+  it('a genuine zero-item run is still free (pay_on_found)', async () => {
+    const { adapter } = adapterWith({ status: 201, body: '[]' })
+    const result = await adapter.search(basePlan)
     expect(result.status).toBe('no_result')
     expect(result.cost_units).toBe(0)
-    expect(result.receipt).toMatchObject({ item_count: 1, dropped_items: 1, returned_count: 0 })
   })
 
   it('401 -> error (auth), zero units', async () => {
@@ -558,22 +570,22 @@ describe('apify status mapping', () => {
     expect(result.receipt).toMatchObject({ provider_status: 'transport_unknown' })
   })
 
-  it('malformed JSON -> error (invalid_schema), zero units', async () => {
+  // Both of these are only reachable on a 2xx, which means the actor ran and
+  // Apify billed. 'error' would refund the reservation and eat the cost.
+  it('malformed JSON -> ambiguous (invalid_schema), parked not refunded', async () => {
     const { adapter } = adapterWith({ status: 201, body: '[{"actor": {"name": "broken"' })
     const result = await adapter.search(basePlan)
-    expect(result.status).toBe('error')
+    expect(result.status).toBe('ambiguous')
     expect(result.error).toContain('invalid_schema')
-    expect(result.cost_units).toBe(0)
     expectReceiptContract(result)
     expect(result.receipt).toMatchObject({ provider_status: 'invalid_schema' })
   })
 
-  it('a 2xx body that is not a dataset array -> error (invalid_schema)', async () => {
+  it('a 2xx body that is not a dataset array -> ambiguous (invalid_schema)', async () => {
     const { adapter } = adapterWith({ status: 201, body: '{"data":[]}' })
     const result = await adapter.search(basePlan)
-    expect(result.status).toBe('error')
+    expect(result.status).toBe('ambiguous')
     expect(result.error).toContain('invalid_schema')
-    expect(result.cost_units).toBe(0)
   })
 })
 
