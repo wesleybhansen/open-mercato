@@ -139,12 +139,12 @@ export type GtmEnrichBody = z.infer<typeof gtmEnrichBodySchema>
 
 export const gtmCandidatesBodySchema = z.object({
   noliUserId: idString,
-  op: z.enum(['list', 'review']).optional().default('list'),
+  op: z.enum(['list', 'review', 'detail']).optional().default('list'),
   // list filters
   runId: idString.optional(),
   workspaceId: idString.optional(),
   fitStatus: z.enum(['unscored', 'accepted', 'rejected']).optional(),
-  // review op
+  // review + detail ops
   candidateId: idString.optional(),
   verdict: z.enum(['accepted', 'rejected']).optional(),
   reason: z.string().trim().max(2000).optional(),

@@ -139,6 +139,50 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, candidate: shapeCandidate(result.candidate) })
     }
 
+    if (body.op === 'detail') {
+      // Full provenance for one person: every evidence row and contact point.
+      // This is the customer's own sourced data, and it is what answers a
+      // data-subject request without an investigation.
+      if (!body.candidateId || !isUuid(body.candidateId)) return opaqueNotFound()
+      const candidate = await em.findOne(GtmCandidate, {
+        id: body.candidateId,
+        organizationId,
+        tenantId,
+        deletedAt: null,
+      })
+      if (!candidate) return opaqueNotFound()
+
+      const { GtmEvidence, GtmContactPoint } = await import('../../../data/entities')
+      const scope = { organizationId, tenantId, candidateId: candidate.id, deletedAt: null }
+      const [evidence, contactPoints] = await Promise.all([
+        em.find(GtmEvidence, scope, { orderBy: { observedAt: 'desc' }, limit: LIST_CAP }),
+        em.find(GtmContactPoint, scope, { orderBy: { createdAt: 'desc' }, limit: LIST_CAP }),
+      ])
+
+      return NextResponse.json({
+        ok: true,
+        candidate: shapeCandidate(candidate),
+        evidence: evidence.map((row) => ({
+          id: row.id,
+          claim: row.claim,
+          source_url: row.sourceUrl ?? null,
+          provider_ref: row.providerRef ?? null,
+          observed_at: row.observedAt?.toISOString() ?? null,
+          confidence: row.confidence ?? null,
+          license: row.license ?? null,
+        })),
+        contact_points: contactPoints.map((point) => ({
+          id: point.id,
+          channel: point.channel,
+          value: point.value,
+          verification_state: point.verificationState,
+          provider_operation_id: point.providerOperationId ?? null,
+          provenance: point.provenance ?? null,
+        })),
+        cap: LIST_CAP,
+      })
+    }
+
     // list
     const where: Record<string, unknown> = { organizationId, tenantId, deletedAt: null }
     if (body.runId != null) {
@@ -175,6 +219,14 @@ export async function POST(req: Request) {
           ...shapeCandidate(candidate),
           has_verified_email: extra?.hasVerifiedEmail ?? false,
           evidence_count: extra?.evidenceCount ?? 0,
+          // Provenance (privacy policy 3.2): where this record came from and
+          // when it was observed. Derived from the evidence rows already
+          // fetched above, so it adds no queries.
+          sources: extra?.sources ?? [],
+          sources_extra: extra?.sourcesExtra ?? 0,
+          first_observed_at: extra?.firstObservedAt?.toISOString() ?? null,
+          last_observed_at: extra?.lastObservedAt?.toISOString() ?? null,
+          confidence: extra?.confidence ?? null,
         }
       }),
       cap: LIST_CAP,

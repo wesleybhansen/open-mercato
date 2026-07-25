@@ -180,9 +180,9 @@ describe('candidateEnrichment', () => {
     await em.flush()
 
     const rollup = await candidateEnrichment(em, ctx, [verified.id, found.id, bare.id])
-    expect(rollup.get(verified.id)).toEqual({ hasVerifiedEmail: true, evidenceCount: 2 })
-    expect(rollup.get(found.id)).toEqual({ hasVerifiedEmail: false, evidenceCount: 0 })
-    expect(rollup.get(bare.id)).toEqual({ hasVerifiedEmail: false, evidenceCount: 0 })
+    expect(rollup.get(verified.id)).toMatchObject({ hasVerifiedEmail: true, evidenceCount: 2 })
+    expect(rollup.get(found.id)).toMatchObject({ hasVerifiedEmail: false, evidenceCount: 0 })
+    expect(rollup.get(bare.id)).toMatchObject({ hasVerifiedEmail: false, evidenceCount: 0 })
   })
 
   it('a verified non-email channel does not count as a verified email', async () => {
@@ -202,7 +202,7 @@ describe('candidateEnrichment', () => {
     await em.flush()
 
     const rollup = await candidateEnrichment(em, ctx, [candidate.id])
-    expect(rollup.get(candidate.id)).toEqual({ hasVerifiedEmail: false, evidenceCount: 0 })
+    expect(rollup.get(candidate.id)).toMatchObject({ hasVerifiedEmail: false, evidenceCount: 0 })
   })
 
   it('is org-isolated and ignores soft-deleted contact points and evidence', async () => {
@@ -252,7 +252,7 @@ describe('candidateEnrichment', () => {
     await em.flush()
 
     const rollup = await candidateEnrichment(em, ctx, [candidate.id])
-    expect(rollup.get(candidate.id)).toEqual({ hasVerifiedEmail: false, evidenceCount: 0 })
+    expect(rollup.get(candidate.id)).toMatchObject({ hasVerifiedEmail: false, evidenceCount: 0 })
   })
 
   it('runs exactly one grouped query per table for a page (no N+1), and none for an empty page', async () => {
@@ -274,6 +274,112 @@ describe('candidateEnrichment', () => {
     const empty = await candidateEnrichment(em, ctx, [])
     expect(findCalls).toBe(0)
     expect(empty.size).toBe(0)
+  })
+})
+
+describe('candidate provenance rollup (privacy transparency)', () => {
+  // Evidence rows carry where a record came from and when it was seen. The
+  // rollup must summarize that WITHOUT adding queries, and must never invent a
+  // source for a candidate that has none.
+  const evidence = (
+    em: FakeEm,
+    candidateId: string,
+    fields: {
+      providerRef?: Record<string, unknown> | null
+      sourceUrl?: string | null
+      observedAt?: Date | null
+      confidence?: string | null
+    },
+  ) =>
+    em.persist(
+      em.create(GtmEvidence, {
+        organizationId: ORG,
+        tenantId: TENANT,
+        candidateId,
+        claim: 'synthetic claim',
+        ...fields,
+      }),
+    )
+
+  it('summarizes distinct sources, observation window, and best confidence', async () => {
+    const em = new FakeEm()
+    const run = await seedRun(em, await seedPlay(em))
+    const candidate = await seedCandidate(em, run, { email: null, evidenceClaim: null })
+    const earlier = new Date('2026-07-01T00:00:00.000Z')
+    const later = new Date('2026-07-20T00:00:00.000Z')
+    evidence(em, candidate.id, { providerRef: { provider: 'apify' }, observedAt: earlier, confidence: '0.400' })
+    evidence(em, candidate.id, { providerRef: { provider: 'apify' }, observedAt: later, confidence: '0.900' })
+    evidence(em, candidate.id, { sourceUrl: 'https://www.linkedin.com/posts/example', observedAt: later })
+    await em.flush()
+
+    const entry = (await candidateEnrichment(em, ctx, [candidate.id])).get(candidate.id)
+    // Duplicate provider collapses; the URL contributes its bare hostname.
+    expect(entry?.sources).toEqual(['apify', 'linkedin.com'])
+    expect(entry?.sourcesExtra).toBe(0)
+    expect(entry?.firstObservedAt).toEqual(earlier)
+    expect(entry?.lastObservedAt).toEqual(later)
+    expect(entry?.confidence).toBe(0.9)
+    expect(entry?.evidenceCount).toBe(3)
+  })
+
+  it('caps the source list and counts the remainder rather than truncating silently', async () => {
+    const em = new FakeEm()
+    const run = await seedRun(em, await seedPlay(em))
+    const candidate = await seedCandidate(em, run, { email: null, evidenceClaim: null })
+    for (const provider of ['one', 'two', 'three', 'four', 'five']) {
+      evidence(em, candidate.id, { providerRef: { provider } })
+    }
+    await em.flush()
+
+    const entry = (await candidateEnrichment(em, ctx, [candidate.id])).get(candidate.id)
+    expect(entry?.sources).toEqual(['one', 'two', 'three'])
+    expect(entry?.sourcesExtra).toBe(2)
+  })
+
+  it('reports no source rather than inventing one when evidence lacks provenance', async () => {
+    const em = new FakeEm()
+    const run = await seedRun(em, await seedPlay(em))
+    const withNothing = await seedCandidate(em, run, { email: null, evidenceClaim: null })
+    const noEvidence = await seedCandidate(em, run, { email: null, evidenceClaim: null })
+    // Evidence with neither a provider nor a parseable URL yields no label.
+    evidence(em, withNothing.id, { providerRef: null, sourceUrl: 'not a url' })
+    await em.flush()
+
+    const rollup = await candidateEnrichment(em, ctx, [withNothing.id, noEvidence.id])
+    expect(rollup.get(withNothing.id)).toMatchObject({
+      sources: [],
+      sourcesExtra: 0,
+      firstObservedAt: null,
+      confidence: null,
+      evidenceCount: 1,
+    })
+    expect(rollup.get(noEvidence.id)).toMatchObject({
+      sources: [],
+      firstObservedAt: null,
+      lastObservedAt: null,
+      confidence: null,
+      evidenceCount: 0,
+    })
+  })
+
+  it('adds no queries: provenance comes from the evidence rows already fetched', async () => {
+    const em = new FakeEm()
+    const run = await seedRun(em, await seedPlay(em))
+    const candidate = await seedCandidate(em, run)
+    evidence(em, candidate.id, { providerRef: { provider: 'apify' }, observedAt: new Date() })
+    await em.flush()
+
+    const baseFind = em.find.bind(em)
+    let findCalls = 0
+    em.find = (async (...args: Parameters<typeof baseFind>) => {
+      findCalls += 1
+      return baseFind(...args)
+    }) as typeof em.find
+
+    const entry = (await candidateEnrichment(em, ctx, [candidate.id])).get(candidate.id)
+    // Still the same two grouped queries as before provenance existed.
+    expect(findCalls).toBe(2)
+    expect(entry?.sources).toEqual(['apify'])
   })
 })
 

@@ -57,6 +57,49 @@ export type CandidateEnrichment = {
   // exists for the candidate.
   hasVerifiedEmail: boolean
   evidenceCount: number
+  // Provenance rollup: where this person's data came from and when it was
+  // observed. Surfaced to the customer for transparency and used to answer a
+  // data-subject request without an investigation (privacy policy 3.2 promises
+  // we record source, observation time, and confidence).
+  sources: string[]
+  sourcesExtra: number
+  firstObservedAt: Date | null
+  lastObservedAt: Date | null
+  confidence: number | null
+}
+
+// How many distinct source labels are returned inline; the rest are counted.
+export const PROVENANCE_SOURCE_LIMIT = 3
+
+/** Human-readable source label for one evidence row: the recording provider if
+ *  we have one, else the host of the source URL. Returns null when neither is
+ *  present so callers can skip it rather than display a placeholder. */
+export function evidenceSourceLabel(row: {
+  providerRef?: Record<string, unknown> | null
+  sourceUrl?: string | null
+}): string | null {
+  const ref = row.providerRef
+  if (ref) {
+    for (const key of ['provider', 'adapter_id', 'adapter', 'source']) {
+      const value = ref[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+  }
+  const url = typeof row.sourceUrl === 'string' ? row.sourceUrl.trim() : ''
+  if (url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '')
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+function parseConfidence(raw: string | null | undefined): number | null {
+  if (raw == null) return null
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 /** Per-candidate verification + evidence rollup for one page of candidates.
@@ -69,7 +112,19 @@ export async function candidateEnrichment(
   candidateIds: string[],
 ): Promise<Map<string, CandidateEnrichment>> {
   const rollup = new Map<string, CandidateEnrichment>()
-  for (const id of candidateIds) rollup.set(id, { hasVerifiedEmail: false, evidenceCount: 0 })
+  const seenSources = new Map<string, Set<string>>()
+  for (const id of candidateIds) {
+    rollup.set(id, {
+      hasVerifiedEmail: false,
+      evidenceCount: 0,
+      sources: [],
+      sourcesExtra: 0,
+      firstObservedAt: null,
+      lastObservedAt: null,
+      confidence: null,
+    })
+    seenSources.set(id, new Set<string>())
+  }
   if (candidateIds.length === 0) return rollup
 
   const scope = { ...scopedWhere(ctx), candidateId: { $in: candidateIds } }
@@ -81,9 +136,33 @@ export async function candidateEnrichment(
     const entry = rollup.get(point.candidateId)
     if (entry) entry.hasVerifiedEmail = true
   }
+  // Provenance is derived from the SAME evidence rows already fetched above,
+  // so transparency costs zero additional queries.
   for (const row of evidence) {
     const entry = rollup.get(row.candidateId)
-    if (entry) entry.evidenceCount += 1
+    if (!entry) continue
+    entry.evidenceCount += 1
+
+    const label = evidenceSourceLabel(row)
+    if (label) {
+      const seen = seenSources.get(row.candidateId)
+      if (seen && !seen.has(label)) {
+        seen.add(label)
+        if (entry.sources.length < PROVENANCE_SOURCE_LIMIT) entry.sources.push(label)
+        else entry.sourcesExtra += 1
+      }
+    }
+
+    const observed = row.observedAt ?? null
+    if (observed) {
+      if (!entry.firstObservedAt || observed < entry.firstObservedAt) entry.firstObservedAt = observed
+      if (!entry.lastObservedAt || observed > entry.lastObservedAt) entry.lastObservedAt = observed
+    }
+
+    const confidence = parseConfidence(row.confidence)
+    if (confidence !== null && (entry.confidence === null || confidence > entry.confidence)) {
+      entry.confidence = confidence
+    }
   }
   return rollup
 }
