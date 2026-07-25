@@ -210,7 +210,7 @@ describe('prospect removal request', () => {
     expect(miss).toMatchObject({ ok: true, suppressed: true, enrollmentsStopped: 0 })
   })
 
-  it('leaves a claimed in-flight attempt for the executor rather than clobbering it', async () => {
+  it('cancels a claimed in-flight attempt so the removal cannot be mailed over', async () => {
     const em = new FakeEm()
     const clock = fixedClock(LAUNCH_ISO)
     const fixture = await seedLaunchedCampaign(em, { clock, recipients: 1, emails: 2 })
@@ -218,11 +218,18 @@ describe('prospect removal request', () => {
     const address = fixture.addressFor(enrollment)
     const claimed = (await em.find(GtmSendAttempt, { enrollmentId: enrollment.id }))[0]
     claimed.state = 'claimed'
+    claimed.claimToken = 'aaaaaaaa-1111-4111-8111-000000000000'
 
     const result = await applyRemovalRequest(em, { email: address }, { clock })
-    expect(result.attemptsCancelled).toBe(1)
-    expect(claimed.state).toBe('claimed')
-    // The enrollment is the durable stop marker execute/send.ts rechecks.
+
+    // Both the claimed row and the still-planned one are cancelled. send.ts
+    // does recheck the global suppression before provider contact, which
+    // narrows this race, but that read happens several statements before the
+    // transport call - cancelling the claim is what actually closes it.
+    expect(result.attemptsCancelled).toBe(2)
+    expect(claimed.state).toBe('failed')
+    expect(claimed.failureReason).toBe('stopped')
+    expect(claimed.claimToken).toBeNull()
     expect(enrollment.status).toBe('stopped')
   })
 })

@@ -41,8 +41,14 @@ import { EmailMessage } from '../../../email/data/schema'
  * key off enrollment.status, so status != 'active' IS the durable cancel
  * marker), THEN the GtmReply row is inserted in the same transaction. The
  * reply can never surface before the stop is durable. Rows already under
- * claim are left alone: the executor's pre-send recheck reads
- * enrollment.status and fails them, and a reclaimed writer is fenced out.
+ * claim ARE cancelled (claim_token nulled), which is what actually closes the
+ * race: the executor rechecks enrollment.status early but then does nine more
+ * DB round trips before contacting the provider, so a reply correlating in
+ * that window would otherwise still be mailed. Safe because send.ts writes
+ * 'provider_started' BEFORE the transport, so a 'claimed' row has provably
+ * not reached the provider; the executor's fenced write then matches 0 rows
+ * and returns 'fenced'. 'provider_started' and later are left alone - the
+ * message may already be out, and their own fenced writes settle it.
  *
  * Idempotent: a message that already has a GtmReply row is skipped;
  * re-recording a social reply for the same (enrollment, step) returns the
@@ -53,7 +59,7 @@ import { EmailMessage } from '../../../email/data/schema'
  * remaining mixed-channel steps atomically.
  */
 
-const NON_TERMINAL_CANCELABLE = ['planned', 'rendered', 'reviewed', 'approved']
+const NON_TERMINAL_CANCELABLE = ['planned', 'rendered', 'reviewed', 'approved', 'claimed']
 const PROVIDER_CONTACTED_STATES = [
   'provider_started',
   'accepted',
@@ -115,9 +121,10 @@ export async function atomicStopWithReply(
       enrollment.stoppedAt = now
       tem.persist(enrollment)
     }
-    // Cancel every remaining pre-claim attempt; claimed/provider_started
-    // rows settle through their own fenced writes (the executor's recheck
-    // sees the stopped enrollment).
+    // Cancel every attempt that has not yet contacted the provider, INCLUDING
+    // 'claimed' (see the header note): nulling claim_token fences the in-flight
+    // executor out. 'provider_started' and later settle through their own
+    // fenced writes.
     await tem.nativeUpdate(
       GtmSendAttempt,
       {
@@ -126,7 +133,13 @@ export async function atomicStopWithReply(
         enrollmentId: enrollment.id,
         state: { $in: NON_TERMINAL_CANCELABLE },
       },
-      { state: 'failed', failureReason: 'stopped', failedAt: now, updatedAt: now },
+      {
+        state: 'failed',
+        failureReason: 'stopped',
+        claimToken: null,
+        failedAt: now,
+        updatedAt: now,
+      },
     )
     const reply = tem.create(GtmReply, {
       organizationId: enrollment.organizationId,

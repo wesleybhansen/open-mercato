@@ -38,12 +38,20 @@ import {
  * No raw address ever reaches an audit row or a log line.
  *
  * The stop half reuses the applyUnsubscribe transaction shape: enrollment
- * stopped (stop_reason 'removal_request'), every remaining pre-claim attempt
- * cancelled, audit event, one transaction per enrollment. Claimed /
- * provider_started rows are deliberately untouched: execute/send.ts rechecks
- * suppression AND enrollment status immediately before provider contact
- * (fail('suppressed') / fail('enrollment_stopped')), so an in-flight send
- * dies at that gate rather than being clobbered mid-flight here.
+ * stopped (stop_reason 'removal_request'), every attempt that has not yet
+ * contacted the provider cancelled, audit event, one transaction per
+ * enrollment.
+ *
+ * 'claimed' IS cancelled (claim_token nulled). execute/send.ts does recheck
+ * suppression and enrollment status before provider contact, which narrows
+ * this race - but it does NOT close it: those reads happen several statements
+ * before the transport call, so a removal committing in between would still
+ * be mailed over. Cancelling the claim is what actually closes it.
+ *
+ * Safe because send.ts writes 'provider_started' BEFORE the transport, so a
+ * 'claimed' row has provably not reached the provider; the executor's fenced
+ * write then matches 0 rows and returns 'fenced'. 'provider_started' and
+ * later are left alone - the message may already be out.
  *
  * Idempotent: a repeat request finds the suppression already present, has no
  * active enrollments left to stop, and still returns ok.
@@ -57,7 +65,7 @@ export const GLOBAL_SUPPRESSION_TENANT_ID = '00000000-0000-0000-0000-00000000000
 
 export const REMOVAL_REQUEST_REASON = 'removal_request'
 
-const NON_TERMINAL_CANCELABLE = ['planned', 'rendered', 'reviewed', 'approved']
+const NON_TERMINAL_CANCELABLE = ['planned', 'rendered', 'reviewed', 'approved', 'claimed']
 
 const MAX_EMAIL_CHARS = 200
 
@@ -227,7 +235,13 @@ async function stopEnrollment(
         enrollmentId: enrollment.id,
         state: { $in: NON_TERMINAL_CANCELABLE },
       },
-      { state: 'failed', failureReason: 'stopped', failedAt: args.now, updatedAt: args.now },
+      {
+        state: 'failed',
+        failureReason: 'stopped',
+        claimToken: null,
+        failedAt: args.now,
+        updatedAt: args.now,
+      },
     )
     if (enrollmentStopped || attemptsCancelled > 0) {
       tem.persist(

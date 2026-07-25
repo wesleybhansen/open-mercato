@@ -149,7 +149,7 @@ describe('unsubscribe token + one-click suppress-and-stop (SPEC-066 section 8)',
     expect(await em.find(GtmSuppression, {})).toHaveLength(0)
   })
 
-  it('races a claimed send: the claimed row is left for the executor, whose recheck then fails it', async () => {
+  it('races a claimed send: the stop cancels the claim so an in-flight executor cannot send', async () => {
     const em = new FakeEm()
     const launchClock = fixedClock(LAUNCH_ISO)
     const fixture = await seedLaunchedCampaign(em, { clock: launchClock, recipients: 1, emails: 2 })
@@ -160,16 +160,28 @@ describe('unsubscribe token + one-click suppress-and-stop (SPEC-066 section 8)',
     const claim = await claimDueAttempts(em, ctx, { clock })
     expect(claim.claimed).toHaveLength(1)
     const claimedRow = claim.claimed[0].attempt
-
-    await applyUnsubscribe(em, { enrollmentId: enrollment.id, addressHash }, { clock })
-    // The claimed row was NOT clobbered by the stop...
     expect(claimedRow.state).toBe('claimed')
 
-    // ...but the executor's pre-send recheck sees the stopped enrollment and
-    // fails it explicitly; the transport is never contacted.
+    await applyUnsubscribe(em, { enrollmentId: enrollment.id, addressHash }, { clock })
+
+    // The claim is CANCELLED, not left in flight. This is the guarantee: the
+    // executor reads enrollment.status early, then performs nine more DB round
+    // trips before contacting the provider, so relying on that recheck alone
+    // lets a stop that commits mid-window be mailed over anyway.
+    //
+    // Cancelling is safe because execute/send.ts writes 'provider_started'
+    // BEFORE the transport, so a row still in 'claimed' has provably not
+    // reached the provider.
+    expect(claimedRow.state).toBe('failed')
+    expect(claimedRow.failureReason).toBe('stopped')
+    // Nulling the token is what fences an executor that ALREADY passed its
+    // pre-send recheck: its conditional write can no longer match this row.
+    expect(claimedRow.claimToken).toBeNull()
+
+    // And nothing is sent.
     const transport = new FakeTransport()
     const outcome = await executeClaimedAttempt(em, ctx, claimedRow, { transport, clock })
-    expect(outcome).toMatchObject({ outcome: 'failed', reason: 'enrollment_stopped' })
+    expect(outcome.outcome).not.toBe('accepted')
     expect(transport.calls).toHaveLength(0)
   })
 })

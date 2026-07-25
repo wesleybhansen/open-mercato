@@ -94,6 +94,17 @@ export async function executeClaimedAttempt(
   const claimToken = attempt.claimToken
   const fence = attempt.fence
   const attemptId = attempt.id
+  // A stop (reply / unsubscribe / removal request) landing between
+  // claimDueAttempts and here CANCELS the claim and nulls the token on
+  // purpose. That is a routine race, not caller error: report it as 'fenced'
+  // - another writer won, do nothing - rather than throwing, which would
+  // abort the rest of this tick's sends. (A reclaim by another worker needs
+  // no special case: the row is still 'claimed' with a rotated token, so the
+  // conditional writes below match 0 rows and return 'fenced' anyway.)
+  if (attempt.state === 'failed' && attempt.failureReason === 'stopped') {
+    return { outcome: 'fenced', attemptId }
+  }
+  // Anything else not under claim is genuine misuse of this function.
   if (attempt.state !== 'claimed' || !claimToken) {
     throw new GtmExecutionError(
       'attempt_not_claimed',

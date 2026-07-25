@@ -21,15 +21,28 @@ import { UniqueConstraintViolationException } from '@mikro-orm/core'
  *
  * applyUnsubscribe runs in ONE transaction: gtm_suppressions row (reason
  * 'unsubscribe', channel 'email', org-scoped), enrollment stopped
- * (stop_reason 'unsubscribe'), every remaining pre-claim attempt cancelled
- * (approved/planned/rendered/reviewed -> 'failed' reason 'stopped'), audit
- * event. Claimed / provider_started rows are deliberately untouched: the
- * executor's pre-send recheck reads enrollment.status (the durable stop
- * marker) and fails them itself, and its own fenced writes settle in-flight
- * outcomes. Idempotent: repeats change nothing and still return ok.
+ * (stop_reason 'unsubscribe'), every attempt that has NOT yet contacted the
+ * provider cancelled (-> 'failed' reason 'stopped'), audit event.
+ * Idempotent: repeats change nothing and still return ok.
+ *
+ * 'claimed' IS cancelled here, and that is the whole point. The executor's
+ * pre-send recheck reads enrollment.status early, then performs nine more DB
+ * round trips before contacting the provider; a stop committing anywhere in
+ * that window would otherwise be ignored and the mail would ship AFTER the
+ * unsubscribe was durable. Cancelling the claim closes that race.
+ *
+ * Cancelling a claimed row is SAFE because execute/send.ts writes
+ * 'provider_started' BEFORE it calls the transport: a row still in 'claimed'
+ * has provably not reached the provider. Nulling claim_token makes the
+ * executor's fencedUpdate({state:'claimed'}, ...) match 0 rows, so it returns
+ * 'fenced' and sends nothing.
+ *
+ * 'provider_started' and later are deliberately left alone: the message may
+ * already be out, so there is nothing left to stop, and their own fenced
+ * writes settle the real outcome.
  */
 
-const NON_TERMINAL_CANCELABLE = ['planned', 'rendered', 'reviewed', 'approved']
+const NON_TERMINAL_CANCELABLE = ['planned', 'rendered', 'reviewed', 'approved', 'claimed']
 
 export function unsubscribeSecret(): string | null {
   return process.env.GTM_UNSUBSCRIBE_SECRET || process.env.NOLI_INTERNAL_SERVICE_SECRET || null
@@ -149,7 +162,13 @@ export async function applyUnsubscribe(
           enrollmentId: enrollment.id,
           state: { $in: NON_TERMINAL_CANCELABLE },
         },
-        { state: 'failed', failureReason: 'stopped', failedAt: now, updatedAt: now },
+        {
+          state: 'failed',
+          failureReason: 'stopped',
+          claimToken: null,
+          failedAt: now,
+          updatedAt: now,
+        },
       )
       if (suppressionCreated || enrollmentStopped || attemptsCancelled > 0) {
         tem.persist(

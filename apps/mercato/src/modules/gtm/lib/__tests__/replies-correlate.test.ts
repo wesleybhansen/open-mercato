@@ -117,6 +117,44 @@ describe('correlateReplies + atomic stop (SPEC-066 sections 9, 3.3)', () => {
     expect(later.claimed).toHaveLength(0)
   })
 
+  it('a reply cancels a CLAIMED in-flight send so it cannot be mailed over', async () => {
+    const s = await sent()
+    // Advance to the day-3 step and claim it, so an executor is genuinely
+    // mid-flight holding a valid claim at the moment the reply lands.
+    s.clock.set('2026-07-27T15:00:00.000Z')
+    const claim = await claimDueAttempts(s.em, ctx, { clock: s.clock })
+    expect(claim.claimed).toHaveLength(1)
+    const inflight = claim.claimed[0].attempt
+    expect(inflight.state).toBe('claimed')
+
+    await seedInboundMessage(s.em, {
+      from: s.address,
+      headers: { 'in-reply-to': `<${s.rfcBare}>` },
+      threadId: 'unrelated-root',
+      bodyText: 'Thanks, tell me more about this.',
+      createdAt: s.clock.now(),
+    })
+    const result = await correlateReplies(s.em, ctx, { clock: s.clock })
+    expect(result.matched).toHaveLength(1)
+
+    // The claim is REVOKED. Relying on the executor's pre-send recheck alone
+    // is not enough: it reads enrollment.status early, then does nine more DB
+    // round trips before the transport, so a reply committing inside that
+    // window would still be mailed. Nulling the token closes it.
+    expect(inflight.state).toBe('failed')
+    expect(inflight.failureReason).toBe('stopped')
+    expect(inflight.claimToken).toBeNull()
+
+    // An executor still holding the stale claim sends nothing.
+    const transport = new FakeTransport()
+    const outcome = await executeClaimedAttempt(s.em, ctx, inflight, {
+      transport,
+      clock: s.clock,
+    })
+    expect(outcome.outcome).toBe('fenced')
+    expect(transport.calls).toHaveLength(0)
+  })
+
   it('references-header and thread_id matches both correlate', async () => {
     const viaReferences = await sent()
     const m1 = await seedInboundMessage(viaReferences.em, {
