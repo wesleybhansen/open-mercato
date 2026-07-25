@@ -25,15 +25,31 @@ import type { Candidate, CandidateIdentity, ContactPoint } from '../types'
  */
 
 export type ApifyCapabilityKind =
+  | 'linkedin_post_search'
   | 'linkedin_post_reactions'
   | 'linkedin_post_comments'
   | 'x_post_engagers'
 
 export const APIFY_CAPABILITY_KINDS: ApifyCapabilityKind[] = [
+  'linkedin_post_search',
   'linkedin_post_reactions',
   'linkedin_post_comments',
   'x_post_engagers',
 ]
+
+/*
+ * DISCOVERY vs SCRAPE.
+ *
+ * The three original kinds all scrape engagement on a post URL the caller
+ * already has, which made the product unusable on its own promise: the
+ * customer had to go and find LinkedIn post URLs by hand before anything
+ * happened. `linkedin_post_search` is the missing first step - topic +
+ * recency -> matching posts -> the people who engaged with them - and it is
+ * the only kind whose plan query is a SEARCH, not a URL.
+ */
+export function isSearchCapability(kind: ApifyCapabilityKind): boolean {
+  return kind === 'linkedin_post_search'
+}
 
 export type ApifyActorConfig = {
   kind: ApifyCapabilityKind
@@ -53,6 +69,19 @@ export type ApifyActorConfig = {
  * `Software Strategy/gtm-data-sources-origami-map-2026-07-24.md`).
  */
 export const APIFY_ACTORS: Record<ApifyCapabilityKind, ApifyActorConfig> = {
+  linkedin_post_search: {
+    kind: 'linkedin_post_search',
+    // id, input schema, output shape and cost all LIVE-MEASURED 2026-07-25
+    // (two capped probes; see gtm-apify-verified-contract-2026-07-24.md).
+    defaultActorId: 'harvestapi/linkedin-post-search',
+    // VERIFY-ON-FIRST-RUN (documented fallback, not auto-selected)
+    fallbackActorId: 'datadoping/linkedin-posts-search-scraper',
+    envVar: 'GTM_APIFY_ACTOR_LINKEDIN_POST_SEARCH',
+    // Posts are DISCOVERED here rather than supplied, so allowedHosts is not a
+    // gate on an input url; it is the allowlist a discovered post url must
+    // satisfy before we are willing to store it as evidence source_url.
+    allowedHosts: ['linkedin.com'],
+  },
   linkedin_post_reactions: {
     kind: 'linkedin_post_reactions',
     // id + input schema VERIFIED 2026-07-24
@@ -95,6 +124,15 @@ export const APIFY_ACTORS: Record<ApifyCapabilityKind, ApifyActorConfig> = {
 export const APIFY_MEASURED_USD = {
   // ~$0.003 per returned engagement result (LinkedIn comments/reactions, X)
   sourcing_per_result: 0.003,
+  /*
+   * Post SEARCH bills per POST RETURNED, not per engager. LIVE-MEASURED
+   * 2026-07-25: 3 posts settled at $0.00605 and 30 posts at $0.06005, both
+   * exactly `posts * 0.002 + 0.00005` actor-start. In the 30-post run the 27
+   * engager profiles it also returned added nothing, so nested engagement
+   * looks free - ONE observation, so treat it as provisional and reconcile
+   * against a real invoice before relying on it.
+   */
+  post_search_per_post: 0.002,
   // profile detail without an email lookup ("main" profile mode territory)
   profile_without_email: 0.004,
   // full-profile-with-email event on the reactions actor
@@ -254,12 +292,156 @@ export function normalizeProfileScraperMode(value: unknown): ApifyProfileScraper
     : APIFY_DEFAULT_PROFILE_SCRAPER_MODE
 }
 
+// ---------------------------------------------------------------------------
+// Search-query parsing (linkedin_post_search only)
+// ---------------------------------------------------------------------------
+
+/* VERIFIED enum from the actor's own input schema, 2026-07-25. */
+export const APIFY_POSTED_LIMITS = [
+  'any',
+  '1h',
+  '24h',
+  'week',
+  'month',
+  '3months',
+  '6months',
+  'year',
+] as const
+export type ApifyPostedLimit = (typeof APIFY_POSTED_LIMITS)[number]
+
+const DEFAULT_POSTED_LIMIT: ApifyPostedLimit = 'month'
+const MAX_KEYWORD_CHARS = 200
+
+export type SearchQuery = {
+  keywords: string
+  postedLimit: ApifyPostedLimit
+  sortBy: 'relevance' | 'date'
+}
+
+export type SearchQueryResult = { ok: true; search: SearchQuery } | { ok: false; reason: string }
+
+/*
+ * Maps an Audience Play's free-text `recency_window` onto the actor's
+ * postedLimit enum. This is the join that makes a generated play directly
+ * executable instead of prose a human has to translate: the lead magnet
+ * already emits "in the last 30 days" / "last 90 days" on every play.
+ *
+ * Unrecognised text falls back to the default rather than guessing a wider
+ * window - widening recency silently would change who gets contacted.
+ */
+export function postedLimitFromRecencyWindow(text: string | null | undefined): ApifyPostedLimit {
+  const raw = (text ?? '').toLowerCase()
+  if (!raw.trim()) return DEFAULT_POSTED_LIMIT
+  // NOTE the optional plural on every unit: "last 6 months" must not fall
+  // through to the default, which would silently NARROW a six-month window to
+  // one month and quietly change who gets contacted.
+  if (/\b(24\s*h|1\s*day|today|last day)\b/.test(raw)) return '24h'
+  if (/\b(1\s*h|hours?)\b/.test(raw)) return '1h'
+  if (/\b(7\s*days?|weeks?)\b/.test(raw)) return 'week'
+  // Longer windows are checked before the plain "30 days" / "month" case, so
+  // "6 months" is not swallowed by the bare "month" pattern.
+  if (/\b(180|6\s*months?|half a year)\b/.test(raw)) return '6months'
+  if (/\b(365|12\s*months?|1\s*year|years?)\b/.test(raw)) return 'year'
+  if (/\b(90|3\s*months?|quarter)\b/.test(raw)) return '3months'
+  if (/\b(30|months?)\b/.test(raw)) return 'month'
+  return DEFAULT_POSTED_LIMIT
+}
+
+function isPostedLimit(value: string): value is ApifyPostedLimit {
+  return (APIFY_POSTED_LIMITS as readonly string[]).includes(value)
+}
+
+/*
+ * The plan query for a search capability is free text, optionally carrying
+ * `recency:<enum>` and `sort:<relevance|date>` control tokens. Anything left
+ * over is the keyword string, which goes to LinkedIn's own search bar syntax.
+ *
+ * Fails closed on an empty keyword string: running a post search with no
+ * keywords would return an arbitrary slice of LinkedIn and bill us per post
+ * for it.
+ */
+export function extractSearchQuery(query: string): SearchQueryResult {
+  const raw = (query ?? '').trim()
+  if (!raw) return { ok: false, reason: 'missing_search_query: no keywords supplied' }
+
+  let postedLimit: ApifyPostedLimit = DEFAULT_POSTED_LIMIT
+  let sortBy: 'relevance' | 'date' = 'relevance'
+  const keywordParts: string[] = []
+
+  for (const token of raw.split(/\s+/)) {
+    const recency = /^recency:(.+)$/i.exec(token)
+    if (recency) {
+      const value = recency[1].toLowerCase()
+      if (!isPostedLimit(value)) {
+        return {
+          ok: false,
+          reason: `invalid_recency: '${value}' is not one of ${APIFY_POSTED_LIMITS.join('|')}`,
+        }
+      }
+      postedLimit = value
+      continue
+    }
+    const sort = /^sort:(.+)$/i.exec(token)
+    if (sort) {
+      const value = sort[1].toLowerCase()
+      if (value !== 'relevance' && value !== 'date') {
+        return { ok: false, reason: `invalid_sort: '${value}' is not relevance|date` }
+      }
+      sortBy = value
+      continue
+    }
+    keywordParts.push(token)
+  }
+
+  const keywords = keywordParts.join(' ').trim().slice(0, MAX_KEYWORD_CHARS)
+  if (!keywords) {
+    return { ok: false, reason: 'missing_search_query: control tokens only, no keywords' }
+  }
+  return { ok: true, search: { keywords, postedLimit, sortBy } }
+}
+
 export function buildActorInput(
   kind: ApifyCapabilityKind,
-  args: { postUrl: string; maxItems: number; profileScraperMode?: string },
+  args: {
+    postUrl?: string
+    search?: SearchQuery
+    maxItems: number
+    profileScraperMode?: string
+  },
 ): Record<string, unknown> {
   const maxItems = Math.max(1, Math.floor(args.maxItems))
   const profileScraperMode = normalizeProfileScraperMode(args.profileScraperMode)
+  if (kind === 'linkedin_post_search') {
+    const search = args.search
+    if (!search) throw new Error('linkedin_post_search requires a parsed search query')
+    /*
+     * VERIFIED input keys (default build schema, 2026-07-25): searchQueries,
+     * maxPosts, postedLimit, sortBy, scrapeComments/maxComments,
+     * scrapeReactions/maxReactions, and the lowercase short|main profile modes.
+     *
+     * sortBy is 'relevance' ON PURPOSE. 'date' returns the newest and
+     * therefore least-engaged posts - the live probe came back with three
+     * posts carrying zero comments between them, i.e. nothing to source. Use
+     * 'date' only when recency itself is the signal.
+     *
+     * maxPosts is sent but is NOT a cap: the probe asked for 3 and was
+     * returned and billed 30. The real bound is maxTotalChargeUsd, applied by
+     * the caller from the ledger reservation.
+     */
+    return {
+      searchQueries: [search.keywords],
+      maxPosts: maxItems,
+      postedLimit: search.postedLimit,
+      sortBy: search.sortBy,
+      scrapeComments: true,
+      maxComments: maxItems,
+      commentsProfileScraperMode: profileScraperMode,
+      scrapeReactions: true,
+      maxReactions: maxItems,
+      reactionsProfileScraperMode: profileScraperMode,
+    }
+  }
+  if (!args.postUrl) throw new Error(`${kind} requires a post url`)
   switch (kind) {
     case 'linkedin_post_reactions':
       // VERIFIED input keys: posts (array of post urls), maxItems,
@@ -436,8 +618,36 @@ function buildIdentity(parts: {
 }
 
 export type NormalizeContext = {
-  postUrl: string
+  // Absent for linkedin_post_search: posts are discovered, not supplied, so
+  // each candidate anchors to the post it was actually found on.
+  postUrl?: string
   observedAt: string
+}
+
+/*
+ * Validate a post url the ACTOR gave us, before we are willing to store it as
+ * evidence source_url.
+ *
+ * Every other capability anchors evidence to the caller's own plan url, which
+ * is why the discipline note above says a provider echo must never become a
+ * source_url. Discovery has no such url to anchor to, so the host allowlist
+ * does that job instead: a discovered post that is not on linkedin.com is
+ * dropped rather than trusted.
+ */
+export function discoveredPostUrl(kind: ApifyCapabilityKind, raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null
+  let parsed: URL
+  try {
+    parsed = new URL(raw.trim())
+  } catch {
+    return null
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
+  const host = parsed.hostname.toLowerCase()
+  const allowed = APIFY_ACTORS[kind].allowedHosts.some(
+    (entry) => host === entry || host.endsWith(`.${entry}`),
+  )
+  return allowed ? parsed.toString() : null
 }
 
 export type NormalizeResult = {
@@ -445,6 +655,10 @@ export type NormalizeResult = {
   // items the actor returned that could not become a candidate (no usable
   // name). Surfaced on the receipt: we never fabricate a name to keep a row.
   dropped: number
+  // post-search only: duplicate CHILD rows the actor emits alongside the posts
+  // (see normalizePostSearch). Skipped deliberately, so they must not be
+  // counted as `dropped` - that would read as 18 failures on a healthy run.
+  skippedChildRows?: number
 }
 
 /*
@@ -586,7 +800,7 @@ function linkedinCandidate(
       {
         // fixed vocabulary + sanitized token; no raw provider text
         claim: `${opts.claimPrefix} (${opts.engagementType})`,
-        source_url: ctx.postUrl,
+        source_url: ctx.postUrl ?? null,
         observed_at: itemObservedAt(item, ctx.observedAt),
         confidence: APIFY_EVIDENCE_CONFIDENCE,
         detail,
@@ -611,11 +825,111 @@ function xEngagementType(item: unknown): string {
   return 'ENGAGEMENT'
 }
 
+/*
+ * Post search returns POSTS, each carrying nested `comments[]` and
+ * `reactions[]`, so one returned item yields many candidates instead of one.
+ *
+ * Within a single post the same person is deduped by name: someone who both
+ * reacted to and commented on one post is one candidate, not two. Across
+ * posts we keep both rows - repeat engagement on different posts is real
+ * signal, and the research layer dedupes identities downstream. Note the
+ * provider makes URL-keyed dedupe unreliable here anyway: commenters come back
+ * with vanity urls (/in/jane-smith) while reactors come back with obfuscated
+ * ones (/in/ACoAA...), so the same person has two different urls.
+ */
+function normalizePostSearch(items: unknown[], ctx: NormalizeContext): NormalizeResult {
+  const candidates: Candidate[] = []
+  let dropped = 0
+  let skippedChildRows = 0
+  for (const post of items) {
+    /*
+     * The dataset is HETEROGENEOUS, and not in the way the item count suggests.
+     * Verified against the live payload 2026-07-25: a "30 item" run was really
+     *   3 post rows (nested comments[] + reactions[])
+     * + 9 flat COMMENT rows (`actor` + `commentary` + `type:'comment'`)
+     * + 18 flat REACTION rows (`actor` + `postId` + `reactionType`)
+     * and every one of those 27 flat rows duplicated an engager already nested
+     * under one of the 3 posts. None was unique.
+     *
+     * The discriminator is the ARRAYS, not the url: flat comment rows carry a
+     * linkedinUrl of their own (a ?commentUrn deep link), so keying on url
+     * presence would misread them as posts and anchor evidence to a comment
+     * permalink. A true post always carries comments/reactions arrays - a
+     * zero-engagement post carries them empty, verified in probe 1 - so
+     * "has an actor but no arrays" identifies a child row exactly.
+     *
+     * Skip them rather than letting them fall into `dropped`: the nested copy
+     * is the one that keeps a real post anchor for evidence, and counting 27
+     * duplicates as drops would report a healthy run as almost total failure
+     * and bury a genuine normalizer regression in the noise.
+     */
+    const isChildRow =
+      at(post, ['actor']) != null &&
+      !Array.isArray(at(post, ['comments'])) &&
+      !Array.isArray(at(post, ['reactions']))
+    if (isChildRow) {
+      skippedChildRows += 1
+      continue
+    }
+    const postUrl = discoveredPostUrl('linkedin_post_search', at(post, ['linkedinUrl'])) ?? ctx.postUrl
+    if (!postUrl) {
+      // No trustworthy anchor for the evidence: drop rather than store a
+      // claim we cannot point at.
+      dropped += 1
+      continue
+    }
+    const postCtx: NormalizeContext = { postUrl, observedAt: ctx.observedAt }
+    const seen = new Set<string>()
+    const push = (candidate: Candidate | null) => {
+      if (!candidate) {
+        dropped += 1
+        return
+      }
+      const key = (candidate.identity?.name ?? '').trim().toLowerCase()
+      if (key && seen.has(key)) return
+      if (key) seen.add(key)
+      candidates.push(candidate)
+    }
+
+    const comments = at(post, ['comments'])
+    if (Array.isArray(comments)) {
+      for (const row of comments) {
+        push(
+          linkedinCandidate(row, postCtx, {
+            engagementKind: 'comment',
+            engagementType: 'COMMENT',
+            claimPrefix: 'Commented on a LinkedIn post matching the audience search',
+            allowCompany: false,
+          }),
+        )
+      }
+    }
+    const reactions = at(post, ['reactions'])
+    if (Array.isArray(reactions)) {
+      for (const row of reactions) {
+        push(
+          linkedinCandidate(row, postCtx, {
+            engagementKind: 'reaction',
+            engagementType: normalizeEngagementType(
+              at(row, ['type']) ?? at(row, ['reactionType']) ?? at(row, ['reaction']),
+              'REACTION',
+            ),
+            claimPrefix: 'Reacted to a LinkedIn post matching the audience search',
+            allowCompany: true,
+          }),
+        )
+      }
+    }
+  }
+  return { candidates, dropped, skippedChildRows }
+}
+
 export function normalizeItems(
   kind: ApifyCapabilityKind,
   items: unknown[],
   ctx: NormalizeContext,
 ): NormalizeResult {
+  if (kind === 'linkedin_post_search') return normalizePostSearch(items, ctx)
   const candidates: Candidate[] = []
   let dropped = 0
   for (const item of items) {
@@ -659,7 +973,7 @@ export function normalizeItems(
           evidence: [
             {
               claim: `Engaged with the source X post (${xEngagementType(item)})`,
-              source_url: ctx.postUrl,
+              source_url: ctx.postUrl ?? null,
               observed_at: ctx.observedAt,
               confidence: APIFY_EVIDENCE_CONFIDENCE,
             },

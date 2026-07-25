@@ -20,9 +20,13 @@ import {
   APIFY_MEASURED_USD,
   APIFY_PROFILE_SCRAPER_MODES,
   buildActorInput,
+  discoveredPostUrl,
   extractPostUrl,
+  extractSearchQuery,
   normalizeEngagementType,
+  normalizeItems,
   normalizeProfileScraperMode,
+  postedLimitFromRecencyWindow,
   resolveActorId,
 } from '../adapters/apify/actors'
 import {
@@ -257,11 +261,15 @@ describe('apify source adapter env gate', () => {
 describe('apify source descriptor', () => {
   const adapter = createApifySourceAdapter({ env: ENABLED_ENV, now })
 
-  it('declares the source layer, the three engagement capabilities, and US people only', () => {
+  it('declares the source layer, discovery + the three engagement capabilities, and US people only', () => {
     const descriptor = adapter.descriptor
     expect(descriptor.adapter_id).toBe(APIFY_SOURCE_ADAPTER_ID)
     expect(descriptor.layer).toBe('source')
+    // linkedin_post_search leads: it is the discovery step that turns a topic
+    // into posts, so the other three no longer require the customer to arrive
+    // holding a post URL.
     expect(descriptor.capabilities.map((cap) => cap.signal_kind)).toEqual([
+      'linkedin_post_search',
       'linkedin_post_reactions',
       'linkedin_post_comments',
       'x_post_engagers',
@@ -586,6 +594,249 @@ describe('apify status mapping', () => {
     const result = await adapter.search(basePlan)
     expect(result.status).toBe('ambiguous')
     expect(result.error).toContain('invalid_schema')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// linkedin_post_search: the DISCOVERY step (topic -> posts -> engagers)
+// ---------------------------------------------------------------------------
+
+const DISCOVERED_POST = 'https://www.linkedin.com/posts/jane_ai-in-real-estate-activity-7486634839639523328'
+
+const searchPlan: SourceSearchPlan = {
+  signal_kind: 'linkedin_post_search',
+  entity_unit: 'people',
+  geography: 'US',
+  query: 'AI in real estate recency:3months',
+  max_candidates: 10,
+}
+
+// Mirrors the LIVE payload shape measured 2026-07-25: posts carry nested
+// comments[] and reactions[], each engager nested under `actor`.
+function postSearchBody(options: { comments?: number; reactions?: number; url?: string } = {}) {
+  const comments = Array.from({ length: options.comments ?? 1 }, (_, i) => ({
+    actor: {
+      name: `Commenter ${i}`,
+      position: 'Realtor Associate at HomeSmart',
+      linkedinUrl: `https://www.linkedin.com/in/commenter-${i}`,
+    },
+  }))
+  const reactions = Array.from({ length: options.reactions ?? 1 }, (_, i) => ({
+    type: 'LIKE',
+    actor: {
+      name: `Reactor ${i}`,
+      position: 'Managing Broker',
+      // reactors come back with OBFUSCATED urls, commenters with vanity ones
+      linkedinUrl: `https://www.linkedin.com/in/ACoAAElsYUEB${i}`,
+    },
+  }))
+  return JSON.stringify([
+    {
+      linkedinUrl: options.url ?? DISCOVERED_POST,
+      engagement: { likes: reactions.length, comments: comments.length },
+      comments,
+      reactions,
+    },
+  ])
+}
+
+describe('linkedin_post_search query parsing', () => {
+  it('splits control tokens from keywords and defaults to relevance + month', () => {
+    const parsed = extractSearchQuery('AI in real estate')
+    expect(parsed).toMatchObject({
+      ok: true,
+      search: { keywords: 'AI in real estate', postedLimit: 'month', sortBy: 'relevance' },
+    })
+  })
+
+  it('honours recency: and sort: tokens and strips them from the keywords', () => {
+    const parsed = extractSearchQuery('recency:week listing agents sort:date')
+    expect(parsed).toMatchObject({
+      ok: true,
+      search: { keywords: 'listing agents', postedLimit: 'week', sortBy: 'date' },
+    })
+  })
+
+  it('fails closed on an empty query or control tokens only', () => {
+    // A keyword-less post search would return an arbitrary slice of LinkedIn
+    // and bill us per post for it.
+    expect(extractSearchQuery('  ')).toMatchObject({ ok: false })
+    expect(extractSearchQuery('recency:week')).toMatchObject({ ok: false })
+  })
+
+  it('rejects an out-of-enum recency rather than silently widening the window', () => {
+    const parsed = extractSearchQuery('agents recency:decade')
+    expect(parsed).toMatchObject({ ok: false })
+    if (!parsed.ok) expect(parsed.reason).toContain('invalid_recency')
+  })
+
+  it("maps the lead magnet's recency_window prose onto the actor enum", () => {
+    expect(postedLimitFromRecencyWindow('in the last 30 days')).toBe('month')
+    expect(postedLimitFromRecencyWindow('last 90 days')).toBe('3months')
+    expect(postedLimitFromRecencyWindow('in the past week')).toBe('week')
+    expect(postedLimitFromRecencyWindow('last 6 months')).toBe('6months')
+    expect(postedLimitFromRecencyWindow('in the last year')).toBe('year')
+    // Unrecognised prose must NOT widen the window by guessing.
+    expect(postedLimitFromRecencyWindow('whenever')).toBe('month')
+    expect(postedLimitFromRecencyWindow(null)).toBe('month')
+  })
+})
+
+describe('linkedin_post_search actor input', () => {
+  it('sends searchQueries + postedLimit and sorts by relevance, not date', () => {
+    const input = buildActorInput('linkedin_post_search', {
+      search: { keywords: 'AI in real estate', postedLimit: '3months', sortBy: 'relevance' },
+      maxItems: 25,
+    })
+    expect(input).toMatchObject({
+      searchQueries: ['AI in real estate'],
+      postedLimit: '3months',
+      // 'date' returns the newest and therefore least-engaged posts: the live
+      // probe came back with three posts carrying zero comments between them.
+      sortBy: 'relevance',
+      scrapeComments: true,
+      scrapeReactions: true,
+      commentsProfileScraperMode: 'short',
+      reactionsProfileScraperMode: 'short',
+    })
+  })
+
+  it('refuses to build a search input without a parsed query', () => {
+    expect(() => buildActorInput('linkedin_post_search', { maxItems: 5 })).toThrow()
+  })
+})
+
+describe('linkedin_post_search normalization', () => {
+  it('flattens each post into its commenters and reactors, anchored to the DISCOVERED post', () => {
+    const items = JSON.parse(postSearchBody({ comments: 2, reactions: 2 }))
+    const result = normalizeItems('linkedin_post_search', items, {
+      observedAt: CLOCK.toISOString(),
+    })
+    expect(result.candidates).toHaveLength(4)
+    for (const candidate of result.candidates) {
+      // There is no caller-supplied url here, so evidence anchors to the post
+      // the person was actually found on.
+      expect(candidate.evidence[0].source_url).toBe(DISCOVERED_POST)
+    }
+  })
+
+  it('dedupes one person who both commented and reacted on the SAME post', () => {
+    const items = [
+      {
+        linkedinUrl: DISCOVERED_POST,
+        comments: [{ actor: { name: 'Dana Reyes', linkedinUrl: 'https://www.linkedin.com/in/dana' } }],
+        reactions: [
+          // Same person, obfuscated url - so URL-keyed dedupe would miss them.
+          { type: 'LIKE', actor: { name: 'Dana Reyes', linkedinUrl: 'https://www.linkedin.com/in/ACoAAB1' } },
+        ],
+      },
+    ]
+    const result = normalizeItems('linkedin_post_search', items, {
+      observedAt: CLOCK.toISOString(),
+    })
+    expect(result.candidates).toHaveLength(1)
+  })
+
+  it('skips the duplicate flat child rows the actor emits beside the posts', () => {
+    /*
+     * Shape verified on the LIVE payload 2026-07-25: a 30-item run was 12 post
+     * rows plus 18 FLAT reaction rows, and every one of those 18 duplicated an
+     * engager already nested under a post. They must not be counted as drops,
+     * or a healthy run reports 18 failures and hides real regressions.
+     */
+    const items = [
+      {
+        linkedinUrl: DISCOVERED_POST,
+        comments: [{ actor: { name: 'Dana Reyes' } }],
+        reactions: [{ reactionType: 'LIKE', actor: { name: 'Sam Okafor' } }],
+      },
+      { actor: { name: 'Sam Okafor' }, postId: 'urn:li:ugcPost:1', reactionType: 'LIKE' },
+      // A flat COMMENT row carries a linkedinUrl of its own (a ?commentUrn
+      // deep link), so anything keying on url presence would misread it as a
+      // post and anchor evidence to a comment permalink.
+      {
+        actor: { name: 'Dana Reyes' },
+        type: 'comment',
+        commentary: 'Great point about adoption rates.',
+        postId: 'urn:li:ugcPost:1',
+        linkedinUrl: `${DISCOVERED_POST}?commentUrn=urn%3Ali%3Acomment%3A1`,
+      },
+    ]
+    const result = normalizeItems('linkedin_post_search', items, {
+      observedAt: CLOCK.toISOString(),
+    })
+    expect(result.candidates).toHaveLength(2)
+    expect(result.skippedChildRows).toBe(2)
+    expect(result.dropped).toBe(0)
+    // Evidence anchors to the POST, never to a comment permalink.
+    for (const candidate of result.candidates) {
+      expect(candidate.evidence[0].source_url).toBe(DISCOVERED_POST)
+    }
+  })
+
+  it('treats a zero-engagement post (empty arrays) as a post, not a child row', () => {
+    // Verified in probe 1: a post with no engagement still carries comments
+    // and reactions as EMPTY arrays, which is what keeps it out of the
+    // child-row branch.
+    const result = normalizeItems(
+      'linkedin_post_search',
+      [{ linkedinUrl: DISCOVERED_POST, author: { name: 'Poster' }, comments: [], reactions: [] }],
+      { observedAt: CLOCK.toISOString() },
+    )
+    expect(result.candidates).toHaveLength(0)
+    expect(result.skippedChildRows).toBe(0)
+    expect(result.dropped).toBe(0)
+  })
+
+  it('drops a post whose url is not on an allowed host instead of storing it as evidence', () => {
+    const items = JSON.parse(postSearchBody({ url: 'https://evil.example/posts/1' }))
+    const result = normalizeItems('linkedin_post_search', items, {
+      observedAt: CLOCK.toISOString(),
+    })
+    expect(result.candidates).toHaveLength(0)
+    expect(result.dropped).toBe(1)
+    expect(discoveredPostUrl('linkedin_post_search', 'https://evil.example/x')).toBeNull()
+    expect(discoveredPostUrl('linkedin_post_search', 'javascript:alert(1)')).toBeNull()
+    expect(discoveredPostUrl('linkedin_post_search', DISCOVERED_POST)).toBe(DISCOVERED_POST)
+  })
+})
+
+describe('linkedin_post_search billing (charges per POST, the invoiced unit)', () => {
+  it('charges on posts returned, not on engagers delivered', async () => {
+    const { adapter } = adapterWith({ status: 201, body: postSearchBody({ comments: 2, reactions: 1 }) })
+    const result = await adapter.search(searchPlan)
+    expect(result.status).toBe('ok')
+    expect(result.data).toHaveLength(3)
+    // ONE post was returned and therefore invoiced, regardless of the three
+    // engagers it yielded.
+    expect(result.cost_units).toBe(1)
+    expect(result.receipt).toMatchObject({ posts_billed: 1, returned_count: 3 })
+  })
+
+  it('still charges for a post that carried no engagement at all', async () => {
+    // The live probe hit exactly this: real posts, zero comments between them.
+    // Apify billed for the posts, so parking it as ambiguous would flood the
+    // reconciliation queue with a routine outcome.
+    const { adapter } = adapterWith({ status: 201, body: postSearchBody({ comments: 0, reactions: 0 }) })
+    const result = await adapter.search(searchPlan)
+    expect(result.status).toBe('ok')
+    expect(result.data).toHaveLength(0)
+    expect(result.cost_units).toBe(1)
+  })
+
+  it('a search that matched no posts at all is genuinely free', async () => {
+    const { adapter } = adapterWith({ status: 201, body: '[]' })
+    const result = await adapter.search(searchPlan)
+    expect(result.status).toBe('no_result')
+    expect(result.cost_units).toBe(0)
+  })
+
+  it('sends the mandatory hard spend cap, since maxPosts is not a real cap', async () => {
+    // Live-measured: maxPosts 3 returned and billed 30 posts. maxTotalChargeUsd
+    // is the only thing that actually bounds provider spend.
+    const { adapter, calls } = adapterWith({ status: 201, body: postSearchBody() })
+    await adapter.search(searchPlan)
+    expect(calls[0].url).toContain('maxTotalChargeUsd=')
   })
 })
 

@@ -13,11 +13,14 @@ import {
   APIFY_MEASURED_USD,
   buildActorInput,
   extractPostUrl,
+  extractSearchQuery,
   isApifyCapabilityKind,
+  isSearchCapability,
   normalizeItems,
   resolveActorId,
   type ApifyCapabilityKind,
   type ApifyEnv,
+  type SearchQuery,
 } from './actors'
 import {
   APIFY_DEFAULT_TIMEOUT_MS,
@@ -321,13 +324,30 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
         )
       }
 
-      // 3. Source post URL, host-checked against the capability.
-      const postUrl = extractPostUrl(signalKind, plan.query)
-      if (!postUrl.ok) {
-        return refusal(actorId, postUrl.reason, {
-          provider_status: 'bad_request',
-          attempted_at: attemptedAt,
-        })
+      // 3. Resolve the plan query. Discovery takes KEYWORDS + a recency
+      //    window; every other capability takes a post URL the caller already
+      //    holds, host-checked against the capability.
+      const isSearch = isSearchCapability(signalKind)
+      let postUrl: { ok: true; url: string } | null = null
+      let search: SearchQuery | null = null
+      if (isSearch) {
+        const parsed = extractSearchQuery(plan.query)
+        if (!parsed.ok) {
+          return refusal(actorId, parsed.reason, {
+            provider_status: 'bad_request',
+            attempted_at: attemptedAt,
+          })
+        }
+        search = parsed.search
+      } else {
+        const resolved = extractPostUrl(signalKind, plan.query)
+        if (!resolved.ok) {
+          return refusal(actorId, resolved.reason, {
+            provider_status: 'bad_request',
+            attempted_at: attemptedAt,
+          })
+        }
+        postUrl = resolved
       }
 
       const cap = Math.max(
@@ -352,13 +372,21 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
         maxItems: cap,
         planBudgetUsd: plan.max_charge_usd,
       })
-      const outcome = await runActor(actorId, buildActorInput(signalKind, { postUrl: postUrl.url, maxItems: cap }), {
-        token,
-        timeoutMs: timeoutMs(env),
-        maxItems: cap,
-        maxChargeUsd,
-        now,
-      })
+      const outcome = await runActor(
+        actorId,
+        buildActorInput(signalKind, {
+          postUrl: postUrl?.url,
+          search: search ?? undefined,
+          maxItems: cap,
+        }),
+        {
+          token,
+          timeoutMs: timeoutMs(env),
+          maxItems: cap,
+          maxChargeUsd,
+          now,
+        },
+      )
 
       const providerReceipt = (extras: ReceiptExtras = {}) =>
         receipt(outcome.actorId ?? actorId, outcome.runId, outcome.itemCount, {
@@ -408,10 +436,47 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
       }
 
       const normalized = normalizeItems(signalKind, outcome.items, {
-        postUrl: postUrl.url,
+        postUrl: postUrl?.url,
         observedAt: attemptedAt,
       })
       const capped = normalized.candidates.slice(0, cap)
+
+      /*
+       * DISCOVERY BILLS PER POST, not per engager.
+       *
+       * The provider charges for every post RETURNED (live-measured: posts *
+       * $0.002 + actor start, with nested engagers adding nothing). So a
+       * search that finds real posts carrying no engagement is a legitimate,
+       * fully-billable outcome, not an anomaly - the live probe hit exactly
+       * that, three posts with zero comments between them. Routing it through
+       * the unusable-identity branch below would park a routine result as
+       * ambiguous and flood the reconciliation queue.
+       *
+       * So: posts returned -> 'ok', charged on POSTS (the invoiced quantity),
+       * even when no engagers came back. Zero posts -> a genuine no_result,
+       * free under pay_on_found.
+       */
+      if (isSearch) {
+        const postsBilled = Array.isArray(outcome.items) ? outcome.items.length : 0
+        if (postsBilled === 0) {
+          return { status: 'no_result', data: null, receipt: providerReceipt(), cost_units: 0 }
+        }
+        return {
+          status: 'ok',
+          data: capped,
+          receipt: providerReceipt({
+            returned_count: capped.length,
+            dropped_items: normalized.dropped,
+            // duplicate child rows the actor emits beside the posts; skipped,
+            // not failed, and reported separately so they never look like drops
+            skipped_child_rows: normalized.skippedChildRows ?? 0,
+            posts_billed: postsBilled,
+            truncated: normalized.candidates.length > capped.length,
+          }),
+          cost_units: postsBilled,
+        }
+      }
+
       if (capped.length === 0) {
         // The actor returned rows but none carried a usable identity.
         //

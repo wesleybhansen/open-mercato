@@ -53,7 +53,9 @@ export class GtmCampaignError extends Error {
       | 'daily_cap_exceeds_ceiling'
       | 'invalid_settings'
       | 'invalid_channel_mix'
-      | 'no_recipients',
+      | 'no_recipients'
+      // a launched campaign cannot be re-approved; invalidate it first
+      | 'campaign_not_editable',
     message: string,
   ) {
     super(message)
