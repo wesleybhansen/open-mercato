@@ -227,7 +227,7 @@ export async function POST(req: Request) {
         .where('organization_id', scope.organizationId)
         .where('tenant_id', scope.tenantId)
         .whereNull('deleted_at')
-        .update({ stripe_payment_link: session.url, updated_at: new Date() })
+        .update({ stripe_payment_link: session.url })
       if (changed !== 1) return NextResponse.json({ ok: false, error: 'Invoice changed during checkout creation' }, { status: 409 })
     }
     return NextResponse.json({ ok: true, url: session.url, sessionId: session.id })

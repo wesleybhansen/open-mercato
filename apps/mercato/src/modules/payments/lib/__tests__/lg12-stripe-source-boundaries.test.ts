@@ -97,4 +97,24 @@ describe('LG-12 Stripe source boundaries', () => {
       expect(success).not.toContain(forbidden)
     }
   })
+
+  it('adds only the nullable invoice terms column required by the existing API contract', () => {
+    const migration = source('migrations/Migration20260812070256.ts')
+    const invoiceRoute = source('api/invoices/route.ts')
+
+    expect(migration.match(/this\.addSql\(/g)).toHaveLength(2)
+    expect(migration).toContain('alter table "invoices" add column if not exists "terms_url" text null;')
+    expect(migration).toContain('alter table "invoices" drop column if exists "terms_url";')
+    expect(migration).not.toContain('alter column')
+    expect(migration).not.toContain('drop table')
+    expect(invoiceRoute).toContain('terms_url: termsUrl || null')
+  })
+
+  it('keeps invoice checkout idempotency stable while storing the generated link', () => {
+    const route = source('api/stripe/connect/route.ts')
+
+    expect(route).toContain("resourceRevision = new Date(invoice.updated_at).toISOString()")
+    expect(route).toContain(".update({ stripe_payment_link: session.url })")
+    expect(route).not.toContain(".update({ stripe_payment_link: session.url, updated_at: new Date() })")
+  })
 })
