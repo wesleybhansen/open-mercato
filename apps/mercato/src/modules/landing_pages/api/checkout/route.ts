@@ -2,6 +2,12 @@ export const metadata = { OPTIONS: { requireAuth: true }, POST: { requireAuth: t
 export const openApi = { summary: 'checkout', methods: {} }
 import { NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import {
+  buildStripeIdempotencyKey,
+  isStripeAccountId,
+  readPositiveAmount,
+  resolveAppBaseUrl,
+} from '@/modules/payments/lib/stripe-integrity'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,8 +24,17 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { productId, email, name, landingPageSlug } = body
 
-    if (!productId) {
+    if (typeof productId !== 'string' || productId.length === 0 || productId.length > 255) {
       return NextResponse.json({ ok: false, error: 'Product ID required' }, { status: 400, headers: CORS_HEADERS })
+    }
+    if (email !== undefined && (typeof email !== 'string' || email.length === 0 || email.length > 320)) {
+      return NextResponse.json({ ok: false, error: 'Email is invalid' }, { status: 400, headers: CORS_HEADERS })
+    }
+    if (name !== undefined && (typeof name !== 'string' || name.length > 255)) {
+      return NextResponse.json({ ok: false, error: 'Name is invalid' }, { status: 400, headers: CORS_HEADERS })
+    }
+    if (landingPageSlug !== undefined && (typeof landingPageSlug !== 'string' || !/^[a-z0-9-]{1,200}$/.test(landingPageSlug))) {
+      return NextResponse.json({ ok: false, error: 'Landing page is invalid' }, { status: 400, headers: CORS_HEADERS })
     }
 
     // Handle course: prefix — look up course and map to product-like object
@@ -51,11 +66,13 @@ export async function POST(req: Request) {
     // Check if Stripe is configured (platform key + connected account)
     const stripeKey = process.env.STRIPE_SECRET_KEY
     const stripeConn = await queryOne(
-      'SELECT stripe_account_id FROM stripe_connections WHERE organization_id = $1 AND is_active = true',
-      [product.organization_id]
+      'SELECT stripe_account_id FROM stripe_connections WHERE organization_id = $1 AND tenant_id = $2 AND is_active = true',
+      [product.organization_id, product.tenant_id]
     )
 
-    if (!stripeKey || !stripeConn?.stripe_account_id) {
+    const baseUrl = resolveAppBaseUrl(process.env.APP_URL)
+    const price = readPositiveAmount(Number(product.price))
+    if (!stripeKey || !baseUrl || !isStripeAccountId(stripeConn?.stripe_account_id) || price === null) {
       return NextResponse.json(
         { ok: false, error: 'Payment processing is not configured. Please connect Stripe in Settings.' },
         { status: 400, headers: CORS_HEADERS }
@@ -63,8 +80,15 @@ export async function POST(req: Request) {
     }
 
     const Stripe = (await import('stripe')).default
-    const stripe = new Stripe(stripeKey)
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000'
+    const stripe = new Stripe(stripeKey, { maxNetworkRetries: 2, timeout: 10_000 })
+
+    if (landingPageSlug) {
+      const landingPage = await queryOne(
+        'SELECT id FROM landing_pages WHERE slug = $1 AND organization_id = $2 AND tenant_id = $3 AND deleted_at IS NULL',
+        [landingPageSlug, product.organization_id, product.tenant_id],
+      )
+      if (!landingPage) return NextResponse.json({ ok: false, error: 'Landing page not found' }, { status: 404, headers: CORS_HEADERS })
+    }
 
     const successUrl = landingPageSlug
       ? `${baseUrl}/api/landing-pages/public/${landingPageSlug}?payment=success`
@@ -73,13 +97,14 @@ export async function POST(req: Request) {
     const sessionConfig: any = {
       payment_method_types: ['card'],
       mode: product.billing_type === 'recurring' ? 'subscription' : 'payment',
-      success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${successUrl}${successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: landingPageSlug
         ? `${baseUrl}/api/landing-pages/public/${landingPageSlug}`
         : `${baseUrl}/backend/payments`,
       metadata: {
         orgId: product.organization_id,
         tenantId: product.tenant_id,
+        connectedAccount: stripeConn.stripe_account_id,
         productId: product.id,
         landingPageSlug: landingPageSlug || '',
         source: 'landing-page',
@@ -104,7 +129,7 @@ export async function POST(req: Request) {
         price_data: {
           currency: (product.currency || 'usd').toLowerCase(),
           product_data: { name: product.name, description: product.description || undefined },
-          unit_amount: Math.round(Number(product.price) * 100),
+          unit_amount: Math.round(price * 100),
           ...(product.billing_type === 'recurring' ? {
             recurring: { interval: product.recurring_interval || 'month' },
           } : {}),
@@ -115,15 +140,21 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create(
       sessionConfig,
-      { stripeAccount: stripeConn.stripe_account_id }
+      {
+        stripeAccount: stripeConn.stripe_account_id,
+        idempotencyKey: buildStripeIdempotencyKey('landing_checkout', {
+          organizationId: product.organization_id,
+          tenantId: product.tenant_id,
+        }, [product.id, email?.trim().toLowerCase() || null, landingPageSlug || null]),
+      }
     )
 
     // Create/update contact if email provided
     if (email) {
       const now = new Date()
       const existing = await queryOne(
-        'SELECT id FROM customer_entities WHERE primary_email = $1 AND organization_id = $2 AND deleted_at IS NULL',
-        [email, product.organization_id]
+        'SELECT id FROM customer_entities WHERE primary_email = $1 AND organization_id = $2 AND tenant_id = $3 AND deleted_at IS NULL',
+        [email, product.organization_id, product.tenant_id]
       )
       if (!existing) {
         const contactId = require('crypto').randomUUID()
@@ -147,9 +178,8 @@ export async function POST(req: Request) {
       { ok: true, checkoutUrl: session.url },
       { headers: CORS_HEADERS }
     )
-  } catch (error) {
-    console.error('[landing-page-checkout]', error)
-    const message = error instanceof Error ? error.message : 'Checkout failed'
-    return NextResponse.json({ ok: false, error: message }, { status: 500, headers: CORS_HEADERS })
+  } catch {
+    console.error('[landing-page-checkout] request_failed')
+    return NextResponse.json({ ok: false, error: 'Checkout failed' }, { status: 500, headers: CORS_HEADERS })
   }
 }

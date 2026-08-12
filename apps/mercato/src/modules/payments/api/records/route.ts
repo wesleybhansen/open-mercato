@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { isStripePaymentIntentId, stripeEnvironmentMode } from '@/modules/payments/lib/stripe-integrity'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['payments.view'] },
@@ -30,10 +31,18 @@ export async function GET(req: Request, ctx: any) {
         'inv.invoice_number',
       )
       .leftJoin('customer_entities as ce', function () {
-        this.on('ce.id', '=', 'pr.contact_id').andOnNull('ce.deleted_at')
+        this.on('ce.id', '=', 'pr.contact_id')
+          .andOn('ce.organization_id', '=', 'pr.organization_id')
+          .andOn('ce.tenant_id', '=', 'pr.tenant_id')
+          .andOnNull('ce.deleted_at')
       })
-      .leftJoin('invoices as inv', 'inv.id', 'pr.invoice_id')
+      .leftJoin('invoices as inv', function () {
+        this.on('inv.id', '=', 'pr.invoice_id')
+          .andOn('inv.organization_id', '=', 'pr.organization_id')
+          .andOn('inv.tenant_id', '=', 'pr.tenant_id')
+      })
       .where('pr.organization_id', auth.orgId)
+      .where('pr.tenant_id', auth.tenantId)
 
     if (status && status !== 'all') {
       if (status === 'refunded') {
@@ -46,6 +55,7 @@ export async function GET(req: Request, ctx: any) {
     // Get total count for pagination
     const countQuery = knex('payment_records')
       .where('organization_id', auth.orgId)
+      .where('tenant_id', auth.tenantId)
     if (status && status !== 'all') {
       if (status === 'refunded') {
         countQuery.whereIn('status', ['refunded', 'partially_refunded'])
@@ -60,6 +70,8 @@ export async function GET(req: Request, ctx: any) {
       .limit(pageSize)
       .offset((page - 1) * pageSize)
 
+    const stripeMode = stripeEnvironmentMode(process.env.STRIPE_SECRET_KEY)
+
     // Parse metadata and build display-friendly records
     const enriched = records.map((r: any) => {
       let meta = r.metadata
@@ -68,8 +80,8 @@ export async function GET(req: Request, ctx: any) {
       }
       // Build Stripe dashboard link
       let stripeUrl: string | null = null
-      if (r.stripe_checkout_session_id) {
-        stripeUrl = `https://dashboard.stripe.com/test/payments/${r.stripe_payment_intent_id || r.stripe_checkout_session_id}`
+      if (isStripePaymentIntentId(r.stripe_payment_intent_id) && stripeMode !== 'unavailable') {
+        stripeUrl = `https://dashboard.stripe.com/${stripeMode === 'test' ? 'test/' : ''}payments/${r.stripe_payment_intent_id}`
       }
       return {
         ...r,
@@ -84,8 +96,8 @@ export async function GET(req: Request, ctx: any) {
       data: enriched,
       pagination: { page, pageSize, total: Number(count) },
     })
-  } catch (error) {
-    console.error('[payments.records.list]', error)
+  } catch {
+    console.error('[payments.records.list] request_failed')
     return NextResponse.json({ ok: false, error: 'Failed' }, { status: 500 })
   }
 }

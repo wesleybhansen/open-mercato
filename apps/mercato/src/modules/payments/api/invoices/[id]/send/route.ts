@@ -1,15 +1,22 @@
-export const metadata = { POST: { requireAuth: true } }
+export const metadata = { POST: { requireAuth: true, requireFeatures: ['payments.manage'] } }
 
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { sendEmailByPurpose } from '@/modules/email/lib/email-router'
+import {
+  buildStripeIdempotencyKey,
+  buildStripeSuccessUrl,
+  isStripeAccountId,
+  readStripeRequestScope,
+  resolveAppBaseUrl,
+} from '@/modules/payments/lib/stripe-integrity'
 
 // Send invoice via email to contact — uses connected email provider first, falls back to Resend
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getAuthFromCookies()
-  if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  const scope = readStripeRequestScope(await getAuthFromCookies())
+  if (!scope) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id: invoiceId } = await params
@@ -17,13 +24,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     const invoice = await knex('invoices')
-      .where('id', invoiceId).where('organization_id', auth.orgId).first()
+      .where('id', invoiceId)
+      .where('organization_id', scope.organizationId)
+      .where('tenant_id', scope.tenantId)
+      .whereNull('deleted_at')
+      .first()
     if (!invoice) return NextResponse.json({ ok: false, error: 'Invoice not found' }, { status: 404 })
 
     // Get contact email
     let email = null
     if (invoice.contact_id) {
-      const contact = await knex('customer_entities').where('id', invoice.contact_id).first()
+      const contact = await knex('customer_entities')
+        .where('id', invoice.contact_id)
+        .where('organization_id', scope.organizationId)
+        .where('tenant_id', scope.tenantId)
+        .whereNull('deleted_at')
+        .first()
       email = contact?.primary_email
     }
 
@@ -36,12 +52,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       try {
         const stripeKey = process.env.STRIPE_SECRET_KEY
         const stripeConn = await knex('stripe_connections')
-          .where('organization_id', auth.orgId).where('is_active', true).first()
-        if (stripeKey && stripeConn) {
+          .where('organization_id', scope.organizationId)
+          .where('tenant_id', scope.tenantId)
+          .where('is_active', true)
+          .first()
+        const baseUrl = resolveAppBaseUrl(process.env.APP_URL)
+        if (stripeKey && baseUrl && stripeConn && isStripeAccountId(stripeConn.stripe_account_id)) {
           const lineItems = (typeof invoice.line_items === 'string' ? JSON.parse(invoice.line_items) : invoice.line_items)
           const Stripe = (await import('stripe')).default
           const stripe = new Stripe(stripeKey)
-          const baseUrl = process.env.APP_URL || 'http://localhost:3000'
           const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: lineItems.map((item: any) => ({
@@ -53,18 +72,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
               quantity: item.quantity || 1,
             })),
             mode: 'payment',
-            success_url: `${baseUrl}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+            success_url: buildStripeSuccessUrl(baseUrl),
             cancel_url: `${baseUrl}/backend/payments`,
-            metadata: { orgId: auth.orgId, tenantId: auth.tenantId || '', invoiceId: invoice.id, type: 'invoice' },
+            metadata: {
+              orgId: scope.organizationId,
+              tenantId: scope.tenantId,
+              connectedAccount: stripeConn.stripe_account_id,
+              invoiceId: invoice.id,
+              type: 'invoice',
+            },
             customer_email: email,
-          }, { stripeAccount: stripeConn.stripe_account_id })
+          }, {
+            stripeAccount: stripeConn.stripe_account_id,
+            idempotencyKey: buildStripeIdempotencyKey('invoice_checkout', scope, [
+              invoice.id,
+              new Date(invoice.updated_at).toISOString(),
+              email,
+            ]),
+          })
           if (session.url) {
             invoice.stripe_payment_link = session.url
-            await knex('invoices').where('id', invoiceId).update({ stripe_payment_link: session.url, updated_at: new Date() })
+            await knex('invoices')
+              .where('id', invoiceId)
+              .where('organization_id', scope.organizationId)
+              .where('tenant_id', scope.tenantId)
+              .whereNull('deleted_at')
+              .update({ stripe_payment_link: session.url, updated_at: new Date() })
           }
         }
-      } catch (stripeErr) {
-        console.warn('[invoice.send] Auto payment link generation failed:', stripeErr)
+      } catch {
+        console.warn('[invoice.send] payment_link_generation_failed')
       }
     }
 
@@ -117,7 +154,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const ccList = body.cc ? body.cc.split(',').map((s: string) => s.trim()).filter(Boolean) : []
     const bccList = body.bcc ? body.bcc.split(',').map((s: string) => s.trim()).filter(Boolean) : []
 
-    const routerResult = await sendEmailByPurpose(knex, auth.orgId, auth.tenantId || '', 'invoices', {
+    const routerResult = await sendEmailByPurpose(knex, scope.organizationId, scope.tenantId, 'invoices', {
       to: email,
       subject,
       htmlBody: emailHtml,
@@ -139,8 +176,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const trackingId = require('crypto').randomUUID()
     await knex('email_messages').insert({
       id: require('crypto').randomUUID(),
-      tenant_id: auth.tenantId,
-      organization_id: auth.orgId,
+      tenant_id: scope.tenantId,
+      organization_id: scope.organizationId,
       direction: 'outbound',
       from_address: fromAddress,
       to_address: email,
@@ -162,19 +199,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     })
 
     // Update invoice status to sent AFTER successful email
-    await knex('invoices').where('id', invoiceId).update({
-      status: 'sent',
-      sent_at: new Date(),
-      updated_at: new Date(),
-    })
+    await knex('invoices')
+      .where('id', invoiceId)
+      .where('organization_id', scope.organizationId)
+      .where('tenant_id', scope.tenantId)
+      .whereNull('deleted_at')
+      .update({
+        status: 'sent',
+        sent_at: new Date(),
+        updated_at: new Date(),
+      })
 
     // Log to contact timeline
     if (invoice.contact_id) {
       try {
         const { logTimelineEvent } = await import('@/lib/timeline')
         await logTimelineEvent(knex, {
-          tenantId: auth.tenantId,
-          organizationId: auth.orgId,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
           contactId: invoice.contact_id,
           eventType: 'invoice_sent',
           title: `Invoice sent: ${invoice.invoice_number}`,
@@ -188,9 +230,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       sentVia,
       fromAddress,
     })
-  } catch (error) {
-    console.error('[invoice.send]', error)
-    const message = error instanceof Error ? error.message : 'Failed to send invoice email'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+  } catch {
+    console.error('[invoice.send] request_failed')
+    return NextResponse.json({ ok: false, error: 'Failed to send invoice email' }, { status: 500 })
   }
 }

@@ -4,6 +4,11 @@ import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
+import {
+  buildStripeIdempotencyKey,
+  isStripeAccountId,
+  resolveAppBaseUrl,
+} from '@/modules/payments/lib/stripe-integrity'
 
 
 export const metadata = { path: '/crm-events/public/[slug]/checkout', POST: { requireAuth: false } }
@@ -38,16 +43,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     if (existing) return NextResponse.json({ ok: false, error: 'Already registered', alreadyRegistered: true }, { status: 409 })
 
     // Get Stripe connection
-    const stripeConnection = await knex('stripe_connections').where('organization_id', event.organization_id).where('is_active', true).first()
+    const stripeConnection = await knex('stripe_connections')
+      .where('organization_id', event.organization_id)
+      .where('tenant_id', event.tenant_id)
+      .where('is_active', true)
+      .first()
     const stripeKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeKey || !stripeConnection?.stripe_account_id) {
+    const origin = resolveAppBaseUrl(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)
+    if (!stripeKey || !origin || !isStripeAccountId(stripeConnection?.stripe_account_id)) {
       return NextResponse.json({ ok: false, error: 'Payment processing is not configured' }, { status: 400 })
     }
 
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' as any })
-    const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{
@@ -71,14 +79,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         acceptedTerms: acceptedTerms ? 'true' : 'false',
         orgId: event.organization_id,
         tenantId: event.tenant_id,
+        connectedAccount: stripeConnection.stripe_account_id,
       },
       success_url: `${origin}/api/crm-events/public/${slug}?registered=true`,
       cancel_url: `${origin}/api/crm-events/public/${slug}`,
-    }, { stripeAccount: stripeConnection.stripe_account_id })
+    }, {
+      stripeAccount: stripeConnection.stripe_account_id,
+      idempotencyKey: buildStripeIdempotencyKey('event_checkout', {
+        organizationId: event.organization_id,
+        tenantId: event.tenant_id,
+      }, [event.id, email.trim().toLowerCase(), qty]),
+    })
 
     return NextResponse.json({ ok: true, data: { url: session.url } })
-  } catch (error: any) {
-    console.error('[crm-events.checkout]', error?.message)
+  } catch {
+    console.error('[crm-events.checkout] request_failed')
     return NextResponse.json({ ok: false, error: 'Failed to create checkout' }, { status: 500 })
   }
 }

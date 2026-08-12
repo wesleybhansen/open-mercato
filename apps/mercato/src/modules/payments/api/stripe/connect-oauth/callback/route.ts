@@ -1,120 +1,128 @@
-
+import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { verifyOAuthState } from '@/lib/oauth-state'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import {
+  oauthStateMatchesScope,
+  readStripeRequestScope,
+  resolveAppBaseUrl,
+  stripeEnvironmentMode,
+  validateOAuthGrant,
+} from '@/modules/payments/lib/stripe-integrity'
 
 export const metadata = { GET: { requireAuth: false } }
 
-// Stripe Connect OAuth callback — exchange code for connected account
+type OAuthState = { userId: string; orgId: string; tenantId: string; nonce: string }
+
+function redirect(baseUrl: string, result: string) {
+  return NextResponse.redirect(`${baseUrl}/backend/payments?${result}`)
+}
+
+// Stripe Connect OAuth callback. The grant, authenticated browser session,
+// signed state, connected-account token, and persisted tenant scope must all
+// agree before an account is attached.
 export async function GET(req: Request) {
+  const baseUrl = resolveAppBaseUrl(process.env.APP_URL)
+  if (!baseUrl) return NextResponse.json({ ok: false, error: 'Stripe Connect is not configured' }, { status: 503 })
+
   const url = new URL(req.url)
+  if (url.searchParams.has('error')) return redirect(baseUrl, 'stripe_error=authorization_denied')
+
   const code = url.searchParams.get('code')
-  const stateParam = url.searchParams.get('state')
-  const error = url.searchParams.get('error')
-  const baseUrl = process.env.APP_URL || 'http://localhost:3000'
-  const paymentsUrl = `${baseUrl}/backend/payments`
-  const settingsUrl = paymentsUrl
-
-  if (error) {
-    console.error('[stripe.connect-oauth] Authorization denied:', error)
-    return NextResponse.redirect(`${settingsUrl}?stripe_error=${encodeURIComponent(error)}`)
-  }
-
-  if (!code || !stateParam) {
-    return NextResponse.redirect(`${settingsUrl}?stripe_error=missing_params`)
-  }
-
-  // Verify the SIGNED state and bind it to the authenticated session, so the
-  // connection is written only to the caller's own org (never a forged orgId
-  // that would route a victim's payouts to the attacker).
-  const stateData = verifyOAuthState<{ userId: string; orgId: string; tenantId?: string }>(stateParam)
-  if (!stateData) {
-    return NextResponse.redirect(`${settingsUrl}?stripe_error=invalid_state`)
-  }
-  const auth = await getAuthFromCookies()
-  if (!auth?.orgId || auth.orgId !== stateData.orgId) {
-    return NextResponse.redirect(`${settingsUrl}?stripe_error=invalid_state`)
+  const stateData = verifyOAuthState<OAuthState>(url.searchParams.get('state'))
+  const scope = readStripeRequestScope(await getAuthFromCookies())
+  if (!code || !stateData || !scope || !oauthStateMatchesScope(stateData, scope)) {
+    return redirect(baseUrl, 'stripe_error=invalid_state')
   }
 
   const stripeKey = process.env.STRIPE_SECRET_KEY
-  if (!stripeKey) {
-    return NextResponse.redirect(`${settingsUrl}?stripe_error=not_configured`)
+  const platformMode = stripeEnvironmentMode(stripeKey)
+  if (!stripeKey || platformMode === 'unavailable') {
+    return redirect(baseUrl, 'stripe_error=not_configured')
   }
 
   try {
-    // Exchange authorization code for connected account credentials
-    const tokenRes = await fetch('https://connect.stripe.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        client_secret: stripeKey,
-      }),
-    })
-
-    const tokenData = await tokenRes.json()
-
-    if (tokenData.error) {
-      console.error('[stripe.connect-oauth] Token exchange failed:', tokenData)
-      return NextResponse.redirect(`${settingsUrl}?stripe_error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`)
+    const Stripe = (await import('stripe')).default
+    const platform = new Stripe(stripeKey, { maxNetworkRetries: 2, timeout: 10_000 })
+    const token = await platform.oauth.token({ grant_type: 'authorization_code', code })
+    if (typeof token.access_token !== 'string' || token.access_token.length === 0) {
+      return redirect(baseUrl, 'stripe_error=account_verification_failed')
     }
 
-    const { stripe_user_id, access_token, refresh_token, livemode } = tokenData
+    // The OAuth access token is used once, in memory, to retrieve the account
+    // it represents. It is deliberately never logged or persisted.
+    const connectedClient = new Stripe(token.access_token, { maxNetworkRetries: 2, timeout: 10_000 })
+    const account = await connectedClient.accounts.retrieve()
+    const grant = validateOAuthGrant(token, account, platformMode)
+    if (!grant) return redirect(baseUrl, 'stripe_error=account_verification_failed')
 
-    // Fetch the connected account details for display name
-    const Stripe = (await import('stripe')).default
-    const stripe = new Stripe(stripeKey)
-    const account = await stripe.accounts.retrieve(stripe_user_id)
-    const businessName = account.business_profile?.name || account.settings?.dashboard?.display_name || null
+    const businessName = (
+      account.business_profile?.name
+      || account.settings?.dashboard?.display_name
+      || null
+    )?.slice(0, 255) ?? null
 
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
+    const stored = await knex.transaction(async (trx) => {
+      await trx.raw('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [grant.accountId])
 
-    // Upsert into stripe_connections
-    const existing = await knex('stripe_connections')
-      .where('organization_id', stateData.orgId)
-      .first()
+      const conflict = await trx('stripe_connections')
+        .where('stripe_account_id', grant.accountId)
+        .where('is_active', true)
+        .where((builder) => {
+          builder
+            .whereNot('organization_id', scope.organizationId)
+            .orWhereNot('tenant_id', scope.tenantId)
+        })
+        .first()
+      if (conflict) return false
 
-    if (existing) {
-      await knex('stripe_connections').where('id', existing.id).update({
-        stripe_account_id: stripe_user_id,
-        access_token,
-        refresh_token: refresh_token || null,
+      const existing = await trx('stripe_connections')
+        .where('organization_id', scope.organizationId)
+        .where('tenant_id', scope.tenantId)
+        .first()
+
+      const values = {
+        stripe_account_id: grant.accountId,
+        access_token: null,
+        refresh_token: null,
         business_name: businessName,
         is_active: true,
         updated_at: new Date(),
-      })
-    } else {
-      await knex('stripe_connections').insert({
-        id: require('crypto').randomUUID(),
-        tenant_id: stateData.tenantId || null,
-        organization_id: stateData.orgId,
-        stripe_account_id: stripe_user_id,
-        access_token,
-        refresh_token: refresh_token || null,
-        business_name: businessName,
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
-      })
-    }
+      }
+      if (existing) {
+        await trx('stripe_connections')
+          .where('id', existing.id)
+          .where('organization_id', scope.organizationId)
+          .where('tenant_id', scope.tenantId)
+          .update(values)
+      } else {
+        await trx('stripe_connections').insert({
+          id: randomUUID(),
+          tenant_id: scope.tenantId,
+          organization_id: scope.organizationId,
+          ...values,
+          created_at: new Date(),
+        })
+      }
+      return true
+    })
 
-    console.log(`[stripe.connect-oauth] Connected account ${stripe_user_id} for org ${stateData.orgId}`)
-    return NextResponse.redirect(`${settingsUrl}?stripe_connected=true`)
-  } catch (err) {
-    console.error('[stripe.connect-oauth] Callback error:', err)
-    return NextResponse.redirect(`${settingsUrl}?stripe_error=callback_failed`)
+    if (!stored) return redirect(baseUrl, 'stripe_error=account_in_use')
+    return redirect(baseUrl, 'stripe_connected=true')
+  } catch {
+    return redirect(baseUrl, 'stripe_error=callback_failed')
   }
 }
 
 export const openApi: OpenApiRouteDoc = {
   tag: 'Stripe Connect',
-  summary: 'Stripe Connect OAuth callback',
+  summary: 'Complete Stripe Connect OAuth',
   methods: {
-    GET: { summary: 'Handle Stripe Connect OAuth callback and store connected account', tags: ['Stripe Connect'] },
+    GET: { summary: 'Verify and persist a Stripe Connect OAuth grant', tags: ['Stripe Connect'] },
   },
 }

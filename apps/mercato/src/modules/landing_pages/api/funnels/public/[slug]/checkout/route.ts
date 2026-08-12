@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
+import {
+  buildStripeIdempotencyKey,
+  isStripeAccountId,
+  resolveAppBaseUrl,
+} from '@/modules/payments/lib/stripe-integrity'
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -165,16 +170,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     // Get org's Stripe connection
     const stripeConnection = await knex('stripe_connections')
       .where('organization_id', funnel.organization_id)
+      .where('tenant_id', funnel.tenant_id)
       .where('is_active', true)
       .first()
 
     const stripeKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeKey || !stripeConnection?.stripe_account_id) {
+    if (!stripeKey || !isStripeAccountId(stripeConnection?.stripe_account_id)) {
       return NextResponse.json({ ok: false, error: 'Payment processing is not configured' }, { status: 400 })
     }
 
     // Get product for this step
-    const product = step.product_id ? await knex('products').where('id', step.product_id).first() : null
+    const product = step.product_id
+      ? await knex('products')
+        .where('id', step.product_id)
+        .where('organization_id', funnel.organization_id)
+        .where('tenant_id', funnel.tenant_id)
+        .whereNull('deleted_at')
+        .first()
+      : null
     if (!product) return NextResponse.json({ ok: false, error: 'No product configured for this checkout step' }, { status: 400 })
 
     // Build line items
@@ -188,10 +201,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     }]
 
     // Add order bumps
-    const bumpIds = Array.isArray(bumpProductIds) ? bumpProductIds : []
+    const bumpIds = Array.isArray(bumpProductIds)
+      ? Array.from(new Set(bumpProductIds.filter((value: unknown): value is string => (
+        typeof value === 'string' && value.length > 0 && value.length <= 255
+      )))).slice(0, 20)
+      : []
     for (const bumpProdId of bumpIds) {
       if (!bumpProdId) continue
-      const bumpProduct = await knex('products').where('id', bumpProdId).first()
+      const bumpProduct = await knex('products')
+        .where('id', bumpProdId)
+        .where('organization_id', funnel.organization_id)
+        .where('tenant_id', funnel.tenant_id)
+        .whereNull('deleted_at')
+        .first()
       if (bumpProduct) {
         lineItems.push({
           price_data: {
@@ -205,7 +227,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     }
 
     // Update or create session
-    let session = sid ? await knex('funnel_sessions').where('id', sid).first() : null
+    let session = sid
+      ? await knex('funnel_sessions').where('id', sid).where('funnel_id', funnel.id).where('organization_id', funnel.organization_id).first()
+      : null
     if (session) {
       await knex('funnel_sessions').where('id', session.id).update({ email: email.trim(), updated_at: new Date() })
     } else {
@@ -222,7 +246,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' as any })
 
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000'
+    const baseUrl = resolveAppBaseUrl(process.env.APP_URL)
+    if (!baseUrl) return NextResponse.json({ ok: false, error: 'Payment processing is not configured' }, { status: 503 })
 
     // Find the next step after checkout for the success URL
     const nextStep = await knex('funnel_steps')
@@ -250,6 +275,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         sessionId: session.id,
         orgId: funnel.organization_id,
         tenantId: funnel.tenant_id,
+        connectedAccount: stripeConnection.stripe_account_id,
         customerName: name?.trim() || '',
         customerEmail: email.trim(),
         bumpProductIds: bumpIds.join(','),
@@ -258,6 +284,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       cancel_url: `${baseUrl}/api/landing_pages/funnels/public/${slug}/checkout?sid=${session.id}&step=${step.id}`,
     }, {
       stripeAccount: stripeConnection.stripe_account_id,
+      idempotencyKey: buildStripeIdempotencyKey('funnel_checkout', {
+        organizationId: funnel.organization_id,
+        tenantId: funnel.tenant_id,
+      }, [funnel.id, step.id, session.id, email.trim().toLowerCase(), [...bumpIds].sort().join(',')]),
     })
 
     // Create pending funnel order
@@ -277,7 +307,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
     // Create bump orders too
     for (const bumpProdId of bumpIds) {
-      const bp = await knex('products').where('id', bumpProdId).first()
+      const bp = await knex('products')
+        .where('id', bumpProdId)
+        .where('organization_id', funnel.organization_id)
+        .where('tenant_id', funnel.tenant_id)
+        .whereNull('deleted_at')
+        .first()
       if (bp) {
         await knex('funnel_orders').insert({
           id: crypto.randomUUID(),

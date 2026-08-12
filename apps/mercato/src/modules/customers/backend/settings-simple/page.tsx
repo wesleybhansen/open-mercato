@@ -346,8 +346,9 @@ export default function SimpleSettingsPage() {
     if (!confirm('Disconnect Stripe? You will not be able to accept payments until you reconnect.')) return
     setDisconnectingStripe(true)
     try {
-      await fetch('/api/payments/stripe/connections', { method: 'DELETE', credentials: 'include' })
-      setStripeConnection(null)
+      const response = await fetch('/api/payments/stripe/connections', { method: 'DELETE', credentials: 'include' })
+      const result = await response.json()
+      if (response.ok && result.ok) setStripeConnection(null)
     } catch {}
     setDisconnectingStripe(false)
   }

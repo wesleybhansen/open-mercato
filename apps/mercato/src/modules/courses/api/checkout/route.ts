@@ -4,6 +4,11 @@ import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
+import {
+  buildStripeIdempotencyKey,
+  isStripeAccountId,
+  resolveAppBaseUrl,
+} from '@/modules/payments/lib/stripe-integrity'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +49,8 @@ export async function POST(req: Request) {
     const existing = await knex('course_enrollments')
       .where('course_id', courseId)
       .where('student_email', studentEmail.trim().toLowerCase())
+      .where('organization_id', course.organization_id)
+      .where('tenant_id', course.tenant_id)
       .where('status', 'active')
       .first()
     if (existing) {
@@ -53,18 +60,18 @@ export async function POST(req: Request) {
     // Get org's Stripe connection
     const stripeConnection = await knex('stripe_connections')
       .where('organization_id', course.organization_id)
+      .where('tenant_id', course.tenant_id)
       .where('is_active', true)
       .first()
 
     const stripeKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeKey || !stripeConnection?.stripe_account_id) {
+    const origin = resolveAppBaseUrl(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL)
+    if (!stripeKey || !origin || !isStripeAccountId(stripeConnection?.stripe_account_id)) {
       return NextResponse.json({ ok: false, error: 'Payment processing is not configured' }, { status: 400, headers: CORS_HEADERS })
     }
 
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' as any })
-
-    const origin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     // Pre-generate magic link token for post-payment redirect
     const magicToken = crypto.randomBytes(32).toString('hex')
@@ -99,15 +106,22 @@ export async function POST(req: Request) {
         studentEmail: studentEmail.trim().toLowerCase(),
         orgId: course.organization_id,
         tenantId: course.tenant_id,
+        connectedAccount: stripeConnection.stripe_account_id,
         magicToken,
       },
       success_url: `${origin}/api/courses/student/verify?token=${magicToken}`,
       cancel_url: `${origin}/api/courses/public/${course.slug}`,
-    }, { stripeAccount: stripeConnection.stripe_account_id })
+    }, {
+      stripeAccount: stripeConnection.stripe_account_id,
+      idempotencyKey: buildStripeIdempotencyKey('course_checkout', {
+        organizationId: course.organization_id,
+        tenantId: course.tenant_id,
+      }, [course.id, studentEmail.trim().toLowerCase()]),
+    })
 
     return NextResponse.json({ ok: true, data: { url: session.url } }, { headers: CORS_HEADERS })
-  } catch (error) {
-    console.error('[courses.checkout]', error)
+  } catch {
+    console.error('[courses.checkout] request_failed')
     return NextResponse.json({ ok: false, error: 'Failed to create checkout' }, { status: 500, headers: CORS_HEADERS })
   }
 }

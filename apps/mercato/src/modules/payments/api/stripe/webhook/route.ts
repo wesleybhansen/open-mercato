@@ -1,71 +1,91 @@
 
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { sendEmailByPurpose } from '@/modules/email/lib/email-router'
+import {
+  isStripeAccountId,
+  isStripeCheckoutSessionId,
+  isStripePaymentIntentId,
+  isStripeSubscriptionId,
+  resolveStripeWebhookScope,
+} from '@/modules/payments/lib/stripe-integrity'
 
 export const metadata = { POST: { requireAuth: false } }
 
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
-  if (!stripeKey) return NextResponse.json({ error: 'Not configured' }, { status: 500 })
+  if (!stripeKey || !webhookSecret) return NextResponse.json({ error: 'Not configured' }, { status: 503 })
 
   try {
     const Stripe = (await import('stripe')).default
-    const stripe = new Stripe(stripeKey)
+    const stripe = new Stripe(stripeKey, { maxNetworkRetries: 2, timeout: 10_000 })
     const body = await req.text()
-
-    // Fail closed: never trust an unsigned body. Without the secret we can't
-    // verify Stripe sent this, so refuse rather than JSON.parse it — a forged
-    // event here would fabricate payments, paid invoices, and affiliate credit.
-    if (!webhookSecret) {
-      console.error('[stripe.webhook] STRIPE_WEBHOOK_SECRET not set — refusing to process')
-      return NextResponse.json({ error: 'Not configured' }, { status: 500 })
-    }
     const sig = req.headers.get('stripe-signature') || ''
     const event: any = stripe.webhooks.constructEvent(body, sig, webhookSecret)
+
+    if (event.type !== 'checkout.session.completed') {
+      return NextResponse.json({ received: true })
+    }
+    const session = event.data?.object
+    const meta = session?.metadata
+    if (
+      !session
+      || !isStripeCheckoutSessionId(session.id)
+      || !isStripeAccountId(event.account)
+      || !meta
+      || typeof meta !== 'object'
+      || Array.isArray(meta)
+      || !Number.isSafeInteger(session.amount_total)
+      || session.amount_total < 0
+      || typeof session.currency !== 'string'
+      || !/^[a-z]{3}$/.test(session.currency)
+      || (session.payment_intent !== null && !isStripePaymentIntentId(session.payment_intent))
+      || (session.subscription !== null && !isStripeSubscriptionId(session.subscription))
+    ) {
+      return NextResponse.json({ error: 'Webhook payload refused' }, { status: 400 })
+    }
 
     const container = await createRequestContainer()
     const em = container.resolve('em') as EntityManager
     const knex = em.getKnex()
 
-    // For Connect webhooks, the event includes an `account` field
-    // identifying which connected account the event belongs to
-    const connectedAccountId = event.account || null
-
-    // Resolve the org context — either from metadata or from connected account lookup
-    let orgId: string | null = null
-    let tenantId: string | null = null
+    const connections = await knex('stripe_connections')
+      .where('stripe_account_id', event.account)
+      .where('is_active', true)
+      .limit(2)
+    if (connections.length !== 1) return NextResponse.json({ error: 'Webhook scope refused' }, { status: 409 })
+    const webhookScope = resolveStripeWebhookScope({
+      eventAccount: event.account,
+      metadata: meta,
+      connection: connections[0],
+    })
+    if (!webhookScope) return NextResponse.json({ error: 'Webhook scope refused' }, { status: 409 })
+    const orgId = webhookScope.organizationId
+    const tenantId = webhookScope.tenantId
+    const connectedAccountId = webhookScope.stripeAccountId
+    if (session.payment_status !== 'paid') return NextResponse.json({ received: true })
 
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object
-      const meta = session.metadata || {}
-
-      // Try metadata first (set during session creation)
-      orgId = meta.orgId || null
-      tenantId = meta.tenantId || null
-
-      // If this is a Connect event, look up the org by connected account ID
-      if (!orgId && connectedAccountId) {
-        const connection = await knex('stripe_connections')
-          .where('stripe_account_id', connectedAccountId)
-          .where('is_active', true)
-          .first()
-
-        if (connection) {
-          orgId = connection.organization_id
-          tenantId = connection.tenant_id
-        }
-      }
-
-      if (!orgId) {
-        console.warn('[stripe.webhook] Could not resolve org for event', event.id)
-        return NextResponse.json({ received: true })
-      }
-
       // Resolve customer email — Stripe puts it in different places
       const customerEmail = session.customer_email || session.customer_details?.email || null
+
+      let invoiceId: string | null = null
+      if (meta.invoiceId !== undefined) {
+        if (typeof meta.invoiceId !== 'string' || meta.invoiceId.length === 0 || meta.invoiceId.length > 255) {
+          return NextResponse.json({ error: 'Webhook resource refused' }, { status: 409 })
+        }
+        const invoice = await knex('invoices')
+          .where('id', meta.invoiceId)
+          .where('organization_id', orgId)
+          .where('tenant_id', tenantId)
+          .whereNull('deleted_at')
+          .first()
+        if (!invoice) return NextResponse.json({ error: 'Webhook resource refused' }, { status: 409 })
+        invoiceId = invoice.id
+      }
 
       // Idempotency: if we already recorded this checkout session, this is a
       // replay/redelivery — skip the whole handler (avoids double payments,
@@ -73,21 +93,22 @@ export async function POST(req: Request) {
       const alreadyProcessed = await knex('payment_records')
         .where('stripe_checkout_session_id', session.id)
         .where('organization_id', orgId)
+        .where('tenant_id', tenantId)
         .first()
       if (alreadyProcessed) {
         return NextResponse.json({ received: true, duplicate: true })
       }
 
       // Record the payment
-      const paymentRecordId = require('crypto').randomUUID()
-      await knex('payment_records').insert({
+      const paymentRecordId = randomUUID()
+      const inserted = await knex('payment_records').insert({
         id: paymentRecordId,
         tenant_id: tenantId,
         organization_id: orgId,
-        invoice_id: meta.invoiceId || null,
-        amount: (session.amount_total || 0) / 100,
-        currency: session.currency || 'usd',
-        status: 'succeeded',
+        invoice_id: invoiceId,
+        amount: session.amount_total / 100,
+        currency: session.currency,
+        status: session.payment_status === 'paid' ? 'succeeded' : 'pending',
         stripe_checkout_session_id: session.id,
         stripe_payment_intent_id: session.payment_intent,
         stripe_subscription_id: session.subscription || null,
@@ -102,21 +123,22 @@ export async function POST(req: Request) {
           connectedAccount: connectedAccountId,
         }),
         created_at: new Date(),
-      }).catch((e) => {
-        // Do NOT swallow. A lost payment_records insert means the payment
-        // disappears from the CRM while Stripe sees a 2xx and never retries.
-        // Rethrow so the outer handler returns 400 and Stripe redelivers.
-        console.error('[stripe.webhook] payment record failed:', e)
-        throw e
-      })
+      }).onConflict().ignore().returning('id')
+      if (inserted.length !== 1) return NextResponse.json({ received: true, duplicate: true })
 
       // Update invoice status if applicable
-      if (meta.invoiceId) {
-        await knex('invoices').where('id', meta.invoiceId).update({
+      if (invoiceId) {
+        const updated = await knex('invoices')
+          .where('id', invoiceId)
+          .where('organization_id', orgId)
+          .where('tenant_id', tenantId)
+          .whereNull('deleted_at')
+          .update({
           status: 'paid',
           paid_at: new Date(),
           updated_at: new Date(),
-        }).catch(() => {})
+          })
+        if (updated !== 1) throw new Error('invoice_update_refused')
       }
 
       // Auto-create contact from customer email and link to payment record
@@ -125,10 +147,11 @@ export async function POST(req: Request) {
         let contactEntity = await knex('customer_entities')
           .where('primary_email', customerEmail)
           .where('organization_id', orgId)
+          .where('tenant_id', tenantId)
           .whereNull('deleted_at').first()
 
         if (!contactEntity) {
-          const newId = require('crypto').randomUUID()
+          const newId = randomUUID()
           const stripeName = session.customer_details?.name || customerEmail
           await knex('customer_entities').insert({
             id: newId,
@@ -145,7 +168,7 @@ export async function POST(req: Request) {
           }).catch(() => {})
           const stripeNameParts = stripeName.split(' ')
           await knex('customer_people').insert({
-            id: require('crypto').randomUUID(), tenant_id: tenantId, organization_id: orgId,
+            id: randomUUID(), tenant_id: tenantId, organization_id: orgId,
             entity_id: newId, first_name: stripeNameParts[0] || '', last_name: stripeNameParts.slice(1).join(' ') || '',
             created_at: new Date(), updated_at: new Date(),
           }).catch(() => {})
@@ -158,6 +181,7 @@ export async function POST(req: Request) {
           await knex('payment_records')
             .where('stripe_checkout_session_id', session.id)
             .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
             .whereNull('contact_id')
             .update({ contact_id: contactEntity.id })
             .catch(() => {})
@@ -175,6 +199,7 @@ export async function POST(req: Request) {
           try {
             const autoLists = await knex('email_lists')
               .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
               .where('source_type', 'product_purchased')
             for (const list of autoLists) {
               const desc = list.description || ''
@@ -185,10 +210,18 @@ export async function POST(req: Request) {
                   if (Array.isArray(targetIds) && targetIds.length > 0 && !targetIds.includes(meta.productId)) continue
                 } catch {}
               }
-              await knex.raw('INSERT INTO email_list_members (id, list_id, contact_id, added_at) VALUES (?, ?, ?, ?) ON CONFLICT (list_id, contact_id) DO NOTHING',
-                [require('crypto').randomUUID(), list.id, contactEntity.id, new Date()])
-              const [{ count }] = await knex('email_list_members').where('list_id', list.id).count()
-              await knex('email_lists').where('id', list.id).update({ member_count: Number(count), updated_at: new Date() })
+              await knex.raw('INSERT INTO email_list_members (id, tenant_id, organization_id, list_id, contact_id, added_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (list_id, contact_id) DO NOTHING',
+                [randomUUID(), tenantId, orgId, list.id, contactEntity.id, new Date(), new Date(), new Date()])
+              const [{ count }] = await knex('email_list_members')
+                .where('list_id', list.id)
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .count()
+              await knex('email_lists')
+                .where('id', list.id)
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .update({ member_count: Number(count), updated_at: new Date() })
             }
           } catch {}
         }
@@ -217,14 +250,19 @@ export async function POST(req: Request) {
             tenantId,
           })
         }
-      } catch (busErr) {
-        console.error('[stripe.webhook] payment.captured emit failed (non-fatal):', busErr)
+      } catch {
+        console.error('[stripe.webhook] payment_event_projection_failed')
       }
 
       // Auto-send payment receipt email
       if (session.customer_email && meta.invoiceId) {
         try {
-          const invoice = await knex('invoices').where('id', meta.invoiceId).first()
+          const invoice = await knex('invoices')
+            .where('id', meta.invoiceId)
+            .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
+            .whereNull('deleted_at')
+            .first()
           if (invoice) {
             const amount = ((session.amount_total || 0) / 100).toFixed(2)
             const currency = (session.currency || 'USD').toUpperCase()
@@ -252,14 +290,14 @@ export async function POST(req: Request) {
                 contactId: invoice.contact_id || undefined,
               })
               if (!emailResult.ok) {
-                console.warn('[stripe.webhook] Auto-receipt email failed:', emailResult.error)
+                console.warn('[stripe.webhook] receipt_delivery_failed')
               }
-            } catch (emailErr) {
-              console.warn('[stripe.webhook] Auto-receipt email failed:', emailErr)
+            } catch {
+              console.warn('[stripe.webhook] receipt_delivery_failed')
             }
           }
-        } catch (receiptErr) {
-          console.warn('[stripe.webhook] Receipt generation failed:', receiptErr)
+        } catch {
+          console.warn('[stripe.webhook] receipt_projection_failed')
         }
       }
 
@@ -277,6 +315,7 @@ export async function POST(req: Request) {
             const affByPromo = await knex('affiliates')
               .where('stripe_promo_code_id', promoCodeId)
               .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
               .where('status', 'active')
               .first()
             if (affByPromo) {
@@ -296,7 +335,11 @@ export async function POST(req: Request) {
             .first()
           const affiliate = existingReferral
             ? null
-            : await knex('affiliates').where('id', attributedAffiliateId).where('organization_id', orgId).first()
+            : await knex('affiliates')
+              .where('id', attributedAffiliateId)
+              .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
+              .first()
           if (affiliate) {
             const saleAmount = (session.amount_total || 0) / 100
             // Tier-aware commission: if the affiliate's campaign defines tiers,
@@ -304,13 +347,20 @@ export async function POST(req: Request) {
             // this conversion wins; otherwise the affiliate's own rate applies.
             const { computeCommission } = await import('@/modules/customers/api/affiliates/commission')
             const affCampaign = affiliate.campaign_id
-              ? await knex('affiliate_campaigns').where('id', affiliate.campaign_id).first().catch(() => null)
+              ? await knex('affiliate_campaigns')
+                .where('id', affiliate.campaign_id)
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .first()
+                .catch(() => null)
               : null
             const commission = computeCommission(saleAmount, affiliate, affCampaign).amount
 
             // Create referral record
             await knex('affiliate_referrals').insert({
-              id: require('crypto').randomUUID(),
+              id: randomUUID(),
+              tenant_id: tenantId,
+              organization_id: orgId,
               affiliate_id: attributedAffiliateId,
               referred_contact_id: null,
               referred_email: customerEmail,
@@ -323,19 +373,23 @@ export async function POST(req: Request) {
               stripe_payment_intent_id: session.payment_intent || null,
               referred_at: new Date(),
               converted_at: new Date(),
-            }).catch(e => console.error('[stripe.webhook] affiliate referral insert failed:', e))
+            }).catch(() => console.error('[stripe.webhook] affiliate_referral_insert_failed'))
 
             // Update affiliate stats
-            await knex('affiliates').where('id', attributedAffiliateId).where('organization_id', orgId).update({
+            await knex('affiliates')
+              .where('id', attributedAffiliateId)
+              .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
+              .update({
               total_conversions: knex.raw('total_conversions + 1'),
               total_earned: knex.raw('total_earned + ?', [commission]),
               updated_at: new Date(),
-            }).catch(e => console.error('[stripe.webhook] affiliate stats update failed:', e))
+            }).catch(() => console.error('[stripe.webhook] affiliate_stats_update_failed'))
 
-            console.log(`[stripe.webhook] Affiliate attribution: ${affiliate.name} earned $${commission.toFixed(2)} from $${saleAmount.toFixed(2)} sale`)
+            console.info('[stripe.webhook] affiliate_attribution_completed')
           }
         } catch (affErr) {
-          console.error('[stripe.webhook] affiliate attribution failed:', affErr)
+          console.error('[stripe.webhook] affiliate_attribution_failed')
         }
       }
       // Clawback note: an event-driven path would handle `charge.refunded` here
@@ -351,20 +405,29 @@ export async function POST(req: Request) {
           const courseId = meta.courseId
           const studentName = meta.studentName || meta.studentEmail
           const studentEmail = meta.studentEmail.toLowerCase()
+          const course = await knex('courses')
+            .where('id', courseId)
+            .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
+            .whereNull('deleted_at')
+            .first()
+          if (!course) throw new Error('course_scope_refused')
 
           // Check not already enrolled
           const existingEnrollment = await knex('course_enrollments')
             .where('course_id', courseId)
             .where('student_email', studentEmail)
+            .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
             .where('status', 'active')
             .first()
 
           if (!existingEnrollment) {
-            const enrollmentId = require('crypto').randomUUID()
+            const enrollmentId = randomUUID()
             await knex('course_enrollments').insert({
               id: enrollmentId,
-              tenant_id: tenantId || meta.tenantId,
-              organization_id: orgId || meta.orgId,
+              tenant_id: tenantId,
+              organization_id: orgId,
               course_id: courseId,
               student_name: studentName,
               student_email: studentEmail,
@@ -378,19 +441,20 @@ export async function POST(req: Request) {
             let contactId: string | null = null
             const existingContact = await knex('customer_entities')
               .where('primary_email', studentEmail)
-              .where('organization_id', orgId || meta.orgId)
+              .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
               .whereNull('deleted_at')
               .first()
 
             if (existingContact) {
               contactId = existingContact.id
             } else {
-              contactId = require('crypto').randomUUID()
+              contactId = randomUUID()
               const nameParts = studentName.split(' ')
               await knex('customer_entities').insert({
                 id: contactId,
-                tenant_id: tenantId || meta.tenantId,
-                organization_id: orgId || meta.orgId,
+                tenant_id: tenantId,
+                organization_id: orgId,
                 kind: 'person',
                 display_name: studentName,
                 primary_email: studentEmail,
@@ -403,9 +467,9 @@ export async function POST(req: Request) {
 
               if (contactId) {
                 await knex('customer_people').insert({
-                  id: require('crypto').randomUUID(),
-                  tenant_id: tenantId || meta.tenantId,
-                  organization_id: orgId || meta.orgId,
+                  id: randomUUID(),
+                  tenant_id: tenantId,
+                  organization_id: orgId,
                   entity_id: contactId,
                   first_name: nameParts[0] || '',
                   last_name: nameParts.slice(1).join(' ') || '',
@@ -416,25 +480,34 @@ export async function POST(req: Request) {
             }
 
             if (contactId) {
-              await knex('course_enrollments').where('id', enrollmentId).update({ contact_id: contactId }).catch(() => {})
+              await knex('course_enrollments')
+                .where('id', enrollmentId)
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .update({ contact_id: contactId })
+                .catch(() => {})
 
               // Add Student tag
               try {
-                let tag = await knex('customer_tags').where('label', 'Student').where('organization_id', orgId || meta.orgId).first()
+                let tag = await knex('customer_tags')
+                  .where('label', 'Student')
+                  .where('organization_id', orgId)
+                  .where('tenant_id', tenantId)
+                  .first()
                 if (!tag) {
-                  const tagId = require('crypto').randomUUID()
-                  await knex('customer_tags').insert({ id: tagId, tenant_id: tenantId || meta.tenantId, organization_id: orgId || meta.orgId, label: 'Student', slug: 'student', created_at: new Date(), updated_at: new Date() })
+                  const tagId = randomUUID()
+                  await knex('customer_tags').insert({ id: tagId, tenant_id: tenantId, organization_id: orgId, label: 'Student', slug: 'student', created_at: new Date(), updated_at: new Date() })
                   tag = { id: tagId }
                 }
                 const tagLink = await knex('customer_entity_tags').where('entity_id', contactId).where('tag_id', tag.id).first()
-                if (!tagLink) await knex('customer_entity_tags').insert({ id: require('crypto').randomUUID(), entity_id: contactId, tag_id: tag.id, created_at: new Date() })
+                if (!tagLink) await knex('customer_entity_tags').insert({ id: randomUUID(), entity_id: contactId, tag_id: tag.id, created_at: new Date() })
               } catch { /* non-critical */ }
             }
 
-            console.log(`[stripe.webhook] Course enrollment: ${studentName} enrolled in course ${courseId} via payment`)
+            console.info('[stripe.webhook] course_enrollment_completed')
           }
         } catch (courseErr) {
-          console.error('[stripe.webhook] course enrollment failed:', courseErr)
+          console.error('[stripe.webhook] course_enrollment_failed')
         }
       }
 
@@ -445,12 +518,24 @@ export async function POST(req: Request) {
           const attendeeName = meta.attendeeName || meta.attendeeEmail
           const attendeeEmail = meta.attendeeEmail.toLowerCase()
           const ticketQty = parseInt(meta.ticketQuantity) || 1
+          const eventResource = await knex('events')
+            .where('id', eventId)
+            .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
+            .first()
+          if (!eventResource) throw new Error('event_scope_refused')
 
-          const existingAtt = await knex('event_attendees').where('event_id', eventId).where('attendee_email', attendeeEmail).where('status', 'registered').first()
+          const existingAtt = await knex('event_attendees')
+            .where('event_id', eventId)
+            .where('attendee_email', attendeeEmail)
+            .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
+            .where('status', 'registered')
+            .first()
           if (!existingAtt) {
-            const attendeeId = require('crypto').randomUUID()
+            const attendeeId = randomUUID()
             await knex('event_attendees').insert({
-              id: attendeeId, tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+              id: attendeeId, tenant_id: tenantId, organization_id: orgId,
               event_id: eventId, attendee_name: attendeeName, attendee_email: attendeeEmail,
               status: 'registered', ticket_quantity: ticketQty,
               guest_details: meta.guestDetails || null,
@@ -459,16 +544,25 @@ export async function POST(req: Request) {
               payment_id: session.payment_intent?.toString() || session.id,
               registered_at: new Date(), created_at: new Date(),
             })
-            await knex('events').where('id', eventId).increment('attendee_count', ticketQty)
+            await knex('events')
+              .where('id', eventId)
+              .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
+              .increment('attendee_count', ticketQty)
 
             // Create CRM contact
             let contactId: string | null = null
-            const existingContact = await knex('customer_entities').where('primary_email', attendeeEmail).where('organization_id', meta.orgId || orgId).whereNull('deleted_at').first()
+            const existingContact = await knex('customer_entities')
+              .where('primary_email', attendeeEmail)
+              .where('organization_id', orgId)
+              .where('tenant_id', tenantId)
+              .whereNull('deleted_at')
+              .first()
             if (existingContact) { contactId = existingContact.id }
             else {
-              contactId = require('crypto').randomUUID()
+              contactId = randomUUID()
               await knex('customer_entities').insert({
-                id: contactId, tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+                id: contactId, tenant_id: tenantId, organization_id: orgId,
                 kind: 'person', display_name: attendeeName, primary_email: attendeeEmail,
                 source: 'event', status: 'active', lifecycle_stage: 'customer', is_active: true,
                 created_at: new Date(), updated_at: new Date(),
@@ -476,7 +570,7 @@ export async function POST(req: Request) {
               if (contactId) {
                 const parts = attendeeName.split(' ')
                 await knex('customer_people').insert({
-                  id: require('crypto').randomUUID(), tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+                  id: randomUUID(), tenant_id: tenantId, organization_id: orgId,
                   entity_id: contactId, first_name: parts[0] || '', last_name: parts.slice(1).join(' ') || '',
                   created_at: new Date(), updated_at: new Date(),
                 }).catch(() => {})
@@ -484,11 +578,16 @@ export async function POST(req: Request) {
             }
             // Look up the event BEFORE its first use below (event?.title) — it was
             // declared later, a TDZ ReferenceError masked by ignoreBuildErrors.
-            const event = await knex('events').where('id', eventId).first()
+            const event = eventResource
             if (contactId) {
-              await knex('event_attendees').where('id', attendeeId).update({ contact_id: contactId }).catch(() => {})
+              await knex('event_attendees')
+                .where('id', attendeeId)
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .update({ contact_id: contactId })
+                .catch(() => {})
               await knex('contact_notes').insert({
-                id: require('crypto').randomUUID(), tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+                id: randomUUID(), tenant_id: tenantId, organization_id: orgId,
                 contact_id: contactId, content: `Registered for event: ${event?.title || 'Unknown'} (paid)`,
                 created_at: new Date(), updated_at: new Date(),
               }).catch(() => {})
@@ -501,23 +600,30 @@ export async function POST(req: Request) {
               const location = event.event_type === 'virtual' ? (event.virtual_link || 'Virtual') : (event.location_name || 'TBD')
               const emailHtml = `<div style="font-family:-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:32px"><h2 style="font-size:20px;margin:0 0 8px">You're in, ${attendeeName.split(' ')[0]}!</h2><p style="color:#475569;font-size:15px;line-height:1.6;margin-bottom:20px">Your payment is confirmed. You're registered for <strong>${event.title}</strong>.</p><div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px"><p style="margin:0 0 6px;font-size:14px"><strong>Date:</strong> ${eventDate}</p><p style="margin:0 0 6px;font-size:14px"><strong>Time:</strong> ${eventTime}</p><p style="margin:0;font-size:14px"><strong>Location:</strong> ${location}</p></div><p style="color:#94a3b8;font-size:12px">See you there!</p></div>`
               await knex('email_messages').insert({
-                id: require('crypto').randomUUID(), tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+                id: randomUUID(), tenant_id: tenantId, organization_id: orgId,
                 direction: 'outbound', from_address: process.env.EMAIL_FROM || 'noreply@localhost',
                 to_address: attendeeEmail, subject: `You're registered: ${event.title}`, body_html: emailHtml,
-                contact_id: contactId, status: 'queued', tracking_id: require('crypto').randomUUID(), created_at: new Date(),
+                contact_id: contactId, status: 'queued', tracking_id: randomUUID(), created_at: new Date(),
               }).catch(() => {})
             }
-            console.log(`[stripe.webhook] Event registration: ${attendeeName} registered for event ${eventId} via payment`)
+            console.info('[stripe.webhook] event_registration_completed')
           }
-        } catch (eventErr) {
-          console.error('[stripe.webhook] event registration failed:', eventErr)
+        } catch {
+          console.error('[stripe.webhook] event_registration_failed')
         }
       }
 
       // ── Funnel checkout completion ──
       if (meta.type === 'funnel' && meta.sessionId) {
         try {
-          const funnelSession = await knex('funnel_sessions').where('id', meta.sessionId).first()
+          const funnelSession = await knex('funnel_sessions as fs')
+            .join('funnels as f', 'f.id', 'fs.funnel_id')
+            .where('fs.id', meta.sessionId)
+            .where('fs.organization_id', orgId)
+            .where('f.organization_id', orgId)
+            .where('f.tenant_id', tenantId)
+            .select('fs.*')
+            .first()
           if (funnelSession) {
             // Get payment intent to extract saved payment method
             let stripeCustomerId = session.customer?.toString() || null
@@ -544,7 +650,10 @@ export async function POST(req: Request) {
             if (meta.customerEmail) sessionUpdates.email = meta.customerEmail
             const checkoutAmount = (session.amount_total || 0) / 100
             sessionUpdates.total_revenue = knex.raw('total_revenue + ?', [checkoutAmount])
-            await knex('funnel_sessions').where('id', meta.sessionId).update(sessionUpdates)
+            await knex('funnel_sessions')
+              .where('id', meta.sessionId)
+              .where('organization_id', orgId)
+              .update(sessionUpdates)
 
             // Update funnel_orders status
             if (session.id) {
@@ -564,15 +673,16 @@ export async function POST(req: Request) {
               if (!contactId) {
                 const existing = await knex('customer_entities')
                   .where('primary_email', funnelEmail.toLowerCase())
-                  .where('organization_id', meta.orgId || orgId)
+                  .where('organization_id', orgId)
+                  .where('tenant_id', tenantId)
                   .whereNull('deleted_at').first()
                 if (existing) {
                   contactId = existing.id
                 } else {
-                  contactId = require('crypto').randomUUID()
+                  contactId = randomUUID()
                   const contactName = meta.customerName || funnelEmail.split('@')[0]
                   await knex('customer_entities').insert({
-                    id: contactId, tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+                    id: contactId, tenant_id: tenantId, organization_id: orgId,
                     kind: 'person', display_name: contactName, primary_email: funnelEmail.toLowerCase(),
                     source: 'funnel', status: 'active', lifecycle_stage: 'customer', is_active: true,
                     created_at: new Date(), updated_at: new Date(),
@@ -580,14 +690,17 @@ export async function POST(req: Request) {
                   if (contactId) {
                     const parts = (meta.customerName || '').split(' ')
                     await knex('customer_people').insert({
-                      id: require('crypto').randomUUID(), tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
+                      id: randomUUID(), tenant_id: tenantId, organization_id: orgId,
                       entity_id: contactId, first_name: parts[0] || '', last_name: parts.slice(1).join(' ') || '',
                       created_at: new Date(), updated_at: new Date(),
                     }).catch(() => {})
                   }
                 }
                 if (contactId) {
-                  await knex('funnel_sessions').where('id', meta.sessionId).update({ contact_id: contactId })
+                  await knex('funnel_sessions')
+                    .where('id', meta.sessionId)
+                    .where('organization_id', orgId)
+                    .update({ contact_id: contactId })
                 }
               }
             }
@@ -604,7 +717,7 @@ export async function POST(req: Request) {
                 const total = orders.reduce((s: number, o: any) => s + Number(o.amount), 0)
                 const itemRows = orders.map((o: any) => `<tr><td style="padding:8px 16px;border-bottom:1px solid #e5e7eb">${o.product_name || o.order_type}</td><td style="padding:8px 16px;border-bottom:1px solid #e5e7eb;text-align:right">$${Number(o.amount).toFixed(2)}</td></tr>`).join('')
 
-                await sendEmailByPurpose(knex, meta.orgId || orgId!, meta.tenantId || tenantId!, 'transactional', {
+                await sendEmailByPurpose(knex, orgId, tenantId, 'transactional', {
                   to: funnelContactEmail,
                   subject: `Order Confirmation — $${total.toFixed(2)}`,
                   htmlBody: `<div style="font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px">
@@ -616,8 +729,8 @@ export async function POST(req: Request) {
                   </div>`,
                   contactId: contactId || undefined,
                 })
-              } catch (emailErr) {
-                console.error('[stripe.webhook] Funnel confirmation email failed:', emailErr)
+              } catch {
+                console.error('[stripe.webhook] funnel_confirmation_failed')
               }
             }
 
@@ -625,7 +738,7 @@ export async function POST(req: Request) {
             if (contactId) {
               try {
                 const { executeAutomationRules } = await import('@/modules/sequences/lib/automation-execute')
-                await executeAutomationRules(knex, meta.orgId || orgId!, meta.tenantId || tenantId!, 'funnel_purchase_completed', {
+                await executeAutomationRules(knex, orgId, tenantId, 'funnel_purchase_completed', {
                   contactId,
                   funnelId: meta.funnelId,
                   funnelSlug: meta.funnelSlug,
@@ -644,18 +757,35 @@ export async function POST(req: Request) {
                   .where('status', 'succeeded')
                   .whereNotNull('product_id')
                 for (const order of funnelOrders) {
-                  const prod = await knex('products').where('id', order.product_id).first()
+                  const prod = await knex('products')
+                    .where('id', order.product_id)
+                    .where('organization_id', orgId)
+                    .where('tenant_id', tenantId)
+                    .whereNull('deleted_at')
+                    .first()
                   if (prod?.course_ids) {
                     const courseIds = typeof prod.course_ids === 'string' ? JSON.parse(prod.course_ids) : (prod.course_ids || [])
                     for (const cid of courseIds) {
-                      const course = await knex('courses').where('id', cid).where('is_published', true).whereNull('deleted_at').first()
+                      const course = await knex('courses')
+                        .where('id', cid)
+                        .where('organization_id', orgId)
+                        .where('tenant_id', tenantId)
+                        .where('is_published', true)
+                        .whereNull('deleted_at')
+                        .first()
                       if (!course) continue
-                      const existingEnroll = await knex('course_enrollments').where('course_id', cid).where('student_email', funnelContactEmail.toLowerCase()).where('status', 'active').first()
+                      const existingEnroll = await knex('course_enrollments')
+                        .where('course_id', cid)
+                        .where('student_email', funnelContactEmail.toLowerCase())
+                        .where('organization_id', orgId)
+                        .where('tenant_id', tenantId)
+                        .where('status', 'active')
+                        .first()
                       if (existingEnroll) continue
                       await knex('course_enrollments').insert({
-                        id: require('crypto').randomUUID(),
-                        tenant_id: meta.tenantId || tenantId || course.tenant_id,
-                        organization_id: meta.orgId || orgId,
+                        id: randomUUID(),
+                        tenant_id: tenantId,
+                        organization_id: orgId,
                         course_id: cid,
                         student_name: meta.customerName || funnelContactEmail.split('@')[0],
                         student_email: funnelContactEmail.toLowerCase(),
@@ -670,27 +800,44 @@ export async function POST(req: Request) {
               } catch {}
             }
 
-            console.log(`[stripe.webhook] Funnel checkout completed: session=${meta.sessionId}, amount=$${checkoutAmount}`)
+            console.info('[stripe.webhook] funnel_checkout_completed')
           }
-        } catch (funnelErr) {
-          console.error('[stripe.webhook] funnel checkout processing failed:', funnelErr)
+        } catch {
+          console.error('[stripe.webhook] funnel_checkout_failed')
         }
       }
 
       // ── Auto-enroll in courses linked to products ──
       if (meta.productId && orgId && customerEmail) {
         try {
-          const product = await knex('products').where('id', meta.productId).where('organization_id', orgId).first()
+          const product = await knex('products')
+            .where('id', meta.productId)
+            .where('organization_id', orgId)
+            .where('tenant_id', tenantId)
+            .whereNull('deleted_at')
+            .first()
           if (product?.course_ids) {
             const courseIds = typeof product.course_ids === 'string' ? JSON.parse(product.course_ids) : (product.course_ids || [])
             for (const cid of courseIds) {
-              const course = await knex('courses').where('id', cid).where('is_published', true).whereNull('deleted_at').first()
+              const course = await knex('courses')
+                .where('id', cid)
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .where('is_published', true)
+                .whereNull('deleted_at')
+                .first()
               if (!course) continue
-              const existingEnroll = await knex('course_enrollments').where('course_id', cid).where('student_email', customerEmail.toLowerCase()).where('status', 'active').first()
+              const existingEnroll = await knex('course_enrollments')
+                .where('course_id', cid)
+                .where('student_email', customerEmail.toLowerCase())
+                .where('organization_id', orgId)
+                .where('tenant_id', tenantId)
+                .where('status', 'active')
+                .first()
               if (existingEnroll) continue
               await knex('course_enrollments').insert({
-                id: require('crypto').randomUUID(),
-                tenant_id: tenantId || course.tenant_id,
+                id: randomUUID(),
+                tenant_id: tenantId,
                 organization_id: orgId,
                 course_id: cid,
                 student_name: session.customer_details?.name || customerEmail,
@@ -698,21 +845,21 @@ export async function POST(req: Request) {
                 payment_id: session.payment_intent || null,
                 status: 'active',
                 enrolled_at: new Date(),
-              }).catch(e => console.error('[stripe.webhook] product course enrollment failed:', e))
-              console.log(`[stripe.webhook] Auto-enrolled ${customerEmail} in course ${course.title} via product purchase`)
+              }).catch(() => console.error('[stripe.webhook] product_course_enrollment_failed'))
+              console.info('[stripe.webhook] product_course_enrollment_completed')
             }
           }
-        } catch (prodErr) {
-          console.error('[stripe.webhook] product course enrollment failed:', prodErr)
+        } catch {
+          console.error('[stripe.webhook] product_course_enrollment_failed')
         }
       }
 
-      console.log(`[stripe.webhook] Payment completed: $${(session.amount_total || 0) / 100} from ${session.customer_email} (account: ${connectedAccountId || 'platform'})`)
+      console.info('[stripe.webhook] payment_completed')
     }
 
     return NextResponse.json({ received: true })
-  } catch (error) {
-    console.error('[stripe.webhook]', error)
+  } catch {
+    console.error('[stripe.webhook] request_refused')
     return NextResponse.json({ error: 'Webhook error' }, { status: 400 })
   }
 }

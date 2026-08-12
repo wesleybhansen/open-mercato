@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
+import {
+  buildStripeIdempotencyKey,
+  isStripeAccountId,
+  resolveAppBaseUrl,
+} from '@/modules/payments/lib/stripe-integrity'
 
 // POST: Accept or decline an upsell/downsell offer
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -12,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     const body = await req.json()
     const { sid, stepId, action } = body // action: 'accept' | 'decline'
 
-    if (!sid || !stepId || !action) {
+    if (!sid || !stepId || (action !== 'accept' && action !== 'decline')) {
       return NextResponse.json({ ok: false, error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -30,7 +35,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     const step = await knex('funnel_steps').where('id', stepId).where('funnel_id', funnel.id).first()
     if (!step) return NextResponse.json({ ok: false, error: 'Step not found' }, { status: 404 })
 
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000'
+    const baseUrl = resolveAppBaseUrl(process.env.APP_URL)
+    if (!baseUrl) return NextResponse.json({ ok: false, error: 'Payment processing not configured' }, { status: 503 })
 
     // Record the action
     await knex('funnel_visits').insert({
@@ -65,7 +71,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         return NextResponse.json({ ok: true, redirectUrl, alreadyCharged: true })
       }
 
-      const product = step.product_id ? await knex('products').where('id', step.product_id).first() : null
+      const product = step.product_id
+        ? await knex('products')
+          .where('id', step.product_id)
+          .where('organization_id', funnel.organization_id)
+          .where('tenant_id', funnel.tenant_id)
+          .whereNull('deleted_at')
+          .first()
+        : null
       const config = typeof step.config === 'string' ? JSON.parse(step.config) : (step.config || {})
       const amount = product ? Math.round(Number(product.price) * 100) : Math.round(Number(config.price || 0) * 100)
       const currency = (product?.currency || 'usd').toLowerCase()
@@ -76,10 +89,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
       const stripeConnection = await knex('stripe_connections')
         .where('organization_id', funnel.organization_id)
+        .where('tenant_id', funnel.tenant_id)
         .where('is_active', true)
         .first()
 
-      if (!stripeConnection?.stripe_account_id || !process.env.STRIPE_SECRET_KEY) {
+      if (!isStripeAccountId(stripeConnection?.stripe_account_id) || !process.env.STRIPE_SECRET_KEY) {
         return NextResponse.json({ ok: false, error: 'Payment processing not configured' }, { status: 400 })
       }
 
@@ -100,12 +114,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
             stepId: step.id,
             sessionId: session.id,
             orgId: funnel.organization_id,
+            tenantId: funnel.tenant_id,
+            connectedAccount: stripeConnection.stripe_account_id,
           },
         }, {
           stripeAccount: stripeConnection.stripe_account_id,
           // Stripe-side dedup: identical retries within 24h return the same
           // PaymentIntent instead of creating a second charge.
-          idempotencyKey: `funnel_upsell_${session.id}_${step.id}`,
+          idempotencyKey: buildStripeIdempotencyKey('funnel_upsell', {
+            organizationId: funnel.organization_id,
+            tenantId: funnel.tenant_id,
+          }, [session.id, step.id]),
         })
 
         if (paymentIntent.status === 'succeeded') {
@@ -126,9 +145,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
             updated_at: new Date(),
           })
         }
-      } catch (stripeError: any) {
+      } catch {
         // Payment failed — treat as decline and redirect to decline path
-        console.error('[funnel.upsell] Payment failed:', stripeError.message)
+        console.error('[funnel.upsell] payment_failed')
 
         await knex('funnel_orders').insert({
           id: crypto.randomUUID(),
@@ -179,9 +198,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       : `${baseUrl}/api/landing_pages/funnels/public/${slug}?step=thank_you&sid=${session.id}`
 
     return NextResponse.json({ ok: true, redirectUrl })
-  } catch (error) {
-    console.error('[funnel.upsell]', error)
-    const message = error instanceof Error ? error.message : 'Failed'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+  } catch {
+    console.error('[funnel.upsell] request_failed')
+    return NextResponse.json({ ok: false, error: 'Failed' }, { status: 500 })
   }
 }
