@@ -36,6 +36,37 @@ export type NoliCoreUser = {
   cohort: 'pure-saas' | 'launch-pad';
 };
 
+export type NoliOrgRole = 'owner' | 'admin' | 'member';
+
+export type NoliOrgMembership = {
+  organizationId: string;
+  role: NoliOrgRole;
+};
+
+const NOLI_ORG_ROLES = new Set<NoliOrgRole>(['owner', 'admin', 'member']);
+
+/** @internal Exported for credential-free authority-boundary tests. */
+export function parseNoliOrgMembership(
+  value: unknown,
+): NoliOrgMembership | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Noli organization membership is malformed');
+  }
+  const row = value as Record<string, unknown>;
+  const organizationId = row.organization_id;
+  const role = row.role;
+  if (
+    typeof organizationId !== 'string' ||
+    organizationId.length === 0 ||
+    typeof role !== 'string' ||
+    !NOLI_ORG_ROLES.has(role as NoliOrgRole)
+  ) {
+    throw new Error('Noli organization membership is malformed');
+  }
+  return { organizationId, role: role as NoliOrgRole };
+}
+
 /* Look up a noli-core user by their Clerk identity. Returns null if not
  * yet synced (e.g. the Clerk user.created webhook hasn't landed). */
 export async function findUserByClerkId(
@@ -67,22 +98,30 @@ export async function findNoliUserById(
   return (data as NoliCoreUser | null) ?? null;
 }
 
-/* The noli-core organization the user belongs to (v1 = one org per user).
- * Used to map a whole noli-core team onto ONE shared Mercato org. Returns
- * null if the user has no org membership yet. */
-export async function findPrimaryOrgIdForUser(
+/* The authoritative noli-core organization membership (v1 = one org per
+ * user). CRM consumes both organization and role so removed users fail closed
+ * and owner/admin/member changes are reflected in local RBAC. */
+export async function findPrimaryOrgMembershipForUser(
   noliUserId: string,
-): Promise<string | null> {
+): Promise<NoliOrgMembership | null> {
   const supabase = getNoliCoreClient();
   const { data, error } = await supabase
     .from('organization_members')
-    .select('organization_id')
+    .select('organization_id, role')
     .eq('user_id', noliUserId)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return (data?.organization_id as string | undefined) ?? null;
+  return parseNoliOrgMembership(data);
+}
+
+/* Compatibility wrapper for callers that only need the organization id. */
+export async function findPrimaryOrgIdForUser(
+  noliUserId: string,
+): Promise<string | null> {
+  const membership = await findPrimaryOrgMembershipForUser(noliUserId);
+  return membership?.organizationId ?? null;
 }
 
 /* Strict, uncached membership check for machine credentials. Unlike the
@@ -142,7 +181,7 @@ export async function resolveOrgByoKeys(
  * Noli app. Used by the Clerk auth resolver to gate access to CRM. */
 export async function isEntitled(
   noliUserId: string,
-  app: 'crm' | 'ams' | 'kb' | 'pm' | 'cos',
+  app: 'crm' | 'ams' | 'kb' | 'pm' | 'cos' | 'receptionist',
 ): Promise<boolean> {
   const supabase = getNoliCoreClient();
   const { data, error } = await supabase

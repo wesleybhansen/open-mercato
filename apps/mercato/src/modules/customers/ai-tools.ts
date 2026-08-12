@@ -23,6 +23,12 @@ import type { AwilixContainer } from 'awilix'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { aiTools as coreCustomersTools } from '@open-mercato/core/modules/customers/ai-tools'
 import { sendReply } from '@/modules/customers/lib/send-reply'
+import {
+  allowedWatchedConnectionIds,
+  hasWatchedMailboxes,
+  normalizeWatchedConnectionIds,
+  watchedConnectionIdsForStorage,
+} from '@/modules/customers/lib/customer-service-watch'
 
 type ToolContext = {
   tenantId: string | null
@@ -176,7 +182,7 @@ function parseSourceModes(raw: any): Record<string, { mode: string; threshold: n
 // connections and with valid mode/threshold. watched === null = watch all (any id ok).
 function normalizeSourceModesInput(input: any, watched: string[] | null): Record<string, { mode: string; threshold: number }> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
-  const allowed = watched && watched.length > 0 ? new Set(watched) : null
+  const allowed = allowedWatchedConnectionIds(watched)
   const out: Record<string, { mode: string; threshold: number }> = {}
   for (const [k, v] of Object.entries(input)) {
     if (typeof k !== 'string' || !k) continue
@@ -253,13 +259,13 @@ const updateSettingsTool: AiToolDefinition = {
   name: 'customer_service_update_settings',
   description: `Set up or modify the customer-service auto-reply configuration for the authenticated organization. Upserts the single settings row. Only provided fields are changed; omitted fields keep their current value.
 replyMode: "draft" queues replies for human approval, "auto" sends automatically, "hybrid" auto-sends only when the model's confidence is at or above hybridConfidenceThreshold (clamped to 0..1). This is the account-wide default.
-watchedConnectionIds: list of email connection ids to watch, or omit / pass an empty list to watch all active accounts.
+watchedConnectionIds: list of email connection ids to watch. Pass an empty list to pause mailbox watching; omit the field to preserve the current selection.
 sourceModes: optional per-mailbox overrides, keyed by email connection id, e.g. { "<connectionId>": { "mode": "auto", "threshold": 0.8 } }. Each overrides the account default for that specific mailbox. Only ids in the watched list are kept. Threshold is clamped to 0..1. Omit to leave per-mailbox overrides unchanged.
 flagScenarios: optional list to turn special situations on/off, choose pause-vs-auto, and set per-scenario instructions. Pass an array of { key, label?, enabled?, action? ("pause"|"auto_send"), instructions? }. The 6 canonical keys (angry_or_upset, incoherent, cancel, refund, complaint, legal) always exist with fixed labels; a canonical scenario you omit from the array resets to its default (disabled + pause). You can ALSO add custom scenarios: give a key that starts with "custom_" (e.g. "custom_wholesale") AND a non-empty label; valid customs are kept and appended after the canonical set. Include an existing custom in the array to keep it; omit it to remove it. Unknown non-custom keys and customs missing a label are ignored. Omit the whole flagScenarios arg to leave scenarios unchanged.
 Returns the saved settings.`,
   inputSchema: z.object({
-    enabled: z.boolean().optional().describe('Turn customer service on or off'),
-    watchedConnectionIds: z.array(z.string()).optional().describe('Email connection ids to watch; empty = all active accounts'),
+    enabled: z.boolean().optional().describe('Compatibility field; active state is derived from configured channels'),
+    watchedConnectionIds: z.array(z.string()).optional().describe('Email connection ids to watch; empty = watch none'),
     replyMode: z.enum(['draft', 'auto', 'hybrid']).optional(),
     hybridConfidenceThreshold: z.number().optional().describe('Confidence cutoff for hybrid auto-send, 0..1'),
     sourceModes: z.record(z.string(), z.object({
@@ -282,16 +288,11 @@ Returns the saved settings.`,
 
     const existing = await knex('customer_service_settings').where('organization_id', scope.organizationId).first()
 
-    // Normalize watchedConnectionIds to a string[] or null (null = all active).
-    let watched: string[] | null = existing?.watched_connection_ids ?? null
-    if (input.watchedConnectionIds !== undefined) {
-      if (Array.isArray(input.watchedConnectionIds)) {
-        const cleaned = input.watchedConnectionIds.filter((v: unknown) => typeof v === 'string' && v.length > 0)
-        watched = cleaned.length > 0 ? cleaned : null
-      } else {
-        watched = null
-      }
-    }
+    // null = all active; an explicit empty array = watch none.
+    const watched = normalizeWatchedConnectionIds(
+      input.watchedConnectionIds,
+      existing?.watched_connection_ids ?? null,
+    )
 
     // reply_mode: validate against draft | auto | hybrid; otherwise keep existing.
     const replyModeIn = typeof input.replyMode === 'string' ? input.replyMode : undefined
@@ -313,8 +314,8 @@ Returns the saved settings.`,
       sourceModes = normalizeSourceModesInput(input.sourceModes, watched)
     } else {
       sourceModes = parseSourceModes(existing?.source_modes)
-      if (watched && watched.length > 0) {
-        const allowed = new Set(watched)
+      if (watched !== null) {
+        const allowed = allowedWatchedConnectionIds(watched) ?? new Set<string>()
         sourceModes = Object.fromEntries(Object.entries(sourceModes).filter(([k]) => allowed.has(k)))
       }
     }
@@ -330,9 +331,10 @@ Returns the saved settings.`,
       flagScenarios = parseFlagScenarios(existing?.flag_scenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
     }
 
+    const hasWatched = hasWatchedMailboxes(watched)
     const fields = {
-      enabled: typeof input.enabled === 'boolean' ? input.enabled : (existing?.enabled ?? false),
-      watched_connection_ids: watched ? JSON.stringify(watched) : null,
+      enabled: hasWatched || !!existing?.cs_sms_number || !!existing?.cs_chat_enabled,
+      watched_connection_ids: watchedConnectionIdsForStorage(watched),
       reply_mode: replyMode,
       hybrid_confidence_threshold: hybridConfidenceThreshold,
       source_modes: Object.keys(sourceModes).length > 0 ? JSON.stringify(sourceModes) : null,

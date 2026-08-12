@@ -78,6 +78,10 @@ export async function POST(req: Request) {
       // Per-source (per-mailbox) overrides, keyed by email_connection id. Falls
       // back to the global mode/threshold for sources without an entry.
       const sourceModes = parseSourceModes(settings.source_modes)
+      const watchedIds: string[] | null = Array.isArray(settings.watched_connection_ids)
+        ? settings.watched_connection_ids
+        : (settings.watched_connection_ids ? safeParse(settings.watched_connection_ids) : null)
+      const watchNoMailboxes = Array.isArray(watchedIds) && watchedIds.length === 0
       // Flag scenarios for this org (full validated list) + the enabled subset
       // handed to the drafter. Empty = no flagging, existing behavior unchanged.
       const flagScenarios = parseFlagScenarios(settings.flag_scenarios)
@@ -106,7 +110,7 @@ export async function POST(req: Request) {
             .whereNotNull('imap_host')
             .select('id', 'email_address', 'imap_host', 'imap_port', 'imap_secure', 'smtp_user', 'smtp_pass', 'cs_last_fetch_at', 'purpose')
 
-          if (csConns.length > 0) {
+          if (!watchNoMailboxes && csConns.length > 0) {
             // Skip self-sent: don't ingest mail from our own connected mailboxes.
             const ownConns = await knex('email_connections')
               .where('organization_id', orgId)
@@ -168,17 +172,15 @@ export async function POST(req: Request) {
           continue
         }
 
-        // Resolve watched connection email addresses (null/empty = all active).
-        const watchedIds: string[] | null = Array.isArray(settings.watched_connection_ids)
-          ? settings.watched_connection_ids
-          : (settings.watched_connection_ids ? safeParse(settings.watched_connection_ids) : null)
-
         // {id, address} for each watched connection. Used both to filter
         // conversations (by inbound to_address) and to resolve the per-source
         // override for the matched connection. null = watching all mailboxes.
         let watched: Array<{ id: string; address: string }> | null = null
         let watchedAddresses: string[] | null = null
-        if (watchedIds && watchedIds.length > 0) {
+        if (watchNoMailboxes) {
+          watched = []
+          watchedAddresses = []
+        } else if (watchedIds && watchedIds.length > 0) {
           const conns = await knex('email_connections')
             .where('organization_id', orgId)
             .whereIn('id', watchedIds)
@@ -226,6 +228,13 @@ export async function POST(req: Request) {
 
         for (const conv of conversations) {
           try {
+            if (
+              watchNoMailboxes &&
+              (!conv.last_message_channel || conv.last_message_channel === 'email')
+            ) {
+              skipped++
+              continue
+            }
             // Atomic claim: flip cs_drafted_at now, guarded on it still being NULL,
             // so overlapping runs can't select + draft the same conversation twice →
             // double-send. Only the winner proceeds; a new inbound resets the flag.

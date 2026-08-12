@@ -15,7 +15,7 @@ import { logTimelineEvent } from '@/lib/timeline'
 
 export const metadata = {
   path: '/ai/debrief',
-  POST: { requireAuth: true },
+  POST: { requireAuth: true, requireFeatures: ['ai_assistant.view'] },
 }
 
 const DEBRIEF_MODEL = 'gemini-3.5-flash'

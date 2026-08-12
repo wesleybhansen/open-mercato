@@ -67,10 +67,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { findNoliUserById } = await import('@open-mercato/shared/lib/noli/core-client')
+    const { findNoliUserById, isEntitled } = await import(
+      '@open-mercato/shared/lib/noli/core-client'
+    )
     const noliUser = await findNoliUserById(noliUserId)
     if (!noliUser?.clerk_user_id) {
       return NextResponse.json({ ok: false, error: 'noli user not found' }, { status: 404 })
+    }
+    if (!(await isEntitled(noliUser.id, 'receptionist'))) {
+      return NextResponse.json({ ok: false, error: 'receptionist access unavailable' }, { status: 403 })
     }
     const { resolveClerkUserToAuthContext } = await import('@open-mercato/shared/lib/auth/clerk')
     const auth = await resolveClerkUserToAuthContext(noliUser.clerk_user_id)

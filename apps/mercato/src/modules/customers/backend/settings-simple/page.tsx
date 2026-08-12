@@ -112,17 +112,6 @@ export default function SimpleSettingsPage() {
   const [savingStages, setSavingStages] = useState(false)
   const [stagesSaved, setStagesSaved] = useState(false)
 
-  // Team state
-  const [teamMembers, setTeamMembers] = useState<Array<{id:string,name:string,email:string,role_name:string,is_owner:boolean,created_at:string,last_login_at:string|null}>>([])
-  const [teamInvites, setTeamInvites] = useState<Array<{id:string,email:string,role:string,created_at:string,expires_at:string,invited_by_name:string}>>([])
-  const [teamSeats, setTeamSeats] = useState({ used: 0, max: 5 })
-  const [currentUserRole, setCurrentUserRole] = useState('')
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState('member')
-  const [inviting, setInviting] = useState(false)
-  const [inviteError, setInviteError] = useState('')
-  const [inviteSuccess, setInviteSuccess] = useState('')
-
   // Inbox Intelligence state
   const [eiEnabled, setEiEnabled] = useState(false)
   const [eiAutoCreate, setEiAutoCreate] = useState(true)
@@ -240,64 +229,7 @@ export default function SimpleSettingsPage() {
           setEiContactsCreated(d.data.contacts_created_total || 0)
         }
       }).catch(() => {})
-    // Load team data
-    fetch('/api/team', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok && d.data) {
-          setTeamMembers(d.data.members || [])
-          setTeamInvites(d.data.invites || [])
-          setTeamSeats(d.data.seats || { used: 0, max: 5 })
-          setCurrentUserRole(d.data.currentUserRole || '')
-        }
-      })
-      .catch(() => {})
   }, [])
-
-  async function sendInvite() {
-    if (!inviteEmail.trim()) return
-    setInviting(true); setInviteError(''); setInviteSuccess('')
-    try {
-      const res = await fetch('/api/team', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole })
-      })
-      const d = await res.json()
-      if (d.ok) {
-        const msg = d.warning
-          ? d.warning + (d.data?.inviteUrl ? ` Invite link: ${d.data.inviteUrl}` : '')
-          : `Invite sent to ${inviteEmail}`
-        setInviteSuccess(msg)
-        if (d.warning) setInviteError(d.warning)
-        setInviteEmail('')
-        // Reload team data
-        fetch('/api/team', { credentials: 'include' }).then(r => r.json()).then(d => {
-          if (d.ok && d.data) { setTeamMembers(d.data.members||[]); setTeamInvites(d.data.invites||[]); setTeamSeats(d.data.seats||{used:0,max:5}) }
-        })
-      } else { setInviteError(d.error || 'Failed to send invite') }
-    } catch { setInviteError('Failed to send invite') }
-    setInviting(false)
-  }
-
-  async function removeMember(userId: string, name: string) {
-    if (!confirm(`Remove ${name} from the team?`)) return
-    const res = await fetch('/api/team/member', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-      body: JSON.stringify({ userId })
-    })
-    const d = await res.json()
-    if (d.ok) { setTeamMembers(prev => prev.filter(m => m.id !== userId)) }
-    else { alert(d.error || 'Failed to remove member') }
-  }
-
-  async function revokeInvite(inviteId: string) {
-    const res = await fetch('/api/team/invite', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-      body: JSON.stringify({ inviteId })
-    })
-    const d = await res.json()
-    if (d.ok) { setTeamInvites(prev => prev.filter(i => i.id !== inviteId)) }
-  }
 
   async function changeMode(newMode: string) {
     setMode(newMode)
@@ -670,79 +602,15 @@ export default function SimpleSettingsPage() {
       <section className="mb-8">
         <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
           <UsersIcon className="size-4 text-muted-foreground" /> Team
-          <span className="text-xs font-normal text-muted-foreground ml-auto">
-            {teamSeats.used} of {teamSeats.max} seats used
-          </span>
         </h2>
-        <div className="rounded-lg border divide-y">
-          {/* Invite form - only for owner/admin */}
-          {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
-            <div className="px-4 py-3">
-              <div className="flex gap-2">
-                <Input value={inviteEmail} onChange={e => { setInviteEmail(e.target.value); setInviteError(''); setInviteSuccess('') }}
-                  placeholder="Email address" type="email" className="flex-1 h-9 text-sm" />
-                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
-                  className="rounded-md border bg-background px-3 py-1.5 text-sm h-9">
-                  <option value="member">Member</option>
-                  <option value="admin">Admin</option>
-                </select>
-                <Button type="button" size="sm" className="h-9 shrink-0" onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}>
-                  {inviting ? 'Sending...' : 'Send Invite'}
-                </Button>
-              </div>
-              {inviteError && <p className="text-xs text-[#b91c1c] dark:text-[#f87171] mt-2">{inviteError}</p>}
-              {inviteSuccess && <p className="text-xs text-[#047857] dark:text-[#34d399] mt-2">{inviteSuccess}</p>}
-            </div>
-          )}
-
-          {/* Active members */}
-          {teamMembers.map(member => (
-            <div key={member.id} className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
-                  {(member.name || member.email || '?')[0].toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{member.name || member.email}</p>
-                  <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge variant={member.is_owner ? 'violet' : member.role_name === 'admin' ? 'blue' : 'secondary'}>
-                  {member.is_owner ? 'Owner' : member.role_name === 'admin' ? 'Admin' : 'Member'}
-                </Badge>
-                {(currentUserRole === 'owner' || currentUserRole === 'admin') && !member.is_owner && member.id !== teamMembers.find(m => m.is_owner)?.id && (
-                  <button type="button" onClick={() => removeMember(member.id, member.name || member.email)}
-                    className="text-xs text-muted-foreground hover:text-[#b91c1c] dark:hover:text-[#f87171] transition">Remove</button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Pending invites */}
-          {teamInvites.map(invite => (
-            <div key={invite.id} className="flex items-center justify-between px-4 py-3 bg-muted/30">
-              <div className="min-w-0">
-                <p className="text-sm text-muted-foreground truncate">{invite.email}</p>
-                <p className="text-[12px] text-muted-foreground">
-                  Invited as {invite.role} · expires {new Date(invite.expires_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="amber">Pending</Badge>
-                {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
-                  <button type="button" onClick={() => revokeInvite(invite.id)}
-                    className="text-xs text-muted-foreground hover:text-[#b91c1c] dark:hover:text-[#f87171] transition">Revoke</button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {teamMembers.length === 0 && teamInvites.length === 0 && (
-            <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-              No team members yet. Send an invite to get started.
-            </div>
-          )}
+        <div className="rounded-lg border px-4 py-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Membership and roles are managed in Noli</p>
+            <p className="text-xs text-muted-foreground mt-1">Use the Noli team page to invite, remove, and assign roles.</p>
+          </div>
+          <a href="https://app.noliai.com/team" className="text-sm font-medium text-primary hover:underline shrink-0">
+            Manage team in Noli
+          </a>
         </div>
       </section>
 

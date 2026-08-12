@@ -48,7 +48,7 @@ export default function CustomerServiceSettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
-  // null = watch all connected mailboxes. An array = only those ids.
+  // null = watch all connected mailboxes; [] = watch none.
   const [watchedIds, setWatchedIds] = useState<string[] | null>(null)
   const [replyMode, setReplyMode] = useState<ReplyMode>('draft')
   const [hybridThreshold, setHybridThreshold] = useState(0.8)
@@ -472,8 +472,7 @@ export default function CustomerServiceSettingsPage() {
       // Starting from "all": selecting one mailbox narrows to just that one.
       if (prev === null) return [id]
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-      // Empty selection means watch all again.
-      return next.length === 0 ? null : next
+      return next
     })
   }
 
@@ -1097,16 +1096,24 @@ export default function CustomerServiceSettingsPage() {
             <div className="rounded-lg border divide-y">
               <div className="px-4 py-3 flex items-start justify-between gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Your dedicated support inboxes are watched automatically. Leave everything unchecked to watch every support inbox, or check specific ones to narrow it down.
+                  Choose Watch all, select specific mailboxes, or leave every mailbox unchecked to pause mailbox watching.
                 </p>
-                {personalMailboxes.length > 0 && (
-                  <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
-                    <input type="checkbox" checked={showSharedMailboxes}
-                      onChange={e => setShowSharedMailboxes(e.target.checked)}
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={watchingAll}
+                      onChange={e => setWatchedIds(e.target.checked ? null : [])}
                       className="size-3.5 rounded border-input accent-[#2563eb]" />
-                    <span className="text-[12.5px] text-muted-foreground">Also watch personal Inbox mailboxes</span>
+                    <span className="text-[12.5px] text-muted-foreground">Watch all</span>
                   </label>
-                )}
+                  {personalMailboxes.length > 0 && (
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={showSharedMailboxes}
+                        onChange={e => setShowSharedMailboxes(e.target.checked)}
+                        className="size-3.5 rounded border-input accent-[#2563eb]" />
+                      <span className="text-[12.5px] text-muted-foreground">Include personal Inbox mailboxes</span>
+                    </label>
+                  )}
+                </div>
               </div>
               {visibleMailboxes.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground">
@@ -1135,7 +1142,11 @@ export default function CustomerServiceSettingsPage() {
               {visibleMailboxes.length > 0 && (
                 <div className="px-4 py-2.5 bg-muted/30">
                   <p className="text-[12.5px] text-muted-foreground">
-                    {watchingAll ? 'Watching all connected mailboxes.' : `Watching ${watchedIds?.length} selected mailbox${watchedIds?.length === 1 ? '' : 'es'}.`}
+                    {watchingAll
+                      ? 'Watching all connected mailboxes.'
+                      : watchedIds?.length === 0
+                        ? 'Mailbox watching is paused.'
+                        : `Watching ${watchedIds?.length} selected mailbox${watchedIds?.length === 1 ? '' : 'es'}.`}
                   </p>
                 </div>
               )}

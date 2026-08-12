@@ -1,5 +1,8 @@
 // ORM-SKIP: AI generation/analysis — complex prompt construction, not CRUD
-export const metadata = { path: '/ai/assistant', POST: { requireAuth: true } }
+export const metadata = {
+  path: '/ai/assistant',
+  POST: { requireAuth: true, requireFeatures: ['ai_assistant.view'] },
+}
 
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'

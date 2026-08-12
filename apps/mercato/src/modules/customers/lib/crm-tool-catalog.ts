@@ -568,8 +568,8 @@ export const CRM_TOOLS = [
   {
     type: 'function' as const,
     name: 'update_settings',
-    description: 'Update CRM settings: business profile, pipeline configuration, AI persona, or invite team members.',
-    parameters: { type: 'object', properties: { action: { type: 'string', enum: ['update_profile', 'update_pipeline', 'update_persona', 'invite_team'] }, businessName: { type: 'string' }, businessType: { type: 'string' }, pipelineMode: { type: 'string', enum: ['deals', 'journey'] }, pipelineStages: { type: 'array', items: { type: 'string' } }, personaName: { type: 'string' }, personaStyle: { type: 'string', enum: ['professional', 'casual', 'minimal'] }, teamEmail: { type: 'string' }, teamRole: { type: 'string', enum: ['admin', 'member'] } }, required: ['action'] },
+    description: 'Update CRM settings: business profile, pipeline configuration, or AI persona.',
+    parameters: { type: 'object', properties: { action: { type: 'string', enum: ['update_profile', 'update_pipeline', 'update_persona'] }, businessName: { type: 'string' }, businessType: { type: 'string' }, pipelineMode: { type: 'string', enum: ['deals', 'journey'] }, pipelineStages: { type: 'array', items: { type: 'string' } }, personaName: { type: 'string' }, personaStyle: { type: 'string', enum: ['professional', 'casual', 'minimal'] } }, required: ['action'] },
   },
 ]
 

@@ -41,7 +41,6 @@ import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageIn
 import { AiAssistantIntegration, AiChatHeaderButton } from '@open-mercato/ai-assistant/frontend'
 import { CustomEntity } from '@open-mercato/core/modules/entities/data/entities'
 import { ComponentOverridesBootstrap } from '@/components/ComponentOverridesBootstrap'
-import { AiAssistantWidget } from '@/components/AiAssistantWidget'
 import { FloatingAssistantButton } from '@/components/FloatingAssistantButton'
 import { BackgroundJobs } from '@/components/BackgroundJobs'
 
@@ -154,6 +153,11 @@ export default async function BackendLayout({ children, params }: { children: Re
         }
       }
     : undefined
+  const conditionalFeatures = featureChecker
+    ? await featureChecker(['ai_assistant.view', 'email.view'])
+    : new Set<string>()
+  const canUseAssistant = conditionalFeatures.has('ai_assistant.view')
+  const canUseCustomerService = conditionalFeatures.has('email.view')
 
   let userEntities: Array<{ entityId: string; label: string; href: string }> | undefined
   if (auth) {
@@ -377,7 +381,10 @@ export default async function BackendLayout({ children, params }: { children: Re
   })).filter(g => g.items.length > 0)
 
   let groups: NavGroup[] = interfaceMode === 'simple'
-    ? filterForSimpleMode(allGroups, translate, hiddenSidebarRaw, aiPersonaName)
+    ? filterForSimpleMode(allGroups, translate, hiddenSidebarRaw, aiPersonaName, {
+        canUseAssistant,
+        canUseCustomerService,
+      })
     : advancedGroups
 
   // Add admin link for wesley.b.hansen@gmail.com only — append to the last group (Tools)
@@ -429,7 +436,7 @@ export default async function BackendLayout({ children, params }: { children: Re
 
   const rightHeaderContent = (
     <>
-      <AiChatHeaderButton />
+      {canUseAssistant ? <AiChatHeaderButton /> : null}
       <GlobalSearchDialog embeddingConfigured={embeddingConfigured} missingConfigMessage={missingConfigMessage} />
       <div className="hidden lg:contents">
         <OrganizationSwitcher />
@@ -455,6 +462,32 @@ export default async function BackendLayout({ children, params }: { children: Re
     tenantId: auth?.tenantId ?? null,
     organizationId: auth?.orgId ?? null,
   }
+  const appShell = (
+    <AppShell
+      key={path}
+      productName='Noli CRM'
+      email={auth?.email}
+      groups={groups}
+      currentTitle={currentTitle}
+      breadcrumb={breadcrumb}
+      sidebarCollapsedDefault={initialCollapsed}
+      rightHeaderSlot={rightHeaderContent}
+      mobileSidebarSlot={mobileSidebarContent}
+      adminNavApi={interfaceMode === 'simple' ? undefined : "/api/auth/admin/nav"}
+      version={APP_VERSION}
+      settingsPathPrefixes={interfaceMode === 'simple' ? [] : settingsPathPrefixes}
+      settingsSections={interfaceMode === 'simple' ? [] : filteredSettingsSections}
+      hideCustomizeSidebar={interfaceMode === 'simple'}
+      settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
+      profileSections={profileSections}
+      profileSectionTitle={translate('profile.page.title', 'Profile')}
+      profilePathPrefixes={profilePathPrefixes}
+    >
+      <PageInjectionBoundary path={path} context={injectionContext}>
+        {children}
+      </PageInjectionBoundary>
+    </AppShell>
+  )
 
   return (
     <div className={interfaceMode === 'simple' ? 'simple-mode' : 'advanced-mode'}>
@@ -471,38 +504,19 @@ export default async function BackendLayout({ children, params }: { children: Re
       )}
       <I18nProvider locale={locale} dict={dict}>
         <ComponentOverridesBootstrap>
-          <AiAssistantIntegration
-            tenantId={auth?.tenantId ?? null}
-            organizationId={auth?.orgId ?? null}
-          >
-            <AppShell
-              key={path}
-              productName='Noli CRM'
-              email={auth?.email}
-              groups={groups}
-              currentTitle={currentTitle}
-              breadcrumb={breadcrumb}
-              sidebarCollapsedDefault={initialCollapsed}
-              rightHeaderSlot={rightHeaderContent}
-              mobileSidebarSlot={mobileSidebarContent}
-              adminNavApi={interfaceMode === 'simple' ? undefined : "/api/auth/admin/nav"}
-              version={APP_VERSION}
-              settingsPathPrefixes={interfaceMode === 'simple' ? [] : settingsPathPrefixes}
-              settingsSections={interfaceMode === 'simple' ? [] : filteredSettingsSections}
-              hideCustomizeSidebar={interfaceMode === 'simple'}
-              settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
-              profileSections={profileSections}
-              profileSectionTitle={translate('profile.page.title', 'Profile')}
-              profilePathPrefixes={profilePathPrefixes}
+          {canUseAssistant ? (
+            <AiAssistantIntegration
+              tenantId={auth?.tenantId ?? null}
+              organizationId={auth?.orgId ?? null}
             >
-              <PageInjectionBoundary path={path} context={injectionContext}>
-                {children}
-              </PageInjectionBoundary>
-            </AppShell>
-          </AiAssistantIntegration>
+              {appShell}
+            </AiAssistantIntegration>
+          ) : (
+            appShell
+          )}
         </ComponentOverridesBootstrap>
       </I18nProvider>
-      <FloatingAssistantButton />
+      {canUseAssistant ? <FloatingAssistantButton /> : null}
       <BackgroundJobs />
     </div>
   )
@@ -529,7 +543,13 @@ function adoptSidebarDefaults(groups: NavGroup[]): NavGroup[] {
  * Shows only the essential nav items for solopreneurs and small teams.
  * All modules stay active — just hidden from the sidebar.
  */
-function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallback: string) => string, hiddenSidebarCookie?: string, personaName?: string): NavGroup[] {
+function filterForSimpleMode(
+  groups: NavGroup[],
+  translate: (key: string, fallback: string) => string,
+  hiddenSidebarCookie: string | undefined,
+  personaName: string | undefined,
+  capabilities: { canUseAssistant: boolean; canUseCustomerService: boolean },
+): NavGroup[] {
   // Allowed hrefs in simple mode
   const allowedPaths = new Set([
     '/backend/dashboards',
@@ -563,13 +583,13 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         enabled: true,
         icon: createElement(LayoutDashboard, { className: iconClass }),
       },
-      {
-        href: '/backend/assistant',
-        title: personaName || 'AI Assistant',
-        defaultTitle: 'AI Assistant',
-        enabled: true,
-        icon: createElement(Sparkles, { className: iconClass }),
-      },
+      ...(capabilities.canUseAssistant ? [{
+          href: '/backend/assistant',
+          title: personaName || 'AI Assistant',
+          defaultTitle: 'AI Assistant',
+          enabled: true,
+          icon: createElement(Sparkles, { className: iconClass }),
+        }] : []),
     ],
     weight: 0,
   })
@@ -617,13 +637,13 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
       },
       // The unified personal inbox now lives in the Noli dashboard (app.noliai.com),
       // not the CRM. The CRM keeps only the email ENGINE + the customer-service desk.
-      {
-        href: '/backend/customer-service',
-        title: translate('nav.customerService', 'Customer Service'),
-        defaultTitle: 'Customer Service',
-        enabled: true,
-        icon: createElement(Headphones, { className: iconClass }),
-      },
+      ...(capabilities.canUseCustomerService ? [{
+          href: '/backend/customer-service',
+          title: translate('nav.customerService', 'Customer Service'),
+          defaultTitle: 'Customer Service',
+          enabled: true,
+          icon: createElement(Headphones, { className: iconClass }),
+        }] : []),
       {
         href: '/backend/reports',
         title: translate('nav.reports', 'Reports'),
@@ -716,13 +736,13 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         enabled: true,
         icon: createElement(Star, { className: iconClass }),
       },
-      {
-        href: '/backend/debrief',
-        title: translate('nav.debrief', 'Call Debrief'),
-        defaultTitle: 'Call Debrief',
-        enabled: true,
-        icon: createElement(Mic, { className: iconClass }),
-      },
+      ...(capabilities.canUseAssistant ? [{
+          href: '/backend/debrief',
+          title: translate('nav.debrief', 'Call Debrief'),
+          defaultTitle: 'Call Debrief',
+          enabled: true,
+          icon: createElement(Mic, { className: iconClass }),
+        }] : []),
       {
         href: '/backend/surveys',
         title: translate('nav.surveys', 'Surveys'),

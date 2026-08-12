@@ -12,6 +12,12 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { buildDefaultSignature } from '@/modules/customers/lib/draft-reply'
+import {
+  allowedWatchedConnectionIds,
+  hasWatchedMailboxes,
+  normalizeWatchedConnectionIds,
+  watchedConnectionIdsForStorage,
+} from '@/modules/customers/lib/customer-service-watch'
 
 const VALID_MODES = new Set(['draft', 'auto', 'hybrid'])
 const VALID_FLAG_ACTIONS = new Set(['pause', 'auto_send'])
@@ -132,8 +138,7 @@ function parseSourceModes(raw: any): Record<string, { mode: string; threshold: n
 // connections that are actually in the watched list and with valid mode/threshold.
 function normalizeSourceModesInput(input: any, watched: string[] | null): Record<string, { mode: string; threshold: number }> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
-  // watched === null means "watch all"; we can't constrain to ids, so accept any.
-  const allowed = watched && watched.length > 0 ? new Set(watched) : null
+  const allowed = allowedWatchedConnectionIds(watched)
   const out: Record<string, { mode: string; threshold: number }> = {}
   for (const [k, v] of Object.entries(input)) {
     if (typeof k !== 'string' || !k) continue
@@ -219,16 +224,11 @@ export async function PUT(req: Request) {
 
     const existing = await knex('customer_service_settings').where('organization_id', auth.orgId).first()
 
-    // Normalize watchedConnectionIds to a string[] or null (null = all active).
-    let watched: string[] | null = existing?.watched_connection_ids ?? null
-    if (body.watchedConnectionIds !== undefined) {
-      if (Array.isArray(body.watchedConnectionIds)) {
-        const cleaned = body.watchedConnectionIds.filter((v: unknown) => typeof v === 'string' && v.length > 0)
-        watched = cleaned.length > 0 ? cleaned : null
-      } else {
-        watched = null
-      }
-    }
+    // null = all active; an explicit empty array = watch none.
+    const watched = normalizeWatchedConnectionIds(
+      body.watchedConnectionIds,
+      existing?.watched_connection_ids ?? null,
+    )
 
     // reply_mode: one of draft | auto | hybrid. Reject anything else (keep the
     // existing value rather than silently corrupting it).
@@ -253,8 +253,8 @@ export async function PUT(req: Request) {
     } else {
       sourceModes = parseSourceModes(existing?.source_modes)
       // Drop overrides for any connection no longer watched.
-      if (watched && watched.length > 0) {
-        const allowed = new Set(watched)
+      if (watched !== null) {
+        const allowed = allowedWatchedConnectionIds(watched) ?? new Set<string>()
         sourceModes = Object.fromEntries(Object.entries(sourceModes).filter(([k]) => allowed.has(k)))
       }
     }
@@ -297,7 +297,7 @@ export async function PUT(req: Request) {
     // customer-service SMS number is configured OR the website chat is handled by
     // Customer Service. watched === null means "watch all connected support
     // inboxes", which also counts as active.
-    const hasWatched = watched === null || (Array.isArray(watched) && watched.length > 0)
+    const hasWatched = hasWatchedMailboxes(watched)
     const enabled = (hasWatched || !!csSmsNumber || csChatEnabled) ? true : false
 
     // flag_scenarios: clamp/validate the client list onto the canonical default
@@ -312,7 +312,7 @@ export async function PUT(req: Request) {
 
     const fields = {
       enabled,
-      watched_connection_ids: watched ? JSON.stringify(watched) : null,
+      watched_connection_ids: watchedConnectionIdsForStorage(watched),
       reply_mode: replyMode,
       hybrid_confidence_threshold: hybridConfidenceThreshold,
       source_modes: Object.keys(sourceModes).length > 0 ? JSON.stringify(sourceModes) : null,
