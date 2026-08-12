@@ -9,6 +9,7 @@ import {
   oauthStateMatchesScope,
   readStripeRequestScope,
   resolveAppBaseUrl,
+  resolveStripeConnectClientId,
   stripeEnvironmentMode,
   validateOAuthGrant,
 } from '@/modules/payments/lib/stripe-integrity'
@@ -40,7 +41,13 @@ export async function GET(req: Request) {
 
   const stripeKey = process.env.STRIPE_SECRET_KEY
   const platformMode = stripeEnvironmentMode(stripeKey)
-  if (!stripeKey || platformMode === 'unavailable') {
+  const clientId = resolveStripeConnectClientId({
+    secretKey: stripeKey,
+    liveClientId: process.env.STRIPE_CONNECT_CLIENT_ID,
+    legacyLiveClientId: process.env.STRIPE_CLIENT_ID,
+    testClientId: process.env.STRIPE_CONNECT_TEST_CLIENT_ID,
+  })
+  if (!stripeKey || !clientId || platformMode === 'unavailable') {
     return redirect(baseUrl, 'stripe_error=not_configured')
   }
 

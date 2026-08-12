@@ -7,7 +7,11 @@ import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { signOAuthState } from '@/lib/oauth-state'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { readStripeRequestScope, resolveAppBaseUrl } from '@/modules/payments/lib/stripe-integrity'
+import {
+  readStripeRequestScope,
+  resolveAppBaseUrl,
+  resolveStripeConnectClientId,
+} from '@/modules/payments/lib/stripe-integrity'
 
 // Stripe accounts may only be connected through Stripe's OAuth grant. There is
 // deliberately no POST/manual-account-id path: an acct_ prefix proves syntax,
@@ -18,8 +22,13 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const clientId = process.env.STRIPE_CONNECT_CLIENT_ID || process.env.STRIPE_CLIENT_ID
   const stripeKey = process.env.STRIPE_SECRET_KEY
+  const clientId = resolveStripeConnectClientId({
+    secretKey: stripeKey,
+    liveClientId: process.env.STRIPE_CONNECT_CLIENT_ID,
+    legacyLiveClientId: process.env.STRIPE_CLIENT_ID,
+    testClientId: process.env.STRIPE_CONNECT_TEST_CLIENT_ID,
+  })
   const baseUrl = resolveAppBaseUrl(process.env.APP_URL)
   if (!clientId || !stripeKey || !baseUrl) {
     return NextResponse.json({ ok: false, error: 'Stripe Connect is not configured' }, { status: 503 })

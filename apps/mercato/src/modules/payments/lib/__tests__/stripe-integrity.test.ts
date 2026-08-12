@@ -12,6 +12,7 @@ import {
   readStripeRequestScope,
   resolveAppBaseUrl,
   resolveRefundAmount,
+  resolveStripeConnectClientId,
   resolveStripeWebhookScope,
   stripeEnvironmentMode,
   validateOAuthGrant,
@@ -79,6 +80,51 @@ describe('LG-12 Stripe integrity helpers', () => {
     expect(first).toBe(buildStripeIdempotencyKey('refund', scope, ['payment-1', 100]))
     expect(first).not.toBe(buildStripeIdempotencyKey('refund', { ...scope, tenantId: 'tenant-2' }, ['payment-1', 100]))
     expect(first).toMatch(/^lg12_refund_[a-f0-9]{48}$/)
+  })
+
+  it('selects a mode-bound Connect client and refuses test/live ambiguity', () => {
+    expect(resolveStripeConnectClientId({
+      secretKey: 'sk_live_example',
+      liveClientId: 'ca_LiveExample',
+      legacyLiveClientId: undefined,
+      testClientId: undefined,
+    })).toBe('ca_LiveExample')
+    expect(resolveStripeConnectClientId({
+      secretKey: 'sk_live_example',
+      liveClientId: undefined,
+      legacyLiveClientId: 'ca_LegacyLiveExample',
+      testClientId: 'ca_TestExample',
+    })).toBe('ca_LegacyLiveExample')
+    expect(resolveStripeConnectClientId({
+      secretKey: 'sk_test_example',
+      liveClientId: 'ca_LiveExample',
+      legacyLiveClientId: undefined,
+      testClientId: 'ca_TestExample',
+    })).toBe('ca_TestExample')
+    expect(resolveStripeConnectClientId({
+      secretKey: 'sk_test_example',
+      liveClientId: 'ca_LiveExample',
+      legacyLiveClientId: undefined,
+      testClientId: undefined,
+    })).toBeNull()
+    expect(resolveStripeConnectClientId({
+      secretKey: 'sk_test_example',
+      liveClientId: 'ca_SameExample',
+      legacyLiveClientId: undefined,
+      testClientId: 'ca_SameExample',
+    })).toBeNull()
+    expect(resolveStripeConnectClientId({
+      secretKey: 'unexpected',
+      liveClientId: 'ca_LiveExample',
+      legacyLiveClientId: undefined,
+      testClientId: 'ca_TestExample',
+    })).toBeNull()
+    expect(resolveStripeConnectClientId({
+      secretKey: 'sk_test_example',
+      liveClientId: 'ca_LiveExample',
+      legacyLiveClientId: undefined,
+      testClientId: 'not-a-client-id',
+    })).toBeNull()
   })
 
   it('admits only a positive refund within the remaining balance', () => {

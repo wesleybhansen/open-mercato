@@ -11,6 +11,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   isStripeAccountId,
   readStripeRequestScope,
+  resolveStripeConnectClientId,
   stripeEnvironmentMode,
 } from '@/modules/payments/lib/stripe-integrity'
 
@@ -64,7 +65,12 @@ export async function DELETE() {
     }
 
     const stripeKey = process.env.STRIPE_SECRET_KEY
-    const clientId = process.env.STRIPE_CONNECT_CLIENT_ID || process.env.STRIPE_CLIENT_ID
+    const clientId = resolveStripeConnectClientId({
+      secretKey: stripeKey,
+      liveClientId: process.env.STRIPE_CONNECT_CLIENT_ID,
+      legacyLiveClientId: process.env.STRIPE_CLIENT_ID,
+      testClientId: process.env.STRIPE_CONNECT_TEST_CLIENT_ID,
+    })
     if (!stripeKey || !clientId) {
       return NextResponse.json({ ok: false, error: 'Stripe Connect is not configured' }, { status: 503 })
     }

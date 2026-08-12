@@ -30,6 +30,7 @@ type StripeAccountLike = {
 } | null | undefined
 
 const STRIPE_ACCOUNT_ID = /^acct_[A-Za-z0-9]+$/
+const STRIPE_CONNECT_CLIENT_ID = /^ca_[A-Za-z0-9]+$/
 const STRIPE_CHECKOUT_SESSION_ID = /^cs_(?:test_|live_)?[A-Za-z0-9]+$/
 const STRIPE_PAYMENT_INTENT_ID = /^pi_[A-Za-z0-9]+$/
 const STRIPE_SUBSCRIPTION_ID = /^sub_[A-Za-z0-9]+$/
@@ -59,6 +60,26 @@ export function stripeEnvironmentMode(secretKey: string | undefined): 'test' | '
   if (secretKey?.startsWith('sk_test_')) return 'test'
   if (secretKey?.startsWith('sk_live_')) return 'live'
   return 'unavailable'
+}
+
+export function resolveStripeConnectClientId(input: {
+  secretKey: string | undefined
+  liveClientId: string | undefined
+  legacyLiveClientId: string | undefined
+  testClientId: string | undefined
+}): string | null {
+  const mode = stripeEnvironmentMode(input.secretKey)
+  const liveClientId = nonEmptyString(input.liveClientId) ?? nonEmptyString(input.legacyLiveClientId)
+  const testClientId = nonEmptyString(input.testClientId)
+  if (mode === 'live') {
+    return liveClientId && STRIPE_CONNECT_CLIENT_ID.test(liveClientId) ? liveClientId : null
+  }
+  if (mode === 'test') {
+    if (!testClientId || !STRIPE_CONNECT_CLIENT_ID.test(testClientId)) return null
+    if (liveClientId && testClientId === liveClientId) return null
+    return testClientId
+  }
+  return null
 }
 
 export function resolveAppBaseUrl(raw: string | undefined): string | null {
