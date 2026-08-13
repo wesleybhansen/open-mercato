@@ -13,6 +13,34 @@ export const metadata = {
   POST: { requireAuth: false },
 }
 
+const SETUP_STATUS_UNAVAILABLE = 'setup_status_unavailable'
+
+function readCount(row: { n?: string | number } | undefined): number {
+  const value = row?.n
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(SETUP_STATUS_UNAVAILABLE)
+  }
+  if (typeof value === 'string' && !/^(0|[1-9]\d*)$/.test(value)) {
+    throw new Error(SETUP_STATUS_UNAVAILABLE)
+  }
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(SETUP_STATUS_UNAVAILABLE)
+  }
+  return parsed
+}
+
+function unavailableResponse() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: 'Setup status unavailable',
+      code: SETUP_STATUS_UNAVAILABLE,
+    },
+    { status: 503, headers: { 'Cache-Control': 'no-store' } },
+  )
+}
+
 export async function POST(req: Request) {
   const secret = process.env.NOLI_INTERNAL_SERVICE_SECRET
   const authHeader = (req.headers.get('authorization') || '').trim()
@@ -32,28 +60,31 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { findNoliUserById } = await import('@open-mercato/shared/lib/noli/core-client')
+    const { findNoliUserById, isEntitled } = await import(
+      '@open-mercato/shared/lib/noli/core-client'
+    )
     const noliUser = await findNoliUserById(noliUserId)
-    if (!noliUser?.clerk_user_id) return NextResponse.json({ exists: false })
+    if (!noliUser) return NextResponse.json({ exists: false })
+    if (!(await isEntitled(noliUser.id, 'crm'))) return NextResponse.json({ exists: false })
+    if (!noliUser.clerk_user_id) throw new Error(SETUP_STATUS_UNAVAILABLE)
 
     const { resolveClerkUserToAuthContext } = await import('@open-mercato/shared/lib/auth/clerk')
     const auth = await resolveClerkUserToAuthContext(noliUser.clerk_user_id)
-    if (!auth?.orgId) return NextResponse.json({ exists: false })
-    const orgId = auth.orgId as string
+    if (!auth?.orgId || !auth.tenantId) throw new Error(SETUP_STATUS_UNAVAILABLE)
+    const orgId = auth.orgId
+    const tenantId = auth.tenantId
 
     const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     const count = async (table: string, extra?: (q: ReturnType<typeof knex>) => void) => {
-      try {
-        const q = knex(table).where('organization_id', orgId)
-        if (extra) extra(q as ReturnType<typeof knex>)
-        const r = (await q.count({ n: '*' }).first()) as { n?: string | number } | undefined
-        return Number(r?.n ?? 0)
-      } catch {
-        return 0
-      }
+      const q = knex(table)
+        .where('organization_id', orgId)
+        .where('tenant_id', tenantId)
+      if (extra) extra(q as ReturnType<typeof knex>)
+      const row = (await q.count({ n: '*' }).first()) as { n?: string | number } | undefined
+      return readCount(row)
     }
 
     const [contacts, landingPages, bookingPages, emailConnections] = await Promise.all([
@@ -69,8 +100,8 @@ export async function POST(req: Request) {
       hasCapturePage: landingPages > 0 || bookingPages > 0,
       emailConnected: emailConnections > 0,
     })
-  } catch (err) {
-    console.error('[internal.setup-status]', err)
-    return NextResponse.json({ exists: false })
+  } catch {
+    console.error('[internal.setup-status] setup_status_unavailable')
+    return unavailableResponse()
   }
 }
