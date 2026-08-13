@@ -15,6 +15,10 @@ import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacS
 import { findApiKeyBySecret, findSessionApiKeyWithSecret } from '@open-mercato/core/modules/api_keys/services/apiKeyService'
 import { MCP_BOOTSTRAP_INSTRUCTIONS } from './agent-guide-tool'
 import { createRunOncePerOwner, listenBeforeOptionalStartupTask } from './optional-startup-task'
+import {
+  MCP_AUTH_UNAVAILABLE_RESPONSE,
+  resolveServerApiKey,
+} from './server-api-key-lookup'
 
 /**
  * Options for the HTTP MCP server.
@@ -439,12 +443,18 @@ export async function runMcpHttpServer(options: McpHttpServerOptions): Promise<v
 
     // Validate API key against database (prefix lookup + bcrypt verify + expiry check)
     const em = container.resolve<EntityManager>('em')
-    const apiKeyRecord = await findApiKeyBySecret(em, providedApiKey)
-    if (!apiKeyRecord) {
+    const apiKeyLookup = await resolveServerApiKey(em, providedApiKey, findApiKeyBySecret)
+    if (apiKeyLookup.status === 'unavailable') {
+      res.writeHead(MCP_AUTH_UNAVAILABLE_RESPONSE.status, MCP_AUTH_UNAVAILABLE_RESPONSE.headers)
+      res.end(MCP_AUTH_UNAVAILABLE_RESPONSE.body)
+      return
+    }
+    if (apiKeyLookup.status === 'invalid') {
       res.writeHead(401, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: 'Invalid or expired API key' }))
       return
     }
+    const apiKeyRecord = apiKeyLookup.record
 
     if (config.debug) {
       console.error(`[MCP HTTP] Server-level auth passed (${req.method}) - API key: ${apiKeyRecord.keyPrefix}...`)
