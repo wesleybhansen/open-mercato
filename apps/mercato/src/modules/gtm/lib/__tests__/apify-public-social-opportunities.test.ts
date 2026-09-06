@@ -1290,7 +1290,7 @@ describe('Apify public social demand opportunities', () => {
       APIFY_REDDIT_THREAD_OPPORTUNITY_CONFIG.actorId,
       {
         queries: ['house hunting subreddit:Austin'],
-        maxPostsPerQuery: 10,
+        maxPostsPerQuery: 5,
         sort: 'new',
         maxCommentsPerPost: 1,
         expandAllComments: false,

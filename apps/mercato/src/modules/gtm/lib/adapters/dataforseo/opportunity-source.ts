@@ -469,7 +469,7 @@ function messageAngle(
   if (intent === 'mixed_intent') {
     return 'Address the buy-versus-sell decision with a clear sequence and local tradeoffs.'
   }
-  return 'Contribute locally useful information that fits the community or event context.'
+  return 'Contribute useful, specific information that fits the community or event context.'
 }
 
 const MONTH_NAME =

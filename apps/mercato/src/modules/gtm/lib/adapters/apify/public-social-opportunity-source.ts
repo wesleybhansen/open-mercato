@@ -680,7 +680,10 @@ export const APIFY_REDDIT_THREAD_OPPORTUNITY_CONFIG: PublicSocialOpportunityConf
     }
     return {
       queries: [`${query} subreddit:${subreddits[0]}`],
-      maxPostsPerQuery: Math.max(1, Math.min(10, maxResults)),
+      // Apify's maxItems does not stop a pay-per-event actor; only the input
+      // bounds what it produces. Each post brings one comment, so ask for
+      // half the quoted rows or the billed count exceeds the bounded dataset.
+      maxPostsPerQuery: Math.max(1, Math.min(5, Math.floor(maxResults / 2))),
       sort: 'new',
       maxCommentsPerPost: 1,
       expandAllComments: false,
