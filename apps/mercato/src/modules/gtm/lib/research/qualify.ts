@@ -717,7 +717,9 @@ function scoreOpportunity(
       ? FIT_REASONS.expiredDestination
       : destination.issues.includes('missing_or_invalid_public_destination')
         ? FIT_REASONS.missingDestination
-        : FIT_REASONS.inaccessibleDestination
+        : destination.issues.includes('stale_destination')
+          ? FIT_REASONS.staleSignal
+          : FIT_REASONS.inaccessibleDestination
     return result(Math.min(fitScore, 20), 'rejected', reason, breakdown, unknowns, contradictions, profile, criteria)
   }
   if (intentStatus === 'fail') {

@@ -171,7 +171,7 @@ export function publicOpportunityIdentity(args: {
     recommended_action:
       'Read the full public conversation and contribute one useful response manually when it is relevant and permitted.',
     message_angle:
-      'Answer the specific buyer or seller question with practical local information before mentioning your services.',
+      'Answer the specific question with practical, concrete information before mentioning your services.',
     people_to_follow: args.people,
   }
 }

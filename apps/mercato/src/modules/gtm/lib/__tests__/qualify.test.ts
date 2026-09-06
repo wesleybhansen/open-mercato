@@ -195,6 +195,44 @@ describe('ruleBasedFitScorer', () => {
     expect(result.unknowns).not.toContain('opportunity.actionability')
   })
 
+  it('labels a public post outside the recency window as stale, not inaccessible', () => {
+    const result = ruleBasedFitScorer.score(
+      {
+        entity_kind: 'opportunity',
+        identity: {
+          name: 'Austin first-home negotiation question',
+          opportunity_kind: 'thread',
+          platform: 'Reddit',
+          audience_description: 'I am buying my first home in Austin. How should I respond to this counteroffer?',
+          location: 'Austin, Texas',
+          access_type: 'public',
+          // 40 days before the reference time on a 30-day play.
+          source_published_at: '2026-07-20T10:00:00.000Z',
+          urls: ['https://www.reddit.com/r/FirstTimeHomeBuyer/comments/example/stale'],
+          participation_rules: 'Review the current Reddit community and thread rules before participating.',
+          participation_rules_status: 'unverified',
+          recommended_action: 'Read the full public conversation and contribute one useful response manually.',
+          message_angle: 'Answer the negotiation question before mentioning professional services.',
+        },
+      },
+      {
+        entityUnit: 'opportunities',
+        geography: 'Austin, Texas',
+        audience: 'People preparing to buy a home in Austin',
+        signal: 'A current public buyer question demonstrates intent',
+        referenceTime: '2026-08-29T12:00:00.000Z',
+        recencyWindow: '30 days',
+        providerQuery: { opportunity_intent_lane: 'buyer_intent' },
+      },
+      strongEvidence,
+    )
+
+    // The destination is perfectly reachable; it is simply too old for the
+    // play. Operators must see the recency reason, not "inaccessible".
+    expect(result.verdict).toBe('rejected')
+    expect(result.reason).toBe('outside_signal_recency_window')
+  })
+
   it('recognizes a direct seller request while keeping unverified thread rules in review', () => {
     const sourceUrl = 'https://www.reddit.com/r/askaustin/comments/1vi5hvd/south_austin_realtor_recommendation/'
     const content = [

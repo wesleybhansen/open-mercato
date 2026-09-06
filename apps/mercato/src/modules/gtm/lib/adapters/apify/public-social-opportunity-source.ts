@@ -680,7 +680,7 @@ export const APIFY_REDDIT_THREAD_OPPORTUNITY_CONFIG: PublicSocialOpportunityConf
     }
     return {
       queries: [`${query} subreddit:${subreddits[0]}`],
-      maxPostsPerQuery: Math.max(1, Math.min(5, Math.floor(maxResults / 2))),
+      maxPostsPerQuery: Math.max(1, Math.min(10, maxResults)),
       sort: 'new',
       maxCommentsPerPost: 1,
       expandAllComments: false,
@@ -2472,7 +2472,7 @@ function commonIdentity(args: {
     recommended_action:
       'Read the full public conversation and contribute one useful response manually when it is relevant and permitted.',
     message_angle:
-      'Answer the specific buyer or seller question with practical local information before mentioning your services.',
+      'Answer the specific question with practical, concrete information before mentioning your services.',
     people_to_follow: args.people,
   }
 }
