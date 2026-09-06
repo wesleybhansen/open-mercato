@@ -308,6 +308,9 @@ function expectedOpportunityIntent(play: FitPlayInput): string[] {
   return inferred ? [inferred] : []
 }
 
+const GENERIC_PUBLIC_ASK =
+  /\b(?:how (?:do|can|should|would) (?:i|you|we)|should i|anyone (?:else|know|have|tried)|any (?:advice|tips|recommendations)|advice on|looking for (?:advice|feedback|help)|help me|i(?:'m| am) (?:trying|stuck|struggling|looking)|i want to|i need to|where do i|what(?:'s| is) the best way|feedback on)\b/i
+
 function intentMatchesLane(expected: string[], observed: string): boolean {
   if (expected.includes(observed)) return true
   // A local-audience play asks for public places where relevant consumers
@@ -371,10 +374,17 @@ function geographyCriterionStatus(
   if (expectedUs && countryCode && countryCode !== 'US' && countryCode !== 'USA') return 'fail'
   if (expected.some((value) => opportunityHasContradictoryUsState(returnedText, value))) return 'fail'
   if (expected.some((value) => demonstratedOpportunityLocation(returnedText, value))) return 'pass'
+  const countryAlias = ALIAS_CANONICAL.get('united states')
+  const expectedTokens = expected
+    .flatMap(meaningfulTokens)
+    .filter((value) => value !== 'united' && value !== 'states' && value !== 'america' && value !== countryAlias)
+  // A country-only US play has no location of its own to prove (see
+  // derivedPlayGeography): the non-US country check above is the whole rule.
+  // Before this, every nationwide play sent each social row to review because a
+  // Reddit or X post names no place (benchmark 2026-09-05, run 7).
+  if (expectedTokens.length === 0 && expectedUs) return 'pass'
   if (observed.length === 0) return 'unknown'
-  const expectedTokens = expected.flatMap(meaningfulTokens).filter((value) => value !== 'united' && value !== 'states')
   const observedTokens = new Set(observed.flatMap(meaningfulTokens))
-  if (expectedTokens.length === 0 && expectedUs) return countryCode === 'US' || countryCode === 'USA' ? 'pass' : 'unknown'
   if (expectedTokens.some((token) => observedTokens.has(token))) return 'pass'
   if (targeting.length > 0 && semanticallyMatches(expected, targeting.join('\n'))) return 'unknown'
   return 'fail'
@@ -543,9 +553,21 @@ function scoreOpportunity(
           ? 'fail'
           : 'unknown'
   const observedIntent = demonstratedIntent.kind
+  // The intent classifier is the realtor phrase bank, so a founder asking
+  // "how do you validate a business idea" classifies as nothing. For a
+  // non-realtor buyer or mixed lane, a first-person ask in text that already
+  // matches the play audience is the demand the play describes.
+  const genericAsk =
+    !isRealtorPlay
+    && observedIntent == null
+    && audienceStatus === 'pass'
+    && expectedIntent.some((lane) => lane === 'buyer_intent' || lane === 'mixed_intent')
+    && GENERIC_PUBLIC_ASK.test(observedText)
   const intentStatus =
-    expectedIntent.length === 0 || observedIntent == null
+    expectedIntent.length === 0
       ? 'unknown'
+      : observedIntent == null
+        ? genericAsk ? 'pass' : 'unknown'
       : intentMatchesLane(expectedIntent, observedIntent)
         ? 'pass'
         : 'fail'
@@ -587,8 +609,11 @@ function scoreOpportunity(
     && freshStatus === 'pass'
     && destination.ageDays != null
     && intentStatus === 'pass'
-    && (observedIntent === 'buyer_intent' || observedIntent === 'seller_intent' || observedIntent === 'mixed_intent')
-    && FIRST_PERSON_INTENT.test(observedText)
+    // A generic ask carries its own first-person demand (GENERIC_PUBLIC_ASK);
+    // the realtor classifier's kinds and phrase bank are the other route.
+    && (genericAsk
+      || ((observedIntent === 'buyer_intent' || observedIntent === 'seller_intent' || observedIntent === 'mixed_intent')
+        && FIRST_PERSON_INTENT.test(observedText)))
   const actionability = opportunityActionabilityStatus({
     recommendedAction,
     messageAngle,

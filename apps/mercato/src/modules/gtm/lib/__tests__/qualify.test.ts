@@ -233,6 +233,52 @@ describe('ruleBasedFitScorer', () => {
     expect(result.reason).toBe('outside_signal_recency_window')
   })
 
+  it('accepts a nationwide founder ask on a public thread without a place or realtor phrasing', () => {
+    const content = [
+      'How do you validate a business idea before building it?',
+      'Hey everyone, I am working on a new idea and before I sink any more time into it I want to know how you validated yours.',
+    ].join(' ')
+    const result = ruleBasedFitScorer.score(
+      {
+        entity_kind: 'opportunity',
+        identity: {
+          name: 'How do you validate a business idea before building it?',
+          opportunity_kind: 'thread',
+          platform: 'Reddit',
+          audience_description: content,
+          access_type: 'public',
+          source_published_at: '2026-08-20T10:00:00.000Z',
+          urls: ['https://www.reddit.com/r/SideProject/comments/example/how_do_you_validate/'],
+          participation_rules: 'Review the current Reddit community and thread rules before participating.',
+          participation_rules_status: 'unverified',
+          recommended_action: 'Read the full public conversation and contribute one useful response manually.',
+          message_angle: 'Answer the specific question with practical, concrete information before mentioning your services.',
+        },
+      },
+      {
+        entityUnit: 'opportunities',
+        geography: 'United States',
+        audience: 'Aspiring founders on Reddit asking how to validate a business idea',
+        signal: 'publicly posted asking how to validate an early business idea',
+        referenceTime: '2026-08-29T12:00:00.000Z',
+        recencyWindow: '90 days',
+        providerQuery: { opportunity_intent_lane: 'buyer_intent', locations: ['United States'] },
+      },
+      strongEvidence,
+    )
+
+    // A country-only play has no place to prove, and a first-person ask that
+    // matches the audience is the buyer intent the play describes. Run 7 of the
+    // 2026-09-05 benchmark held exactly this row in review on both.
+    expect(result.criteria).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'geography.location', status: 'pass' }),
+        expect.objectContaining({ id: 'opportunity.intent', status: 'pass' }),
+      ]),
+    )
+    expect(result.verdict).toBe('accepted')
+  })
+
   it('recognizes a direct seller request while keeping unverified thread rules in review', () => {
     const sourceUrl = 'https://www.reddit.com/r/askaustin/comments/1vi5hvd/south_austin_realtor_recommendation/'
     const content = [
