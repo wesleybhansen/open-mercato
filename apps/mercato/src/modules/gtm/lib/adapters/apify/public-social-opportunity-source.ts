@@ -579,7 +579,13 @@ export const APIFY_REDDIT_THREAD_OPPORTUNITY_CONFIG: PublicSocialOpportunityConf
   platform: 'Reddit',
   enabledEnv: 'GTM_APIFY_REDDIT_THREAD_OPPORTUNITY_ENABLED',
   actorId: 'clearpath/reddit-post-comments-bulk-scraper',
-  actorBuild: '0.0.60',
+  // 0.0.60 was deleted by the developer on Apify (only 0.0.65 to 0.0.68 remain),
+  // which Apify reports as HTTP 403 "build-not-found" rather than a 404. Re-pinned
+  // 2026-09-05 after confirming 0.0.68 keeps the same four event prices and the
+  // same input fields (queries, maxPostsPerQuery, maxCommentsPerPost, sort,
+  // expandAllComments). A build pin can rot this way; a 403 from a paid actor
+  // that the account is otherwise authorised for means check the builds list.
+  actorBuild: '0.0.68',
   actorEnv: 'GTM_APIFY_ACTOR_REDDIT_THREAD_SEARCH',
   useApprovalEnv: 'GTM_APIFY_REDDIT_THREAD_OPPORTUNITY_USE_APPROVED',
   priceVersionEnv: 'GTM_APIFY_REDDIT_THREAD_SEARCH_PRICE_VERSION',
@@ -588,7 +594,7 @@ export const APIFY_REDDIT_THREAD_OPPORTUNITY_CONFIG: PublicSocialOpportunityConf
   // every returned row. A post is the most expensive possible row, so the
   // quote reserves that price for every slot and reconciles the cheaper
   // comment mix only after finalized provider event counts arrive.
-  requiredPriceVersion: 'clearpath-reddit-post-comments-0.0.60-starter-events-2026-08-30',
+  requiredPriceVersion: 'clearpath-reddit-post-comments-0.0.68-starter-events-2026-09-05',
   eventPricesUsd: {
     'apify-actor-start': 0.0005,
     'apify-default-dataset-item': 0.00001,

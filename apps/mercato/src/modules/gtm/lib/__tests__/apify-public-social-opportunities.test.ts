@@ -313,8 +313,8 @@ describe('Apify public social demand opportunities', () => {
   it('pins Reddit post-and-comment reservations to exact Starter event prices', () => {
     expect(APIFY_REDDIT_THREAD_OPPORTUNITY_CONFIG).toMatchObject({
       actorId: 'clearpath/reddit-post-comments-bulk-scraper',
-      actorBuild: '0.0.60',
-      requiredPriceVersion: 'clearpath-reddit-post-comments-0.0.60-starter-events-2026-08-30',
+      actorBuild: '0.0.68',
+      requiredPriceVersion: 'clearpath-reddit-post-comments-0.0.68-starter-events-2026-09-05',
       eventPricesUsd: {
         'apify-actor-start': 0.0005,
         'apify-default-dataset-item': 0.00001,
@@ -1296,7 +1296,7 @@ describe('Apify public social demand opportunities', () => {
         expandAllComments: false,
       },
       expect.objectContaining({
-        build: '0.0.60',
+        build: '0.0.68',
         maxItems: 10,
         maxChargeUsd: 0.0305,
       }),
