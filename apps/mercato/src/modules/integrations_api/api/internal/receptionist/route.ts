@@ -33,16 +33,35 @@ function safeEq(a: string, b: string): boolean {
  * `tz` equals the given components. Two-pass offset correction handles DST. */
 function tzOffsetMs(tz: string, utc: Date): number {
   const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   })
   const p: Record<string, string> = {}
   for (const part of dtf.formatToParts(utc)) p[part.type] = part.value
-  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +(p.hour === '24' ? '00' : p.hour), +p.minute, +p.second)
+  const asUtc = Date.UTC(
+    +p.year,
+    +p.month - 1,
+    +p.day,
+    +(p.hour === '24' ? '00' : p.hour),
+    +p.minute,
+    +p.second,
+  )
   return asUtc - utc.getTime()
 }
-function zonedToUtc(tz: string, y: number, m: number, d: number, hh: number, mm: number): Date {
+function zonedToUtc(
+  tz: string,
+  y: number,
+  m: number,
+  d: number,
+  hh: number,
+  mm: number,
+): Date {
   const guess = new Date(Date.UTC(y, m - 1, d, hh, mm))
   const off1 = tzOffsetMs(tz, guess)
   const better = new Date(guess.getTime() - off1)
@@ -56,29 +75,51 @@ export async function POST(req: Request) {
   const secret = process.env.NOLI_INTERNAL_SERVICE_SECRET
   const authHeader = (req.headers.get('authorization') || '').trim()
   if (!secret || !safeEq(authHeader, `Bearer ${secret}`)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+    return NextResponse.json(
+      { ok: false, error: 'unauthorized' },
+      { status: 401 },
+    )
   }
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const op = typeof body.op === 'string' ? body.op : ''
-  const noliUserId = typeof body.noliUserId === 'string' ? body.noliUserId.trim() : ''
+  const noliUserId =
+    typeof body.noliUserId === 'string' ? body.noliUserId.trim() : ''
   if (!op || !noliUserId) {
-    return NextResponse.json({ ok: false, error: 'op and noliUserId are required' }, { status: 400 })
+    return NextResponse.json(
+      { ok: false, error: 'op and noliUserId are required' },
+      { status: 400 },
+    )
   }
 
   try {
-    const { findNoliUserById } = await import('@open-mercato/shared/lib/noli/core-client')
+    const { findNoliUserById, isEntitled } =
+      await import('@open-mercato/shared/lib/noli/core-client')
     const noliUser = await findNoliUserById(noliUserId)
     if (!noliUser?.clerk_user_id) {
-      return NextResponse.json({ ok: false, error: 'noli user not found' }, { status: 404 })
+      return NextResponse.json(
+        { ok: false, error: 'noli user not found' },
+        { status: 404 },
+      )
     }
-    const { resolveClerkUserToAuthContext } = await import('@open-mercato/shared/lib/auth/clerk')
+    if (!(await isEntitled(noliUser.id, 'receptionist'))) {
+      return NextResponse.json(
+        { ok: false, error: 'receptionist access unavailable' },
+        { status: 403 },
+      )
+    }
+    const { resolveClerkUserToAuthContext } =
+      await import('@open-mercato/shared/lib/auth/clerk')
     const auth = await resolveClerkUserToAuthContext(noliUser.clerk_user_id)
     if (!auth?.userId || !auth?.orgId || !auth?.tenantId) {
-      return NextResponse.json({ ok: false, error: 'user has no CRM access' }, { status: 403 })
+      return NextResponse.json(
+        { ok: false, error: 'user has no CRM access' },
+        { status: 403 },
+      )
     }
 
-    const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
+    const { createRequestContainer } =
+      await import('@open-mercato/shared/lib/di/container')
     const container = await createRequestContainer()
     const em = container.resolve('em') as EntityManager
     const knex = em.getKnex()
@@ -87,7 +128,8 @@ export async function POST(req: Request) {
     if (op === 'contact-by-phone') {
       const phone = typeof body.phone === 'string' ? body.phone : ''
       const digits = phone.replace(/\D/g, '')
-      if (digits.length < 7) return NextResponse.json({ ok: true, found: false })
+      if (digits.length < 7)
+        return NextResponse.json({ ok: true, found: false })
       const last10 = digits.slice(-10)
       // Match on the last 10 digits so +1/1-/formatting differences don't miss.
       const row = await knex('customer_entities')
@@ -95,7 +137,9 @@ export async function POST(req: Request) {
         .where('tenant_id', String(auth.tenantId))
         .where('status', 'active')
         .whereNotNull('primary_phone')
-        .whereRaw("regexp_replace(primary_phone, '\\D', '', 'g') like ?", [`%${last10}`])
+        .whereRaw("regexp_replace(primary_phone, '\\D', '', 'g') like ?", [
+          `%${last10}`,
+        ])
         .select('id', 'display_name', 'lifecycle_stage')
         .first()
       if (!row) return NextResponse.json({ ok: true, found: false })
@@ -105,7 +149,10 @@ export async function POST(req: Request) {
         .where('organization_id', String(auth.orgId))
         .where('status', 'confirmed')
         .where('start_time', '>', new Date())
-        .whereRaw("regexp_replace(coalesce(guest_phone,''), '\\D', '', 'g') like ?", [`%${last10}`])
+        .whereRaw(
+          "regexp_replace(coalesce(guest_phone,''), '\\D', '', 'g') like ?",
+          [`%${last10}`],
+        )
         .orderBy('start_time', 'asc')
         .select('start_time')
         .first()
@@ -115,7 +162,9 @@ export async function POST(req: Request) {
         contactId: row.id,
         name: row.display_name,
         stage: row.lifecycle_stage || null,
-        upcomingBooking: nextBooking ? new Date(nextBooking.start_time).toISOString() : null,
+        upcomingBooking: nextBooking
+          ? new Date(nextBooking.start_time).toISOString()
+          : null,
       })
     }
 
@@ -127,12 +176,17 @@ export async function POST(req: Request) {
       .orderBy('created_at', 'asc')
       .first()
     if (!page) {
-      return NextResponse.json({ ok: false, error: 'no active booking page', code: 'no_booking_page' }, { status: 404 })
+      return NextResponse.json(
+        { ok: false, error: 'no active booking page', code: 'no_booking_page' },
+        { status: 404 },
+      )
     }
     const tz = page.timezone || 'America/Los_Angeles'
     const durationMin = page.duration_minutes || 30
     const availability =
-      typeof page.availability === 'string' ? JSON.parse(page.availability) : page.availability || {}
+      typeof page.availability === 'string'
+        ? JSON.parse(page.availability)
+        : page.availability || {}
 
     /* ── availability: generate open slots for the next N days ───────── */
     if (op === 'availability') {
@@ -157,30 +211,47 @@ export async function POST(req: Request) {
       // failed Google call must not stall the phone call).
       if (page.owner_user_id) {
         try {
-          const { getGoogleBusyTimes } = await import('@/modules/calendar/lib/google-calendar-service')
+          const { getGoogleBusyTimes } =
+            await import('@/modules/calendar/lib/google-calendar-service')
           const g = (await Promise.race([
             getGoogleBusyTimes(page.owner_user_id, now, horizon),
             new Promise((resolve) => setTimeout(() => resolve([]), 2500)),
           ])) as Array<{ start: string; end: string }>
-          for (const bt of g || []) busy.push({ start: new Date(bt.start), end: new Date(bt.end) })
-        } catch { /* offer CRM-only availability */ }
+          for (const bt of g || [])
+            busy.push({ start: new Date(bt.start), end: new Date(bt.end) })
+        } catch {
+          /* offer CRM-only availability */
+        }
       }
 
-      const slots: Array<{ slotId: string; label: string; startISO: string }> = []
+      const slots: Array<{ slotId: string; label: string; startISO: string }> =
+        []
       for (let dayOff = 0; dayOff <= days && slots.length < max; dayOff++) {
         const probe = new Date(now.getTime() + dayOff * 86_400_000)
         const parts = new Intl.DateTimeFormat('en-CA', {
-          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
+          timeZone: tz,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          weekday: 'short',
         }).formatToParts(probe)
         const get = (t: string) => parts.find((p) => p.type === t)?.value || ''
         const dayKey = get('weekday').toLowerCase().slice(0, 3)
         if (!DAY_KEYS.includes(dayKey)) continue
-        const range = availability?.[dayKey] as { start?: string; end?: string } | undefined
+        const range = availability?.[dayKey] as
+          | { start?: string; end?: string }
+          | undefined
         if (!range?.start || !range?.end) continue
         const [sh, sm] = range.start.split(':').map(Number)
         const [eh, em2] = range.end.split(':').map(Number)
-        const y = Number(get('year')), mo = Number(get('month')), d = Number(get('day'))
-        for (let t = sh * 60 + (sm || 0); t + durationMin <= eh * 60 + (em2 || 0); t += durationMin) {
+        const y = Number(get('year')),
+          mo = Number(get('month')),
+          d = Number(get('day'))
+        for (
+          let t = sh * 60 + (sm || 0);
+          t + durationMin <= eh * 60 + (em2 || 0);
+          t += durationMin
+        ) {
           const start = zonedToUtc(tz, y, mo, d, Math.floor(t / 60), t % 60)
           const end = new Date(start.getTime() + durationMin * 60000)
           if (start.getTime() < now.getTime() + leadMs) continue
@@ -189,25 +260,49 @@ export async function POST(req: Request) {
             slotId: `${page.id}|${start.toISOString()}`,
             startISO: start.toISOString(),
             label: start.toLocaleString('en-US', {
-              timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+              timeZone: tz,
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
             }),
           })
           if (slots.length >= max) break
         }
       }
-      return NextResponse.json({ ok: true, timezone: tz, durationMinutes: durationMin, slots })
+      return NextResponse.json({
+        ok: true,
+        timezone: tz,
+        durationMinutes: durationMin,
+        slots,
+      })
     }
 
     /* ── book: same guards as the public booking POST ─────────────────── */
     if (op === 'book') {
       const slotId = typeof body.slotId === 'string' ? body.slotId : ''
-      const callerName = typeof body.callerName === 'string' ? body.callerName.trim() : ''
-      const callerPhone = typeof body.callerPhone === 'string' ? body.callerPhone.trim() : ''
+      const callerName =
+        typeof body.callerName === 'string' ? body.callerName.trim() : ''
+      const callerPhone =
+        typeof body.callerPhone === 'string' ? body.callerPhone.trim() : ''
       const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
       const [pageId, startISO] = slotId.split('|')
       const start = new Date(startISO || '')
-      if (!pageId || pageId !== String(page.id) || Number.isNaN(start.getTime()) || !callerName || !callerPhone) {
-        return NextResponse.json({ ok: false, error: 'valid slotId, callerName, callerPhone required' }, { status: 400 })
+      if (
+        !pageId ||
+        pageId !== String(page.id) ||
+        Number.isNaN(start.getTime()) ||
+        !callerName ||
+        !callerPhone
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'valid slotId, callerName, callerPhone required',
+          },
+          { status: 400 },
+        )
       }
       const end = new Date(start.getTime() + durationMin * 60000)
       const digits = callerPhone.replace(/\D/g, '').slice(-10)
@@ -218,10 +313,17 @@ export async function POST(req: Request) {
         .where('booking_page_id', page.id)
         .where('start_time', start)
         .whereIn('status', ['confirmed', 'pending'])
-        .whereRaw("regexp_replace(coalesce(guest_phone,''), '\\D', '', 'g') like ?", [`%${digits}`])
+        .whereRaw(
+          "regexp_replace(coalesce(guest_phone,''), '\\D', '', 'g') like ?",
+          [`%${digits}`],
+        )
         .first()
       if (dupe) {
-        return NextResponse.json({ ok: true, alreadyBooked: true, bookingId: dupe.id })
+        return NextResponse.json({
+          ok: true,
+          alreadyBooked: true,
+          bookingId: dupe.id,
+        })
       }
 
       // Best-effort Google re-check at book time: the availability pass may have
@@ -229,7 +331,8 @@ export async function POST(req: Request) {
       // slot we offered. A slow/failed check must not stall the live call.
       if (page.owner_user_id) {
         try {
-          const { getGoogleBusyTimes } = await import('@/modules/calendar/lib/google-calendar-service')
+          const { getGoogleBusyTimes } =
+            await import('@/modules/calendar/lib/google-calendar-service')
           const gBusy = (await Promise.race([
             getGoogleBusyTimes(page.owner_user_id, start, end),
             new Promise((resolve) => setTimeout(() => resolve([]), 2000)),
@@ -238,9 +341,18 @@ export async function POST(req: Request) {
             (bt) => new Date(bt.start) < end && new Date(bt.end) > start,
           )
           if (conflict) {
-            return NextResponse.json({ ok: false, error: 'slot no longer available', code: 'slot_taken' }, { status: 409 })
+            return NextResponse.json(
+              {
+                ok: false,
+                error: 'slot no longer available',
+                code: 'slot_taken',
+              },
+              { status: 409 },
+            )
           }
-        } catch { /* book on CRM data only */ }
+        } catch {
+          /* book on CRM data only */
+        }
       }
 
       const id = crypto.randomUUID()
@@ -275,21 +387,37 @@ export async function POST(req: Request) {
           confirmation_token: null,
           confirmation_token_expires_at: null,
           confirmed_at: autoConfirm ? new Date() : null,
-          notes: reason ? `Booked by the AI receptionist. Caller said: ${reason}` : 'Booked by the AI receptionist.',
+          notes: reason
+            ? `Booked by the AI receptionist. Caller said: ${reason}`
+            : 'Booked by the AI receptionist.',
           created_at: new Date(),
         })
       })
       if (slotTaken) {
-        return NextResponse.json({ ok: false, error: 'slot no longer available', code: 'slot_taken' }, { status: 409 })
+        return NextResponse.json(
+          { ok: false, error: 'slot no longer available', code: 'slot_taken' },
+          { status: 409 },
+        )
       }
 
       // Contact dedup/create, same as the public flow (phone-first here).
       let contactId: string | null = null
       try {
-        const { findOrMergeContact } = await import('@/modules/customers/lib/dedup')
-        const dd = await findOrMergeContact(knex, page.organization_id, page.tenant_id, '', callerName, callerPhone, em)
+        const { findOrMergeContact } =
+          await import('@/modules/customers/lib/dedup')
+        const dd = await findOrMergeContact(
+          knex,
+          page.organization_id,
+          page.tenant_id,
+          '',
+          callerName,
+          callerPhone,
+          em,
+        )
         if (dd?.existing) contactId = dd.existing.id
-      } catch { /* fall through to create */ }
+      } catch {
+        /* fall through to create */
+      }
       if (!contactId) {
         contactId = crypto.randomUUID()
         await knex('customer_entities')
@@ -307,7 +435,9 @@ export async function POST(req: Request) {
             created_at: new Date(),
             updated_at: new Date(),
           })
-          .catch(() => { contactId = null })
+          .catch(() => {
+            contactId = null
+          })
       }
 
       return NextResponse.json({
@@ -316,14 +446,25 @@ export async function POST(req: Request) {
         contactId,
         confirmed: autoConfirm,
         label: start.toLocaleString('en-US', {
-          timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          timeZone: tz,
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
         }),
       })
     }
 
-    return NextResponse.json({ ok: false, error: `unknown op: ${op}` }, { status: 400 })
+    return NextResponse.json(
+      { ok: false, error: `unknown op: ${op}` },
+      { status: 400 },
+    )
   } catch (e) {
     console.error('[internal/receptionist] failed:', (e as Error).message)
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: (e as Error).message },
+      { status: 500 },
+    )
   }
 }

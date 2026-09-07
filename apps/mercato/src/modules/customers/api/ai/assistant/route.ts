@@ -1,12 +1,18 @@
 // ORM-SKIP: AI generation/analysis — complex prompt construction, not CRUD
-export const metadata = { path: '/ai/assistant', POST: { requireAuth: true } }
+export const metadata = {
+  path: '/ai/assistant',
+  POST: { requireAuth: true, requireFeatures: ['ai_assistant.view'] },
+}
 
 import { NextResponse } from 'next/server'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { buildPersonaPrompt, getPersonaForOrg } from '../persona'
-import { ALLOWANCE_BLOCK_MESSAGE, checkCustomersAiAllowance } from '@/lib/usage/allowance'
+import {
+  ALLOWANCE_BLOCK_MESSAGE,
+  checkCustomersAiAllowance,
+} from '@/lib/usage/allowance'
 import {
   resolveFallbackProviderAccess,
   resolvePrimaryProviderAccess,
@@ -20,41 +26,76 @@ import { renderToolCatalogForPrompt } from '@/modules/customers/lib/crm-tool-cat
 // Decrypt display_name + primary_email on a list of customer_entities rows.
 // Raw knex reads ciphertext when tenant encryption is on; without this the
 // prompt/search results would contain strings like "/ZM4KCJlABv/1CX2:XT1...".
-async function decryptContactRows(em: EntityManager, rows: any[], tenantId: string, orgId: string): Promise<any[]> {
+async function decryptContactRows(
+  em: EntityManager,
+  rows: any[],
+  tenantId: string,
+  orgId: string,
+): Promise<any[]> {
   if (!rows.length || !isTenantDataEncryptionEnabled()) return rows
   try {
-    const svc = new TenantDataEncryptionService(em as any, { kms: createKmsService() })
-    return await Promise.all(rows.map(async (r) => {
-      try {
-        const dec = await svc.decryptEntityPayload('customers:customer_entity', { display_name: r.display_name, primary_email: r.primary_email }, tenantId, orgId)
-        return { ...r, display_name: dec.display_name ?? r.display_name, primary_email: dec.primary_email ?? r.primary_email }
-      } catch {
-        return r
-      }
-    }))
+    const svc = new TenantDataEncryptionService(em as any, {
+      kms: createKmsService(),
+    })
+    return await Promise.all(
+      rows.map(async (r) => {
+        try {
+          const dec = await svc.decryptEntityPayload(
+            'customers:customer_entity',
+            { display_name: r.display_name, primary_email: r.primary_email },
+            tenantId,
+            orgId,
+          )
+          return {
+            ...r,
+            display_name: dec.display_name ?? r.display_name,
+            primary_email: dec.primary_email ?? r.primary_email,
+          }
+        } catch {
+          return r
+        }
+      }),
+    )
   } catch {
     return rows
   }
 }
 
 // Deal titles are also encrypted (customers:customer_deal → title, description).
-async function decryptDealRows(em: EntityManager, rows: any[], tenantId: string, orgId: string): Promise<any[]> {
+async function decryptDealRows(
+  em: EntityManager,
+  rows: any[],
+  tenantId: string,
+  orgId: string,
+): Promise<any[]> {
   if (!rows.length || !isTenantDataEncryptionEnabled()) return rows
   try {
-    const svc = new TenantDataEncryptionService(em as any, { kms: createKmsService() })
-    return await Promise.all(rows.map(async (r) => {
-      try {
-        const dec = await svc.decryptEntityPayload('customers:customer_deal', { title: r.title, description: r.description }, tenantId, orgId)
-        return { ...r, title: dec.title ?? r.title, description: dec.description ?? r.description }
-      } catch {
-        return r
-      }
-    }))
+    const svc = new TenantDataEncryptionService(em as any, {
+      kms: createKmsService(),
+    })
+    return await Promise.all(
+      rows.map(async (r) => {
+        try {
+          const dec = await svc.decryptEntityPayload(
+            'customers:customer_deal',
+            { title: r.title, description: r.description },
+            tenantId,
+            orgId,
+          )
+          return {
+            ...r,
+            title: dec.title ?? r.title,
+            description: dec.description ?? r.description,
+          }
+        } catch {
+          return r
+        }
+      }),
+    )
   } catch {
     return rows
   }
 }
-
 
 const CRM_INSTRUCTIONS = `You are Scout, an AI assistant built into a CRM platform designed for solopreneurs and small businesses. You help users navigate the app, answer questions about their data, and take actions on their behalf.
 
@@ -241,83 +282,165 @@ ANSWERING RULES:
 - Use markdown: **bold**, *italic*, bullet lists with -, and [links](/path).`
 
 // Query CRM data to give Scout context about the user's actual data
-async function buildDataContext(knex: any, orgId: string, tenantId: string, em: EntityManager): Promise<string> {
+async function buildDataContext(
+  knex: any,
+  orgId: string,
+  tenantId: string,
+  em: EntityManager,
+): Promise<string> {
   const sections: string[] = []
 
   try {
     // Pipeline mode + stages — so Scout uses the right vocabulary when the
     // user asks to move a contact/deal "to the next stage" etc.
-    const profile = await knex('business_profiles').where('organization_id', orgId).first()
+    const profile = await knex('business_profiles')
+      .where('organization_id', orgId)
+      .first()
     const pipelineMode: string = profile?.pipeline_mode || 'deals'
     let stageNames: string[] = []
     if (profile?.pipeline_stages) {
       try {
-        const parsed = typeof profile.pipeline_stages === 'string'
-          ? JSON.parse(profile.pipeline_stages)
-          : profile.pipeline_stages
+        const parsed =
+          typeof profile.pipeline_stages === 'string'
+            ? JSON.parse(profile.pipeline_stages)
+            : profile.pipeline_stages
         if (Array.isArray(parsed)) {
-          stageNames = parsed.map((s: any) => typeof s === 'string' ? s : s?.name).filter(Boolean)
+          stageNames = parsed
+            .map((s: any) => (typeof s === 'string' ? s : s?.name))
+            .filter(Boolean)
         }
       } catch {}
     }
     if (stageNames.length === 0) {
-      stageNames = pipelineMode === 'journey'
-        ? ['Prospect', 'First Contact', 'Customer', 'Repeat', 'VIP']
-        : ['Lead', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost']
+      stageNames =
+        pipelineMode === 'journey'
+          ? ['Prospect', 'First Contact', 'Customer', 'Repeat', 'VIP']
+          : ['Lead', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost']
     }
-    const modeLabel = pipelineMode === 'journey' ? 'Customer Journey (lifecycle stages on contacts)' : 'Sales Pipeline (stages on deals)'
-    sections.push(`PIPELINE MODE: ${modeLabel}\nSTAGES (in order): ${stageNames.join(' → ')}\nWhen the user says "move up/forward/to next stage" use the next stage from this list. For journey mode, update the contact's lifecycle_stage via update_contact. For deals mode, use move_deal_stage.`)
+    const modeLabel =
+      pipelineMode === 'journey'
+        ? 'Customer Journey (lifecycle stages on contacts)'
+        : 'Sales Pipeline (stages on deals)'
+    sections.push(
+      `PIPELINE MODE: ${modeLabel}\nSTAGES (in order): ${stageNames.join(' → ')}\nWhen the user says "move up/forward/to next stage" use the next stage from this list. For journey mode, update the contact's lifecycle_stage via update_contact. For deals mode, use move_deal_stage.`,
+    )
   } catch {}
 
   try {
     // Contact stats
     const [{ count: contactCount }] = await knex('customer_entities')
-      .where('organization_id', orgId).where('kind', 'person').whereNull('deleted_at').count()
+      .where('organization_id', orgId)
+      .where('kind', 'person')
+      .whereNull('deleted_at')
+      .count()
     const [{ count: companyCount }] = await knex('customer_entities')
-      .where('organization_id', orgId).where('kind', 'company').whereNull('deleted_at').count()
+      .where('organization_id', orgId)
+      .where('kind', 'company')
+      .whereNull('deleted_at')
+      .count()
     // For small tenants (under 100 contacts) dump the full list so Scout can
     // reliably answer "who is X" or "is Y in my contacts" without missing
     // older entries. For larger tenants the recent 100 is the cutoff — if
     // the user references someone older, extractSearchQuery will pick it up
     // and searchCrmData adds targeted results.
     const rawRecent = await knex('customer_entities')
-      .where('organization_id', orgId).where('kind', 'person').whereNull('deleted_at')
-      .orderBy('created_at', 'desc').limit(100)
-      .select('id', 'display_name', 'primary_email', 'lifecycle_stage', 'source', 'created_at')
-    const recentContacts = await decryptContactRows(em, rawRecent, tenantId, orgId)
+      .where('organization_id', orgId)
+      .where('kind', 'person')
+      .whereNull('deleted_at')
+      .orderBy('created_at', 'desc')
+      .limit(100)
+      .select(
+        'id',
+        'display_name',
+        'primary_email',
+        'lifecycle_stage',
+        'source',
+        'created_at',
+      )
+    const recentContacts = await decryptContactRows(
+      em,
+      rawRecent,
+      tenantId,
+      orgId,
+    )
     sections.push(`CONTACTS: ${contactCount} people, ${companyCount} companies`)
     if (recentContacts.length > 0) {
-      const label = Number(contactCount) > 100 ? 'Recent contacts (100 of ' + contactCount + ')' : 'All contacts'
-      sections.push(`${label}: ` + recentContacts.map((c: any) =>
-        `${c.display_name}${c.primary_email ? ` (${c.primary_email})` : ''}${c.lifecycle_stage ? ` [${c.lifecycle_stage}]` : ''} id=${c.id}`
-      ).join('; '))
+      const label =
+        Number(contactCount) > 100
+          ? 'Recent contacts (100 of ' + contactCount + ')'
+          : 'All contacts'
+      sections.push(
+        `${label}: ` +
+          recentContacts
+            .map(
+              (c: any) =>
+                `${c.display_name}${c.primary_email ? ` (${c.primary_email})` : ''}${c.lifecycle_stage ? ` [${c.lifecycle_stage}]` : ''} id=${c.id}`,
+            )
+            .join('; '),
+      )
     }
     // Also list companies — Scout needs names (not just a count) to answer
     // "delete Acme Corp" or "who works at BizTech".
     const rawCompanies = await knex('customer_entities')
-      .where('organization_id', orgId).where('kind', 'company').whereNull('deleted_at')
-      .orderBy('created_at', 'desc').limit(100)
+      .where('organization_id', orgId)
+      .where('kind', 'company')
+      .whereNull('deleted_at')
+      .orderBy('created_at', 'desc')
+      .limit(100)
       .select('id', 'display_name', 'primary_email', 'created_at')
-    const companies = await decryptContactRows(em, rawCompanies, tenantId, orgId)
+    const companies = await decryptContactRows(
+      em,
+      rawCompanies,
+      tenantId,
+      orgId,
+    )
     if (companies.length > 0) {
-      sections.push('Companies: ' + companies.map((c: any) => `${c.display_name} id=${c.id}`).join('; '))
+      sections.push(
+        'Companies: ' +
+          companies.map((c: any) => `${c.display_name} id=${c.id}`).join('; '),
+      )
     }
   } catch {}
 
   try {
     // Pipeline/deals — titles are encrypted, decrypt before exposing to Scout
     const rawDeals = await knex('customer_deals')
-      .where('organization_id', orgId).whereNull('deleted_at')
-      .select('id', 'title', 'description', 'status', 'value_amount', 'pipeline_stage', 'created_at', 'ai_summary')
-      .orderBy('created_at', 'desc').limit(10)
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
+      .select(
+        'id',
+        'title',
+        'description',
+        'status',
+        'value_amount',
+        'pipeline_stage',
+        'created_at',
+        'ai_summary',
+      )
+      .orderBy('created_at', 'desc')
+      .limit(10)
     const deals = await decryptDealRows(em, rawDeals, tenantId, orgId)
     if (deals.length > 0) {
-      const totalValue = deals.reduce((sum: number, d: any) => sum + (Number(d.value_amount) || 0), 0)
-      const openDeals = deals.filter((d: any) => d.status === 'open' || !d.status)
-      sections.push(`PIPELINE: ${deals.length} deals (${openDeals.length} open), total value $${totalValue.toFixed(0)}`)
-      sections.push('Deals: ' + deals.slice(0, 5).map((d: any) =>
-        `"${d.title}" — ${d.pipeline_stage || d.status || 'open'}${d.value_amount ? ` ($${Number(d.value_amount).toFixed(0)})` : ''} id=${d.id}${d.ai_summary ? ` — status summary: ${String(d.ai_summary).slice(0, 300)}` : ''}`
-      ).join('; '))
+      const totalValue = deals.reduce(
+        (sum: number, d: any) => sum + (Number(d.value_amount) || 0),
+        0,
+      )
+      const openDeals = deals.filter(
+        (d: any) => d.status === 'open' || !d.status,
+      )
+      sections.push(
+        `PIPELINE: ${deals.length} deals (${openDeals.length} open), total value $${totalValue.toFixed(0)}`,
+      )
+      sections.push(
+        'Deals: ' +
+          deals
+            .slice(0, 5)
+            .map(
+              (d: any) =>
+                `"${d.title}" — ${d.pipeline_stage || d.status || 'open'}${d.value_amount ? ` ($${Number(d.value_amount).toFixed(0)})` : ''} id=${d.id}${d.ai_summary ? ` — status summary: ${String(d.ai_summary).slice(0, 300)}` : ''}`,
+            )
+            .join('; '),
+      )
     } else {
       sections.push('PIPELINE: No deals yet')
     }
@@ -326,82 +449,131 @@ async function buildDataContext(knex: any, orgId: string, tenantId: string, em: 
   try {
     // Tasks
     const [{ count: openTasks }] = await knex('tasks')
-      .where('organization_id', orgId).where('is_done', false).count()
+      .where('organization_id', orgId)
+      .where('is_done', false)
+      .count()
     const [{ count: doneTasks }] = await knex('tasks')
-      .where('organization_id', orgId).where('is_done', true).count()
+      .where('organization_id', orgId)
+      .where('is_done', true)
+      .count()
     const upcomingTasks = await knex('tasks')
-      .where('organization_id', orgId).where('is_done', false)
-      .orderBy('due_date', 'asc').limit(5)
+      .where('organization_id', orgId)
+      .where('is_done', false)
+      .orderBy('due_date', 'asc')
+      .limit(5)
       .select('title', 'due_date', 'created_at')
     sections.push(`TASKS: ${openTasks} open, ${doneTasks} completed`)
     if (upcomingTasks.length > 0) {
-      sections.push('Upcoming: ' + upcomingTasks.map((t: any) =>
-        `"${t.title}"${t.due_date ? ` (due ${new Date(t.due_date).toLocaleDateString()})` : ''}`
-      ).join('; '))
+      sections.push(
+        'Upcoming: ' +
+          upcomingTasks
+            .map(
+              (t: any) =>
+                `"${t.title}"${t.due_date ? ` (due ${new Date(t.due_date).toLocaleDateString()})` : ''}`,
+            )
+            .join('; '),
+      )
     }
   } catch {}
 
   try {
     // Invoices
     const invoices = await knex('invoices')
-      .where('organization_id', orgId).whereNull('deleted_at')
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
       .select('invoice_number', 'status', 'total', 'created_at')
-      .orderBy('created_at', 'desc').limit(5)
+      .orderBy('created_at', 'desc')
+      .limit(5)
     if (invoices.length > 0) {
       const paid = invoices.filter((i: any) => i.status === 'paid')
-      const pending = invoices.filter((i: any) => i.status === 'sent' || i.status === 'draft')
-      sections.push(`INVOICES: ${invoices.length} total (${paid.length} paid, ${pending.length} pending)`)
+      const pending = invoices.filter(
+        (i: any) => i.status === 'sent' || i.status === 'draft',
+      )
+      sections.push(
+        `INVOICES: ${invoices.length} total (${paid.length} paid, ${pending.length} pending)`,
+      )
     }
   } catch {}
 
   try {
     // Payment records
     const [{ count: paymentCount }] = await knex('payment_records')
-      .where('organization_id', orgId).where('status', 'succeeded').count()
+      .where('organization_id', orgId)
+      .where('status', 'succeeded')
+      .count()
     const [{ sum: paymentTotal }] = await knex('payment_records')
-      .where('organization_id', orgId).where('status', 'succeeded').sum('amount')
+      .where('organization_id', orgId)
+      .where('status', 'succeeded')
+      .sum('amount')
     if (Number(paymentCount) > 0) {
-      sections.push(`PAYMENTS: ${paymentCount} successful payments, $${Number(paymentTotal || 0).toFixed(0)} total revenue`)
+      sections.push(
+        `PAYMENTS: ${paymentCount} successful payments, $${Number(paymentTotal || 0).toFixed(0)} total revenue`,
+      )
     }
   } catch {}
 
   try {
     // Products
     const products = await knex('products')
-      .where('organization_id', orgId).whereNull('deleted_at').where('is_active', true)
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
+      .where('is_active', true)
       .select('name', 'price', 'billing_type', 'trial_days')
-      .orderBy('created_at', 'desc').limit(10)
+      .orderBy('created_at', 'desc')
+      .limit(10)
     if (products.length > 0) {
-      sections.push('PRODUCTS: ' + products.map((p: any) =>
-        `"${p.name}" $${Number(p.price).toFixed(0)}${p.billing_type === 'recurring' ? '/mo' : ''}${p.trial_days ? ` (${p.trial_days}-day trial)` : ''}`
-      ).join('; '))
+      sections.push(
+        'PRODUCTS: ' +
+          products
+            .map(
+              (p: any) =>
+                `"${p.name}" $${Number(p.price).toFixed(0)}${p.billing_type === 'recurring' ? '/mo' : ''}${p.trial_days ? ` (${p.trial_days}-day trial)` : ''}`,
+            )
+            .join('; '),
+      )
     }
   } catch {}
 
   try {
     // Events
     const events = await knex('events')
-      .where('organization_id', orgId).whereNull('deleted_at')
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
       .whereIn('status', ['draft', 'published'])
       .select('title', 'status', 'start_time', 'attendee_count', 'capacity')
-      .orderBy('start_time', 'asc').limit(5)
+      .orderBy('start_time', 'asc')
+      .limit(5)
     if (events.length > 0) {
-      sections.push('UPCOMING EVENTS: ' + events.map((e: any) =>
-        `"${e.title}" — ${new Date(e.start_time).toLocaleDateString()} (${e.attendee_count}${e.capacity ? `/${e.capacity}` : ''} registered, ${e.status})`
-      ).join('; '))
+      sections.push(
+        'UPCOMING EVENTS: ' +
+          events
+            .map(
+              (e: any) =>
+                `"${e.title}" — ${new Date(e.start_time).toLocaleDateString()} (${e.attendee_count}${e.capacity ? `/${e.capacity}` : ''} registered, ${e.status})`,
+            )
+            .join('; '),
+      )
     }
   } catch {}
 
   try {
     // Courses
     const courses = await knex('courses')
-      .where('organization_id', orgId).whereNull('deleted_at')
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
       .select('title', 'is_published', 'price')
-      .orderBy('created_at', 'desc').limit(5)
+      .orderBy('created_at', 'desc')
+      .limit(5)
     if (courses.length > 0) {
-      sections.push('COURSES: ' + courses.map((c: any) =>
-        `"${c.title}" — ${c.is_published ? 'published' : 'draft'}${c.price ? ` ($${Number(c.price).toFixed(0)})` : ' (free)'}`
-      ).join('; '))
+      sections.push(
+        'COURSES: ' +
+          courses
+            .map(
+              (c: any) =>
+                `"${c.title}" — ${c.is_published ? 'published' : 'draft'}${c.price ? ` ($${Number(c.price).toFixed(0)})` : ' (free)'}`,
+            )
+            .join('; '),
+      )
     }
   } catch {}
 
@@ -410,18 +582,27 @@ async function buildDataContext(knex: any, orgId: string, tenantId: string, em: 
     const surveys = await knex('surveys')
       .where('organization_id', orgId)
       .select('title', 'is_active', 'response_count')
-      .orderBy('created_at', 'desc').limit(5)
+      .orderBy('created_at', 'desc')
+      .limit(5)
     if (surveys.length > 0) {
-      sections.push('SURVEYS: ' + surveys.map((s: any) =>
-        `"${s.title}" — ${s.is_active ? 'active' : 'inactive'} (${s.response_count || 0} responses)`
-      ).join('; '))
+      sections.push(
+        'SURVEYS: ' +
+          surveys
+            .map(
+              (s: any) =>
+                `"${s.title}" — ${s.is_active ? 'active' : 'inactive'} (${s.response_count || 0} responses)`,
+            )
+            .join('; '),
+      )
     }
   } catch {}
 
   try {
     // Automations
     const [{ count: autoCount }] = await knex('automation_rules')
-      .where('organization_id', orgId).where('is_active', true).count()
+      .where('organization_id', orgId)
+      .where('is_active', true)
+      .count()
     if (Number(autoCount) > 0) {
       sections.push(`AUTOMATIONS: ${autoCount} active rules`)
     }
@@ -430,7 +611,9 @@ async function buildDataContext(knex: any, orgId: string, tenantId: string, em: 
   try {
     // Chat widgets
     const [{ count: widgetCount }] = await knex('chat_widgets')
-      .where('organization_id', orgId).where('is_active', true).count()
+      .where('organization_id', orgId)
+      .where('is_active', true)
+      .count()
     if (Number(widgetCount) > 0) {
       sections.push(`LIVE CHAT: ${widgetCount} active widget(s)`)
     }
@@ -447,63 +630,111 @@ async function buildDataContext(knex: any, orgId: string, tenantId: string, em: 
 // With tenant encryption on, display_name/primary_email are stored as ciphertext,
 // so SQL ILIKE can't match plaintext queries. Pull the most recent 200 rows,
 // decrypt in memory, then filter.
-async function searchCrmData(knex: any, orgId: string, tenantId: string, em: EntityManager, query: string): Promise<string> {
+async function searchCrmData(
+  knex: any,
+  orgId: string,
+  tenantId: string,
+  em: EntityManager,
+  query: string,
+): Promise<string> {
   if (!query || query.length < 2) return ''
   const sections: string[] = []
   const needle = query.toLowerCase()
 
   try {
     const rawPool = await knex('customer_entities')
-      .where('organization_id', orgId).whereNull('deleted_at')
-      .select('id', 'display_name', 'primary_email', 'primary_phone', 'kind', 'lifecycle_stage', 'source', 'created_at')
-      .orderBy('created_at', 'desc').limit(200)
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
+      .select(
+        'id',
+        'display_name',
+        'primary_email',
+        'primary_phone',
+        'kind',
+        'lifecycle_stage',
+        'source',
+        'created_at',
+      )
+      .orderBy('created_at', 'desc')
+      .limit(200)
     const pool = await decryptContactRows(em, rawPool, tenantId, orgId)
-    const contacts = pool.filter((c: any) => {
-      const dn = (c.display_name || '').toLowerCase()
-      const pe = (c.primary_email || '').toLowerCase()
-      return dn.includes(needle) || pe.includes(needle)
-    }).slice(0, 10)
+    const contacts = pool
+      .filter((c: any) => {
+        const dn = (c.display_name || '').toLowerCase()
+        const pe = (c.primary_email || '').toLowerCase()
+        return dn.includes(needle) || pe.includes(needle)
+      })
+      .slice(0, 10)
 
     if (contacts.length > 0) {
-      sections.push(`SEARCH RESULTS for "${query}" — ${contacts.length} contact(s) found:`)
+      sections.push(
+        `SEARCH RESULTS for "${query}" — ${contacts.length} contact(s) found:`,
+      )
       for (const c of contacts) {
         const parts = [`**${c.display_name}**`]
         if (c.primary_email) parts.push(c.primary_email)
         if (c.primary_phone) parts.push(c.primary_phone)
         if (c.lifecycle_stage) parts.push(`stage: ${c.lifecycle_stage}`)
         if (c.source) parts.push(`source: ${c.source}`)
-        parts.push(`(${c.kind}, added ${new Date(c.created_at).toLocaleDateString()})`)
+        parts.push(
+          `(${c.kind}, added ${new Date(c.created_at).toLocaleDateString()})`,
+        )
         sections.push('- ' + parts.join(' | '))
 
         // Get deals for this contact
         const deals = await knex('customer_deal_people as cdp')
           .join('customer_deals as cd', 'cd.id', 'cdp.deal_id')
           .where('cdp.person_entity_id', c.id)
-          .where('cd.organization_id', orgId).whereNull('cd.deleted_at')
-          .select('cd.title', 'cd.status', 'cd.value_amount', 'cd.pipeline_stage')
-          .limit(5).catch(() => [])
+          .where('cd.organization_id', orgId)
+          .whereNull('cd.deleted_at')
+          .select(
+            'cd.title',
+            'cd.status',
+            'cd.value_amount',
+            'cd.pipeline_stage',
+          )
+          .limit(5)
+          .catch(() => [])
         if (deals.length > 0) {
-          sections.push('  Deals: ' + deals.map((d: any) =>
-            `"${d.title}" ${d.pipeline_stage || d.status || 'open'}${d.value_amount ? ` ($${Number(d.value_amount).toFixed(0)})` : ''}`
-          ).join('; '))
+          sections.push(
+            '  Deals: ' +
+              deals
+                .map(
+                  (d: any) =>
+                    `"${d.title}" ${d.pipeline_stage || d.status || 'open'}${d.value_amount ? ` ($${Number(d.value_amount).toFixed(0)})` : ''}`,
+                )
+                .join('; '),
+          )
         }
 
         // Get recent tasks
         const tasks = await knex('tasks')
-          .where('contact_id', c.id).where('organization_id', orgId)
+          .where('contact_id', c.id)
+          .where('organization_id', orgId)
           .select('title', 'is_done', 'due_date')
-          .orderBy('created_at', 'desc').limit(3).catch(() => [])
+          .orderBy('created_at', 'desc')
+          .limit(3)
+          .catch(() => [])
         if (tasks.length > 0) {
-          sections.push('  Tasks: ' + tasks.map((t: any) =>
-            `${t.is_done ? '[done]' : '[open]'} "${t.title}"${t.due_date ? ` (due ${new Date(t.due_date).toLocaleDateString()})` : ''}`
-          ).join('; '))
+          sections.push(
+            '  Tasks: ' +
+              tasks
+                .map(
+                  (t: any) =>
+                    `${t.is_done ? '[done]' : '[open]'} "${t.title}"${t.due_date ? ` (due ${new Date(t.due_date).toLocaleDateString()})` : ''}`,
+                )
+                .join('; '),
+          )
         }
 
         // Get tags
         const tags = await knex('customer_tag_assignments as cta')
           .join('customer_tags as ct', 'ct.id', 'cta.tag_id')
-          .where('cta.entity_id', c.id).where('cta.organization_id', orgId)
-          .select('ct.name').limit(10).catch(() => [])
+          .where('cta.entity_id', c.id)
+          .where('cta.organization_id', orgId)
+          .select('ct.name')
+          .limit(10)
+          .catch(() => [])
         if (tags.length > 0) {
           sections.push('  Tags: ' + tags.map((t: any) => t.name).join(', '))
         }
@@ -515,18 +746,39 @@ async function searchCrmData(knex: any, orgId: string, tenantId: string, em: Ent
     // Search deals by title — titles ARE encrypted, so fetch recent + filter
     // in-memory (same pattern as contact search above).
     const rawDealPool = await knex('customer_deals')
-      .where('organization_id', orgId).whereNull('deleted_at')
-      .select('id', 'title', 'description', 'status', 'value_amount', 'pipeline_stage', 'created_at')
-      .orderBy('created_at', 'desc').limit(200)
+      .where('organization_id', orgId)
+      .whereNull('deleted_at')
+      .select(
+        'id',
+        'title',
+        'description',
+        'status',
+        'value_amount',
+        'pipeline_stage',
+        'created_at',
+      )
+      .orderBy('created_at', 'desc')
+      .limit(200)
     const dealPool = await decryptDealRows(em, rawDealPool, tenantId, orgId)
-    const deals = dealPool.filter((d: any) => (d.title || '').toLowerCase().includes(needle)).slice(0, 5)
-    if (deals.length > 0 && !sections.some(s => s.includes('SEARCH RESULTS'))) {
+    const deals = dealPool
+      .filter((d: any) => (d.title || '').toLowerCase().includes(needle))
+      .slice(0, 5)
+    if (
+      deals.length > 0 &&
+      !sections.some((s) => s.includes('SEARCH RESULTS'))
+    ) {
       sections.push(`SEARCH RESULTS for "${query}":`)
     }
     if (deals.length > 0) {
-      sections.push('Matching deals: ' + deals.map((d: any) =>
-        `"${d.title}" — ${d.pipeline_stage || d.status || 'open'}${d.value_amount ? ` ($${Number(d.value_amount).toFixed(0)})` : ''}`
-      ).join('; '))
+      sections.push(
+        'Matching deals: ' +
+          deals
+            .map(
+              (d: any) =>
+                `"${d.title}" — ${d.pipeline_stage || d.status || 'open'}${d.value_amount ? ` ($${Number(d.value_amount).toFixed(0)})` : ''}`,
+            )
+            .join('; '),
+      )
     }
   } catch {}
 
@@ -534,7 +786,9 @@ async function searchCrmData(knex: any, orgId: string, tenantId: string, em: Ent
 }
 
 // Extract a search intent from the latest user message
-function extractSearchQuery(messages: Array<{ role: string; content: string }>): string | null {
+function extractSearchQuery(
+  messages: Array<{ role: string; content: string }>,
+): string | null {
   const lastMsg = messages[messages.length - 1]
   if (!lastMsg || lastMsg.role !== 'user') return null
   const content = lastMsg.content
@@ -564,7 +818,10 @@ export async function POST(req: Request, ctx?: any) {
     const { messages, currentPage, pageContext } = body
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ ok: false, error: 'messages required' }, { status: 400 })
+      return NextResponse.json(
+        { ok: false, error: 'messages required' },
+        { status: 400 },
+      )
     }
 
     // Resolve the preferred provider up front. A fallback provider is gated
@@ -598,10 +855,16 @@ export async function POST(req: Request, ctx?: any) {
     if (!hasConfiguredProvider) {
       const fallbackAccess = await getOpenAiAccess()
       if (fallbackAccess.blocked) {
-        return NextResponse.json({
-          ok: false,
-          error: fallbackAccess.message ?? googleAccess.message ?? ALLOWANCE_BLOCK_MESSAGE,
-        }, { status: 402 })
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              fallbackAccess.message ??
+              googleAccess.message ??
+              ALLOWANCE_BLOCK_MESSAGE,
+          },
+          { status: 402 },
+        )
       }
       hasConfiguredProvider = Boolean(fallbackAccess.apiKey)
     }
@@ -609,7 +872,8 @@ export async function POST(req: Request, ctx?: any) {
     if (!hasConfiguredProvider) {
       return NextResponse.json({
         ok: true,
-        message: "I'm Scout, your CRM assistant, but no AI API keys are configured. I can still help with basic navigation — what are you looking for?",
+        message:
+          "I'm Scout, your CRM assistant, but no AI API keys are configured. I can still help with basic navigation — what are you looking for?",
       })
     }
 
@@ -632,12 +896,23 @@ export async function POST(req: Request, ctx?: any) {
           personaPrompt = buildPersonaPrompt(profile)
         }
         // Build data context for every request so Scout can answer data questions
-        dataContext = await buildDataContext(knex, auth.orgId, auth.tenantId!, em)
+        dataContext = await buildDataContext(
+          knex,
+          auth.orgId,
+          auth.tenantId!,
+          em,
+        )
 
         // If the user is searching for a specific person/deal, add targeted search results
         const searchQuery = extractSearchQuery(messages)
         if (searchQuery) {
-          const searchResults = await searchCrmData(knex, auth.orgId, auth.tenantId!, em, searchQuery)
+          const searchResults = await searchCrmData(
+            knex,
+            auth.orgId,
+            auth.tenantId!,
+            em,
+            searchQuery,
+          )
           if (searchResults) {
             dataContext = searchResults + '\n\n' + dataContext
           }
@@ -658,7 +933,11 @@ export async function POST(req: Request, ctx?: any) {
 
     let contextBlock = ''
     if (pageContext && typeof pageContext === 'object') {
-      const { entityType, entityId, pathname } = pageContext as { entityType?: string; entityId?: string; pathname?: string }
+      const { entityType, entityId, pathname } = pageContext as {
+        entityType?: string
+        entityId?: string
+        pathname?: string
+      }
       if (entityType && entityId) {
         contextBlock = `CURRENT CONTEXT:\nThe user is viewing a ${entityType} (id: ${entityId}). When they make ambiguous references like "add a note", "create a task", "send them an email", or "update their info" without naming a target, default to THIS entity — use this id in the crm-action block. Do NOT ask who they mean if the target is obvious from context.`
       } else if (pathname) {
@@ -666,7 +945,13 @@ export async function POST(req: Request, ctx?: any) {
       }
     }
 
-    const systemParts = [personaPrompt, CRM_INSTRUCTIONS, userInfoBlock, contextBlock, dataContext].filter(Boolean)
+    const systemParts = [
+      personaPrompt,
+      CRM_INSTRUCTIONS,
+      userInfoBlock,
+      contextBlock,
+      dataContext,
+    ].filter(Boolean)
     const systemPrompt = systemParts.join('\n\n')
 
     // Add page context to the conversation
@@ -674,30 +959,57 @@ export async function POST(req: Request, ctx?: any) {
       ? `[The user is currently on the ${currentPage} page]`
       : ''
 
-    const contextPrefixed = contextMessage && messages.length > 0
-      ? [{ ...messages[0], content: `${contextMessage}\n\n${messages[0].content}` }, ...messages.slice(1)]
-      : messages
+    const contextPrefixed =
+      contextMessage && messages.length > 0
+        ? [
+            {
+              ...messages[0],
+              content: `${contextMessage}\n\n${messages[0].content}`,
+            },
+            ...messages.slice(1),
+          ]
+        : messages
 
     // Gemini first (preferred for cost), then OpenAI fallback if Gemini is
     // rate-limited, keyless, or otherwise unreachable. Either provider returns
     // {text, model, tokensIn, tokensOut} or throws a classified error.
-    let result: { text: string; model: string; tokensIn: number; tokensOut: number } | null = null
+    let result: {
+      text: string
+      model: string
+      tokensIn: number
+      tokensOut: number
+    } | null = null
     let provider: 'gemini' | 'openai' | null = null
     let servedWithByoKey = false
     let lastError: { provider: string; message: string } | null = null
 
     if (googleAccess.apiKey) {
       try {
-        result = await callGemini(googleAccess.apiKey, systemPrompt, contextPrefixed)
+        result = await callGemini(
+          googleAccess.apiKey,
+          systemPrompt,
+          contextPrefixed,
+        )
         provider = 'gemini'
         servedWithByoKey = googleAccess.byoKey
       } catch (err: any) {
-        lastError = { provider: 'gemini', message: err?.message || String(err) }
+        lastError = {
+          provider: 'gemini',
+          message: err?.message || String(err),
+        }
         const retriable = err?.retriable !== false
-        console.warn('[ai.assistant] Gemini failed', lastError.message, 'retriable:', retriable)
+        console.warn(
+          '[ai.assistant] Gemini failed',
+          lastError.message,
+          'retriable:',
+          retriable,
+        )
         if (!retriable) {
           // Non-retriable Gemini error (e.g. validation) — don't fall back, return it.
-          return NextResponse.json({ ok: false, error: lastError.message }, { status: 500 })
+          return NextResponse.json(
+            { ok: false, error: lastError.message },
+            { status: 500 },
+          )
         }
       }
     }
@@ -705,20 +1017,36 @@ export async function POST(req: Request, ctx?: any) {
     if (result === null) {
       const fallbackAccess = await getOpenAiAccess()
       if (fallbackAccess.blocked) {
-        return NextResponse.json({
-          ok: false,
-          error: fallbackAccess.message ?? googleAccess.message ?? ALLOWANCE_BLOCK_MESSAGE,
-        }, { status: 402 })
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              fallbackAccess.message ??
+              googleAccess.message ??
+              ALLOWANCE_BLOCK_MESSAGE,
+          },
+          { status: 402 },
+        )
       }
       if (fallbackAccess.apiKey) {
         try {
-          result = await callOpenAI(fallbackAccess.apiKey, systemPrompt, contextPrefixed)
+          result = await callOpenAI(
+            fallbackAccess.apiKey,
+            systemPrompt,
+            contextPrefixed,
+          )
           provider = 'openai'
           servedWithByoKey = fallbackAccess.byoKey
           console.log('[ai.assistant] Served via OpenAI fallback')
         } catch (err: any) {
-          lastError = { provider: 'openai', message: err?.message || String(err) }
-          console.error('[ai.assistant] OpenAI fallback failed', lastError.message)
+          lastError = {
+            provider: 'openai',
+            message: err?.message || String(err),
+          }
+          console.error(
+            '[ai.assistant] OpenAI fallback failed',
+            lastError.message,
+          )
         }
       }
     }
@@ -741,22 +1069,42 @@ export async function POST(req: Request, ctx?: any) {
     }
 
     // Both providers exhausted or unavailable
-    if (lastError?.message?.toLowerCase().includes('resource exhausted') || lastError?.message?.toLowerCase().includes('rate limit') || lastError?.message?.toLowerCase().includes('quota')) {
+    if (
+      lastError?.message?.toLowerCase().includes('resource exhausted') ||
+      lastError?.message?.toLowerCase().includes('rate limit') ||
+      lastError?.message?.toLowerCase().includes('quota')
+    ) {
       return NextResponse.json({
         ok: true,
-        message: "Both AI providers are rate-limited right now. Try again in a minute, or use voice mode (mic button) which uses a separate OpenAI Realtime quota.",
+        message:
+          'Both AI providers are rate-limited right now. Try again in a minute, or use voice mode (mic button) which uses a separate OpenAI Realtime quota.',
       })
     }
-    return NextResponse.json({ ok: false, error: lastError?.message || 'Assistant error' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: lastError?.message || 'Assistant error' },
+      { status: 500 },
+    )
   } catch (error) {
     console.error('[ai.assistant]', error)
-    return NextResponse.json({ ok: false, error: 'Assistant error' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'Assistant error' },
+      { status: 500 },
+    )
   }
 }
 
 type ChatMessage = { role: 'user' | 'assistant' | 'system'; content: string }
 
-async function callGemini(apiKey: string, systemPrompt: string, msgs: ChatMessage[]): Promise<{ text: string; model: string; tokensIn: number; tokensOut: number }> {
+async function callGemini(
+  apiKey: string,
+  systemPrompt: string,
+  msgs: ChatMessage[],
+): Promise<{
+  text: string
+  model: string
+  tokensIn: number
+  tokensOut: number
+}> {
   const model = process.env.AI_MODEL || 'gemini-3.5-flash'
   const contents = msgs.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -771,25 +1119,31 @@ async function callGemini(apiKey: string, systemPrompt: string, msgs: ChatMessag
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents,
           generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
         }),
         signal: controller.signal,
-      }
+      },
     )
   } finally {
     clearTimeout(timeout)
   }
 
-  const data = await res.json().catch(() => null) as any
+  const data = (await res.json().catch(() => null)) as any
   if (!res.ok || data?.error) {
     const msg: string = data?.error?.message || `HTTP ${res.status}`
     const err: any = new Error(msg)
     // Retriable: 429/5xx/timeout/resource-exhausted — worth trying another provider.
-    err.retriable = res.status === 429 || res.status >= 500 || /resource exhausted|rate limit|quota/i.test(msg)
+    err.retriable =
+      res.status === 429 ||
+      res.status >= 500 ||
+      /resource exhausted|rate limit|quota/i.test(msg)
     throw err
   }
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
@@ -803,7 +1157,16 @@ async function callGemini(apiKey: string, systemPrompt: string, msgs: ChatMessag
   return { text, model, tokensIn, tokensOut }
 }
 
-async function callOpenAI(apiKey: string, systemPrompt: string, msgs: ChatMessage[]): Promise<{ text: string; model: string; tokensIn: number; tokensOut: number }> {
+async function callOpenAI(
+  apiKey: string,
+  systemPrompt: string,
+  msgs: ChatMessage[],
+): Promise<{
+  text: string
+  model: string
+  tokensIn: number
+  tokensOut: number
+}> {
   const model = process.env.OPENAI_FALLBACK_MODEL || 'gpt-4o-mini'
   const openaiMessages = [
     { role: 'system', content: systemPrompt },
@@ -817,7 +1180,7 @@ async function callOpenAI(apiKey: string, systemPrompt: string, msgs: ChatMessag
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model,
@@ -831,7 +1194,7 @@ async function callOpenAI(apiKey: string, systemPrompt: string, msgs: ChatMessag
     clearTimeout(timeout)
   }
 
-  const data = await res.json().catch(() => null) as any
+  const data = (await res.json().catch(() => null)) as any
   if (!res.ok || data?.error) {
     throw new Error(data?.error?.message || `OpenAI HTTP ${res.status}`)
   }

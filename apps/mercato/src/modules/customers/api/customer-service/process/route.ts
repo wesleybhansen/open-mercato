@@ -13,7 +13,11 @@ import { checkCustomersAiAllowance } from '@/lib/usage/allowance'
 import { meterCustomersAi } from '@/lib/usage/meter'
 import { generateReplyDraft } from '@/modules/customers/lib/draft-reply'
 import type { FlagScenarioInput } from '@/modules/customers/lib/draft-reply'
-import { loadAudiences, resolveSenderAudiences, scenarioAudienceMatches } from '@/modules/customers/lib/audiences'
+import {
+  loadAudiences,
+  resolveSenderAudiences,
+  scenarioAudienceMatches,
+} from '@/modules/customers/lib/audiences'
 import type { Audience } from '@/modules/customers/lib/audiences'
 import { sendReply } from '@/modules/customers/lib/send-reply'
 import { sendSmsReply } from '@/modules/customers/lib/send-sms-reply'
@@ -36,7 +40,11 @@ export const openApi: OpenApiRouteDoc = {
   tag: 'Customer Service',
   summary: 'Customer Service recurring processor',
   methods: {
-    POST: { summary: 'Cron: draft/auto-send replies for new inbound inquiries (draft | auto | hybrid)', tags: ['Customer Service'] },
+    POST: {
+      summary:
+        'Cron: draft/auto-send replies for new inbound inquiries (draft | auto | hybrid)',
+      tags: ['Customer Service'],
+    },
   },
 }
 
@@ -52,17 +60,31 @@ export async function POST(req: Request) {
     const knex = (container.resolve('em') as EntityManager).getKnex()
 
     // Only orgs that have explicitly enabled the feature.
-    const settingsRows = await knex('customer_service_settings').where('enabled', true)
+    const settingsRows = await knex('customer_service_settings').where(
+      'enabled',
+      true,
+    )
 
-    const results: Array<{ orgId: string; mode: string; candidates: number; queued: number; autoSent: number; skipped: number; skippedAutomated: number }> = []
+    const results: Array<{
+      orgId: string
+      mode: string
+      candidates: number
+      queued: number
+      autoSent: number
+      skipped: number
+      skippedAutomated: number
+    }> = []
 
     for (const settings of settingsRows) {
       const orgId = settings.organization_id
       const tenantId = settings.tenant_id
-      const mode = VALID_MODES.has(settings.reply_mode) ? settings.reply_mode : 'draft'
-      const hybridThreshold = settings.hybrid_confidence_threshold != null
-        ? Number(settings.hybrid_confidence_threshold)
-        : DEFAULT_HYBRID_THRESHOLD
+      const mode = VALID_MODES.has(settings.reply_mode)
+        ? settings.reply_mode
+        : 'draft'
+      const hybridThreshold =
+        settings.hybrid_confidence_threshold != null
+          ? Number(settings.hybrid_confidence_threshold)
+          : DEFAULT_HYBRID_THRESHOLD
       // ── Safety rails ── kill switch + hold window. When paused, auto-eligible
       // replies fall back to the review queue. When a hold window is set, an
       // auto-eligible reply is queued as a SCHEDULED draft (visible + cancelable
@@ -72,12 +94,22 @@ export async function POST(req: Request) {
       // NULL must default to 10, not 0 — Number(null)===0 would silently disable
       // the hold window and fire auto-sends immediately.
       const holdMinutes =
-        settings.auto_send_hold_minutes == null || !Number.isFinite(Number(settings.auto_send_hold_minutes))
+        settings.auto_send_hold_minutes == null ||
+        !Number.isFinite(Number(settings.auto_send_hold_minutes))
           ? 10
           : Math.max(0, Number(settings.auto_send_hold_minutes))
       // Per-source (per-mailbox) overrides, keyed by email_connection id. Falls
       // back to the global mode/threshold for sources without an entry.
       const sourceModes = parseSourceModes(settings.source_modes)
+      const watchedIds: string[] | null = Array.isArray(
+        settings.watched_connection_ids,
+      )
+        ? settings.watched_connection_ids
+        : settings.watched_connection_ids
+          ? safeParse(settings.watched_connection_ids)
+          : null
+      const watchNoMailboxes =
+        Array.isArray(watchedIds) && watchedIds.length === 0
       // Flag scenarios for this org (full validated list) + the enabled subset
       // handed to the drafter. Empty = no flagging, existing behavior unchanged.
       const flagScenarios = parseFlagScenarios(settings.flag_scenarios)
@@ -104,23 +136,37 @@ export async function POST(req: Request) {
             .where('purpose', 'customer_service')
             .where('is_active', true)
             .whereNotNull('imap_host')
-            .select('id', 'email_address', 'imap_host', 'imap_port', 'imap_secure', 'smtp_user', 'smtp_pass', 'cs_last_fetch_at', 'purpose')
+            .select(
+              'id',
+              'email_address',
+              'imap_host',
+              'imap_port',
+              'imap_secure',
+              'smtp_user',
+              'smtp_pass',
+              'cs_last_fetch_at',
+              'purpose',
+            )
 
-          if (csConns.length > 0) {
+          if (!watchNoMailboxes && csConns.length > 0) {
             // Skip self-sent: don't ingest mail from our own connected mailboxes.
             const ownConns = await knex('email_connections')
               .where('organization_id', orgId)
               .where('is_active', true)
               .select('email_address')
             const ownEmails = new Set<string>(
-              ownConns.map((c: any) => (c.email_address || '').toLowerCase()).filter(Boolean),
+              ownConns
+                .map((c: any) => (c.email_address || '').toLowerCase())
+                .filter(Boolean),
             )
             // Owner-skip for the COS email desk: the boss's own address sends
             // COMMANDS to the desk (handled on the agent instance), never
             // correspondence — don't draft replies to the boss.
             const skipSenders: string[] = Array.isArray(settings.skip_senders)
               ? settings.skip_senders
-              : (typeof settings.skip_senders === 'string' ? safeParse(settings.skip_senders) || [] : [])
+              : typeof settings.skip_senders === 'string'
+                ? safeParse(settings.skip_senders) || []
+                : []
             for (const sk of skipSenders) {
               if (typeof sk === 'string' && sk) ownEmails.add(sk.toLowerCase())
             }
@@ -130,66 +176,113 @@ export async function POST(req: Request) {
                 const sinceDate = conn.cs_last_fetch_at
                   ? new Date(conn.cs_last_fetch_at)
                   : new Date(Date.now() - CS_FETCH_LOOKBACK_MS)
-                const ingest = await ingestImapConnection(knex, orgId, tenantId, conn, {
-                  sinceDate,
-                  maxMessages: CS_FETCH_PER_MAILBOX,
-                  autoCreateContacts: true,
-                  source: 'customer_service',
-                  ownEmails,
-                })
+                const ingest = await ingestImapConnection(
+                  knex,
+                  orgId,
+                  tenantId,
+                  conn,
+                  {
+                    sinceDate,
+                    maxMessages: CS_FETCH_PER_MAILBOX,
+                    autoCreateContacts: true,
+                    source: 'customer_service',
+                    ownEmails,
+                  },
+                )
                 // Advance the per-mailbox watermark only when the fetch itself
                 // succeeded (errors here are per-message, not connection-level).
                 await knex('email_connections')
                   .where('id', conn.id)
                   .where('organization_id', orgId)
-                  .update({ cs_last_fetch_at: new Date(), updated_at: new Date() })
+                  .update({
+                    cs_last_fetch_at: new Date(),
+                    updated_at: new Date(),
+                  })
                 if (ingest.errors.length > 0) {
-                  console.error('[customer-service.process] CS ingest partial errors', { orgId, connId: conn.id, errors: ingest.errors.slice(0, 5) })
+                  console.error(
+                    '[customer-service.process] CS ingest partial errors',
+                    {
+                      orgId,
+                      connId: conn.id,
+                      errors: ingest.errors.slice(0, 5),
+                    },
+                  )
                 }
               } catch (connErr) {
-                console.error('[customer-service.process] CS mailbox fetch failed', { orgId, connId: conn.id, err: connErr })
+                console.error(
+                  '[customer-service.process] CS mailbox fetch failed',
+                  { orgId, connId: conn.id, err: connErr },
+                )
               }
             }
           }
         } catch (fetchErr) {
-          console.error('[customer-service.process] CS fetch pass error', { orgId, err: fetchErr })
+          console.error('[customer-service.process] CS fetch pass error', {
+            orgId,
+            err: fetchErr,
+          })
         }
 
         // Skip orgs over their AI allowance (don't bill the platform for cron AI).
         // Over-allowance orgs with a BYO key run on that key.
         const gate = await checkCustomersAiAllowance({ orgId })
         if (!gate.allowed) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+          results.push({
+            orgId,
+            mode,
+            candidates: 0,
+            queued: 0,
+            autoSent: 0,
+            skipped: 0,
+            skippedAutomated: 0,
+          })
           continue
         }
         const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
         if (!aiKey) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+          results.push({
+            orgId,
+            mode,
+            candidates: 0,
+            queued: 0,
+            autoSent: 0,
+            skipped: 0,
+            skippedAutomated: 0,
+          })
           continue
         }
-
-        // Resolve watched connection email addresses (null/empty = all active).
-        const watchedIds: string[] | null = Array.isArray(settings.watched_connection_ids)
-          ? settings.watched_connection_ids
-          : (settings.watched_connection_ids ? safeParse(settings.watched_connection_ids) : null)
 
         // {id, address} for each watched connection. Used both to filter
         // conversations (by inbound to_address) and to resolve the per-source
         // override for the matched connection. null = watching all mailboxes.
         let watched: Array<{ id: string; address: string }> | null = null
         let watchedAddresses: string[] | null = null
-        if (watchedIds && watchedIds.length > 0) {
+        if (watchNoMailboxes) {
+          watched = []
+          watchedAddresses = []
+        } else if (watchedIds && watchedIds.length > 0) {
           const conns = await knex('email_connections')
             .where('organization_id', orgId)
             .whereIn('id', watchedIds)
             .select('id', 'email_address')
           watched = conns
-            .map((c: any) => ({ id: c.id, address: (c.email_address || '').toLowerCase() }))
+            .map((c: any) => ({
+              id: c.id,
+              address: (c.email_address || '').toLowerCase(),
+            }))
             .filter((c: any) => c.address)
           watchedAddresses = watched.map((c) => c.address)
           // Watching specific connections that no longer exist means nothing to do.
           if (watchedAddresses.length === 0) {
-            results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+            results.push({
+              orgId,
+              mode,
+              candidates: 0,
+              queued: 0,
+              autoSent: 0,
+              skipped: 0,
+              skippedAutomated: 0,
+            })
             continue
           }
         }
@@ -213,7 +306,9 @@ export async function POST(req: Request) {
         // can't blast customers in one run. Infinite when a hold applies.
         let immediateBudget = Number.POSITIVE_INFINITY
         if (holdMinutes === 0 && !autoPaused) {
-          const hcap = Number.isFinite(Number(settings.auto_send_hourly_cap)) ? Number(settings.auto_send_hourly_cap) : 20
+          const hcap = Number.isFinite(Number(settings.auto_send_hourly_cap))
+            ? Number(settings.auto_send_hourly_cap)
+            : 20
           const capRow = await knex('inbox_proposal_actions')
             .where('organization_id', orgId)
             .where('status', 'sent')
@@ -226,6 +321,14 @@ export async function POST(req: Request) {
 
         for (const conv of conversations) {
           try {
+            if (
+              watchNoMailboxes &&
+              (!conv.last_message_channel ||
+                conv.last_message_channel === 'email')
+            ) {
+              skipped++
+              continue
+            }
             // Atomic claim: flip cs_drafted_at now, guarded on it still being NULL,
             // so overlapping runs can't select + draft the same conversation twice →
             // double-send. Only the winner proceeds; a new inbound resets the flag.
@@ -234,7 +337,10 @@ export async function POST(req: Request) {
               .where('organization_id', orgId)
               .whereNull('cs_drafted_at')
               .update({ cs_drafted_at: new Date() })
-            if (!claimed) { skipped++; continue }
+            if (!claimed) {
+              skipped++
+              continue
+            }
 
             // SMS conversations addressed to the dedicated CS number are handled
             // by a separate concise-reply path; everything else that is not email
@@ -242,7 +348,12 @@ export async function POST(req: Request) {
             if (conv.last_message_channel === 'sms') {
               if (csSmsNumber) {
                 const handled = await handleSmsConversation(knex, aiKey, {
-                  conv, orgId, tenantId, mode, hybridThreshold, csSmsNumber,
+                  conv,
+                  orgId,
+                  tenantId,
+                  mode,
+                  hybridThreshold,
+                  csSmsNumber,
                   signature: settings.signature || null,
                   byoKey: !!gate.byoApiKey,
                   flagScenarios,
@@ -260,14 +371,21 @@ export async function POST(req: Request) {
               continue
             }
             // Only email conversations can be drafted+sent by this engine.
-            if (conv.last_message_channel && conv.last_message_channel !== 'email') {
+            if (
+              conv.last_message_channel &&
+              conv.last_message_channel !== 'email'
+            ) {
               await markDrafted(knex, conv.id, orgId)
               skipped++
               continue
             }
 
             const contactId: string | null = conv.contact_id || null
-            if (!contactId) { await markDrafted(knex, conv.id, orgId); skipped++; continue }
+            if (!contactId) {
+              await markDrafted(knex, conv.id, orgId)
+              skipped++
+              continue
+            }
 
             // Load the recent email transcript for context + the latest inbound message.
             const emailMessages = await knex('email_messages')
@@ -276,19 +394,27 @@ export async function POST(req: Request) {
               .orderBy('created_at', 'asc')
               .limit(50)
 
-            const inbound = [...emailMessages].reverse().find((m: any) => m.direction === 'inbound')
-            if (!inbound) { await markDrafted(knex, conv.id, orgId); skipped++; continue }
+            const inbound = [...emailMessages]
+              .reverse()
+              .find((m: any) => m.direction === 'inbound')
+            if (!inbound) {
+              await markDrafted(knex, conv.id, orgId)
+              skipped++
+              continue
+            }
 
             // Never draft a reply to no-reply / automated / bulk mail (noreply@,
             // mailer-daemon, newsletters, notifications, list/bulk blasts). Mark
             // drafted so it is not reprocessed every run, and do NOT create a
             // proposal. Conservative: a normal human reply is never skipped here.
             const inboundMeta = parseMetadata(inbound.metadata)
-            if (isAutomatedMail({
-              fromAddress: inbound.from_address,
-              subject: inbound.subject,
-              headers: inboundMeta?.headers,
-            })) {
+            if (
+              isAutomatedMail({
+                fromAddress: inbound.from_address,
+                subject: inbound.subject,
+                headers: inboundMeta?.headers,
+              })
+            ) {
               await markDrafted(knex, conv.id, orgId)
               skippedAutomated++
               continue
@@ -303,7 +429,11 @@ export async function POST(req: Request) {
             let matchedConnId: string | null = null
             if (watched) {
               const hit = watched.find((c) => toAddr.includes(c.address))
-              if (!hit) { await markDrafted(knex, conv.id, orgId); skipped++; continue }
+              if (!hit) {
+                await markDrafted(knex, conv.id, orgId)
+                skipped++
+                continue
+              }
               matchedConnId = hit.id
             }
 
@@ -317,7 +447,9 @@ export async function POST(req: Request) {
               const ov = sourceModes[matchedConnId]
               if (VALID_MODES.has(ov.mode)) {
                 effMode = ov.mode
-                effThreshold = Number.isFinite(ov.threshold) ? ov.threshold : hybridThreshold
+                effThreshold = Number.isFinite(ov.threshold)
+                  ? ov.threshold
+                  : hybridThreshold
               }
             }
 
@@ -326,12 +458,26 @@ export async function POST(req: Request) {
               .where('id', contactId)
               .where('organization_id', orgId)
               .first()
-            const toEmail: string | null = contact?.primary_email || conv.avatar_email || inbound.from_address || null
-            if (!toEmail) { await markDrafted(knex, conv.id, orgId); skipped++; continue }
+            const toEmail: string | null =
+              contact?.primary_email ||
+              conv.avatar_email ||
+              inbound.from_address ||
+              null
+            if (!toEmail) {
+              await markDrafted(knex, conv.id, orgId)
+              skipped++
+              continue
+            }
 
             // Audience (identity) handling: resolve which audiences this sender is in.
             // 'no_draft' (e.g. your own team) -> don't draft at all, before spending AI.
-            const senderMatch = await resolveSenderAudiences(knex, orgId, audiences, inbound.from_address || toEmail, contact)
+            const senderMatch = await resolveSenderAudiences(
+              knex,
+              orgId,
+              audiences,
+              inbound.from_address || toEmail,
+              contact,
+            )
             if (senderMatch.action === 'no_draft') {
               await markDrafted(knex, conv.id, orgId)
               skipped++
@@ -350,7 +496,8 @@ export async function POST(req: Request) {
             // 'existing' = prior correspondence; no audience (or 'anyone') always applies.
             const contactIsNew = emailMessages.length <= 1
             const applicableScenarios = flagScenarios.filter((s) => {
-              if (s.audience && s.audience.startsWith('aud:')) return scenarioAudienceMatches(s.audience, senderMatch)
+              if (s.audience && s.audience.startsWith('aud:'))
+                return scenarioAudienceMatches(s.audience, senderMatch)
               return (
                 !s.audience ||
                 s.audience === 'anyone' ||
@@ -358,7 +505,8 @@ export async function POST(req: Request) {
                 (s.audience === 'existing' && !contactIsNew)
               )
             })
-            const emailDrafterScenarios = toDrafterScenarios(applicableScenarios)
+            const emailDrafterScenarios =
+              toDrafterScenarios(applicableScenarios)
 
             const result = await generateReplyDraft(knex, aiKey, {
               orgId,
@@ -373,13 +521,16 @@ export async function POST(req: Request) {
               conversationId: conv.id,
             })
 
-            void meterCustomersAi({ orgId }, {
-              model: result.model,
-              tokensIn: result.tokensIn,
-              tokensOut: result.tokensOut,
-              feature: 'customer-service-draft',
-              byoKey: !!gate.byoApiKey,
-            })
+            void meterCustomersAi(
+              { orgId },
+              {
+                model: result.model,
+                tokensIn: result.tokensIn,
+                tokensOut: result.tokensOut,
+                feature: 'customer-service-draft',
+                byoKey: !!gate.byoApiKey,
+              },
+            )
 
             if (!result.ok || !result.draft) {
               // Mark drafted so we don't retry a failing conversation every run.
@@ -388,12 +539,21 @@ export async function POST(req: Request) {
               continue
             }
 
-            const displayName = contact?.display_name || conv.display_name || toEmail
+            const displayName =
+              contact?.display_name || conv.display_name || toEmail
             const inboundSubject = inbound.subject || ''
             const subject = inboundSubject
-              ? (/^re:/i.test(inboundSubject) ? inboundSubject : `Re: ${inboundSubject}`)
+              ? /^re:/i.test(inboundSubject)
+                ? inboundSubject
+                : `Re: ${inboundSubject}`
               : 'Re: your message'
-            const lastInboundPreview = (inbound.body_text || inbound.body_html || '').toString().substring(0, 200)
+            const lastInboundPreview = (
+              inbound.body_text ||
+              inbound.body_html ||
+              ''
+            )
+              .toString()
+              .substring(0, 200)
 
             // Flag scenarios override the normal reply mode. If the drafter
             // matched any enabled scenario, this message is FLAGGED: the user is
@@ -403,7 +563,9 @@ export async function POST(req: Request) {
             //   all matched scenarios 'auto_send'    -> send the draft.
             const matched = result.matchedScenarios || []
             const flagged = matched.length > 0
-            const flagOutcome = flagged ? resolveFlagOutcome(matched, applicableScenarios) : null
+            const flagOutcome = flagged
+              ? resolveFlagOutcome(matched, applicableScenarios)
+              : null
 
             // A "don't draft" rule matched (e.g. automated / no-reply mail) — create
             // no reply at all. Mark handled so it isn't re-processed, and move on.
@@ -423,7 +585,9 @@ export async function POST(req: Request) {
             if (effMode === 'auto') {
               shouldAutoSend = true
             } else if (effMode === 'hybrid') {
-              shouldAutoSend = result.autoSendSafe === true && result.confidence >= effThreshold
+              shouldAutoSend =
+                result.autoSendSafe === true &&
+                result.confidence >= effThreshold
             }
 
             // Flag override: pause wins over everything; all-auto_send forces send.
@@ -439,24 +603,45 @@ export async function POST(req: Request) {
             // auto-send-safe (skip the confidence gate). Never overrides a content
             // pause, and draft mode still holds everything. The kill switch + hourly
             // cap downstream still apply.
-            if (senderMatch.action === 'auto_send' && effMode === 'hybrid' && !flagOutcome?.shouldPause) {
+            if (
+              senderMatch.action === 'auto_send' &&
+              effMode === 'hybrid' &&
+              !flagOutcome?.shouldPause
+            ) {
               shouldAutoSend = true
             }
 
             // Common flag metadata for the proposal/action rows.
             const audienceReasons = audiencePause
-              ? [{ key: 'audience_pause', label: 'Held for review: message from a review-first audience' }]
+              ? [
+                  {
+                    key: 'audience_pause',
+                    label:
+                      'Held for review: message from a review-first audience',
+                  },
+                ]
               : []
-            const flagMeta = flagged || audiencePause
-              ? { flagged: true, flagReasons: [...(flagOutcome?.reasons || []), ...audienceReasons] }
-              : undefined
+            const flagMeta =
+              flagged || audiencePause
+                ? {
+                    flagged: true,
+                    flagReasons: [
+                      ...(flagOutcome?.reasons || []),
+                      ...audienceReasons,
+                    ],
+                  }
+                : undefined
 
             // Kill switch: when auto-sending is paused, an auto-eligible reply
             // falls back to the manual review queue.
             const holdThis = shouldAutoSend && !autoPaused && holdMinutes > 0
             // Immediate send only while the hourly budget lasts; once exhausted,
             // fall through to the review queue rather than send uncapped.
-            const sendNow = shouldAutoSend && !autoPaused && holdMinutes === 0 && immediateBudget > 0
+            const sendNow =
+              shouldAutoSend &&
+              !autoPaused &&
+              holdMinutes === 0 &&
+              immediateBudget > 0
 
             if (holdThis) {
               // Queue it as a SCHEDULED draft (shows in the inbox with a
@@ -473,7 +658,11 @@ export async function POST(req: Request) {
                 confidence: result.confidence,
                 status: 'pending',
                 flag: flagMeta,
-                autoSchedule: { scheduledSendAt: new Date(Date.now() + holdMinutes * 60000).toISOString() },
+                autoSchedule: {
+                  scheduledSendAt: new Date(
+                    Date.now() + holdMinutes * 60000,
+                  ).toISOString(),
+                },
               })
               await markDrafted(knex, conv.id, orgId)
               queued++
@@ -507,7 +696,10 @@ export async function POST(req: Request) {
               } else {
                 // Send failed (e.g. no connected mailbox): fall back to queuing
                 // the draft for manual review rather than dropping it.
-                console.error('[customer-service.process] auto-send failed, queuing instead', { orgId, convId: conv.id, err: sendResult.error })
+                console.error(
+                  '[customer-service.process] auto-send failed, queuing instead',
+                  { orgId, convId: conv.id, err: sendResult.error },
+                )
                 await createDraftProposal(knex, orgId, tenantId, {
                   displayName,
                   toEmail,
@@ -553,16 +745,47 @@ export async function POST(req: Request) {
               })
             }
           } catch (convErr) {
-            console.error('[customer-service.process] conversation error', { orgId, convId: conv?.id, err: convErr })
+            console.error('[customer-service.process] conversation error', {
+              orgId,
+              convId: conv?.id,
+              err: convErr,
+            })
             skipped++
           }
         }
 
-        results.push({ orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated })
-        console.log('[customer-service.process] org done', { orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated })
+        results.push({
+          orgId,
+          mode,
+          candidates: conversations.length,
+          queued,
+          autoSent,
+          skipped,
+          skippedAutomated,
+        })
+        console.log('[customer-service.process] org done', {
+          orgId,
+          mode,
+          candidates: conversations.length,
+          queued,
+          autoSent,
+          skipped,
+          skippedAutomated,
+        })
       } catch (orgErr) {
-        console.error('[customer-service.process] org error', { orgId, err: orgErr })
-        results.push({ orgId, mode, candidates: 0, queued, autoSent, skipped, skippedAutomated })
+        console.error('[customer-service.process] org error', {
+          orgId,
+          err: orgErr,
+        })
+        results.push({
+          orgId,
+          mode,
+          candidates: 0,
+          queued,
+          autoSent,
+          skipped,
+          skippedAutomated,
+        })
       }
     }
 
@@ -574,19 +797,38 @@ export async function POST(req: Request) {
         skipped: acc.skipped + r.skipped,
         skippedAutomated: acc.skippedAutomated + r.skippedAutomated,
       }),
-      { candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 },
+      {
+        candidates: 0,
+        queued: 0,
+        autoSent: 0,
+        skipped: 0,
+        skippedAutomated: 0,
+      },
     )
-    console.log('[customer-service.process] run complete', { orgs: results.length, ...totals })
+    console.log('[customer-service.process] run complete', {
+      orgs: results.length,
+      ...totals,
+    })
 
-    return NextResponse.json({ ok: true, data: { orgs: results.length, ...totals, perOrg: results } })
+    return NextResponse.json({
+      ok: true,
+      data: { orgs: results.length, ...totals, perOrg: results },
+    })
   } catch (error) {
     console.error('[customer-service.process]', error)
-    return NextResponse.json({ ok: false, error: 'Failed to process customer service queue' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'Failed to process customer service queue' },
+      { status: 500 },
+    )
   }
 }
 
 function safeParse(s: any) {
-  try { return JSON.parse(s) } catch { return null }
+  try {
+    return JSON.parse(s)
+  } catch {
+    return null
+  }
 }
 
 // Normalize a phone number to E.164-ish form (+<digits>). Returns null for
@@ -626,7 +868,18 @@ async function handleSmsConversation(
 ): Promise<'queued' | 'sent' | 'skipped'> {
   // drafterScenarios is re-derived per-conversation below (audience-gated), so the
   // pre-built set from the caller is intentionally not destructured here.
-  const { conv, orgId, tenantId, mode, hybridThreshold, csSmsNumber, signature, byoKey, flagScenarios, audiences } = args
+  const {
+    conv,
+    orgId,
+    tenantId,
+    mode,
+    hybridThreshold,
+    csSmsNumber,
+    signature,
+    byoKey,
+    flagScenarios,
+    audiences,
+  } = args
 
   // Resolve the customer's phone number: prefer the conversation avatar_phone,
   // else the contact's primary_phone. We need it both to load the transcript and
@@ -635,15 +888,30 @@ async function handleSmsConversation(
   const contactId: string | null = conv.contact_id || null
   let contact: any = null
   if (contactId) {
-    contact = await knex('customer_entities').where('id', contactId).where('organization_id', orgId).first()
+    contact = await knex('customer_entities')
+      .where('id', contactId)
+      .where('organization_id', orgId)
+      .first()
     if (!toPhone) toPhone = normalizeE164(contact?.primary_phone)
   }
-  if (!toPhone) { await markDrafted(knex, conv.id, orgId); return 'skipped' }
+  if (!toPhone) {
+    await markDrafted(knex, conv.id, orgId)
+    return 'skipped'
+  }
 
   // Audience (identity) handling for SMS — match by the contact's email/stage/CRM
   // list. no_draft -> skip before AI; pause/auto_send handled at the send decision.
-  const senderMatch = await resolveSenderAudiences(knex, orgId, audiences, contact?.primary_email || null, contact)
-  if (senderMatch.action === 'no_draft') { await markDrafted(knex, conv.id, orgId); return 'skipped' }
+  const senderMatch = await resolveSenderAudiences(
+    knex,
+    orgId,
+    audiences,
+    contact?.primary_email || null,
+    contact,
+  )
+  if (senderMatch.action === 'no_draft') {
+    await markDrafted(knex, conv.id, orgId)
+    return 'skipped'
+  }
 
   // Load the recent SMS transcript for context. Match on contact_id when present,
   // otherwise on the customer phone (from_number for inbound, to_number for
@@ -672,14 +940,25 @@ async function handleSmsConversation(
   }
   const smsMessages = await txQuery
 
-  const inbound = [...smsMessages].reverse().find((m: any) => m.direction === 'inbound')
-  if (!inbound) { await markDrafted(knex, conv.id, orgId); return 'skipped' }
+  const inbound = [...smsMessages]
+    .reverse()
+    .find((m: any) => m.direction === 'inbound')
+  if (!inbound) {
+    await markDrafted(knex, conv.id, orgId)
+    return 'skipped'
+  }
 
   // Audience-gate the content scenarios for this sender (parity with email).
   const contactIsNew = smsMessages.length <= 1
   const applicableScenarios = flagScenarios.filter((s) => {
-    if (s.audience && s.audience.startsWith('aud:')) return scenarioAudienceMatches(s.audience, senderMatch)
-    return !s.audience || s.audience === 'anyone' || (s.audience === 'new' && contactIsNew) || (s.audience === 'existing' && !contactIsNew)
+    if (s.audience && s.audience.startsWith('aud:'))
+      return scenarioAudienceMatches(s.audience, senderMatch)
+    return (
+      !s.audience ||
+      s.audience === 'anyone' ||
+      (s.audience === 'new' && contactIsNew) ||
+      (s.audience === 'existing' && !contactIsNew)
+    )
   })
   const smsDrafterScenarios = toDrafterScenarios(applicableScenarios)
 
@@ -709,15 +988,21 @@ async function handleSmsConversation(
     conversationId: conv.id,
   })
 
-  void meterCustomersAi({ orgId }, {
-    model: result.model,
-    tokensIn: result.tokensIn,
-    tokensOut: result.tokensOut,
-    feature: 'customer-service-draft',
-    byoKey,
-  })
+  void meterCustomersAi(
+    { orgId },
+    {
+      model: result.model,
+      tokensIn: result.tokensIn,
+      tokensOut: result.tokensOut,
+      feature: 'customer-service-draft',
+      byoKey,
+    },
+  )
 
-  if (!result.ok || !result.draft) { await markDrafted(knex, conv.id, orgId); return 'skipped' }
+  if (!result.ok || !result.draft) {
+    await markDrafted(knex, conv.id, orgId)
+    return 'skipped'
+  }
 
   const displayName = contact?.display_name || conv.display_name || toPhone
   const lastInboundPreview = (inbound.body || '').toString().substring(0, 200)
@@ -726,19 +1011,33 @@ async function handleSmsConversation(
   // auto/hybrid, all-auto_send forces a send. Email the org user on any flag.
   const matched = result.matchedScenarios || []
   const flagged = matched.length > 0
-  const flagOutcome = flagged ? resolveFlagOutcome(matched, applicableScenarios) : null
+  const flagOutcome = flagged
+    ? resolveFlagOutcome(matched, applicableScenarios)
+    : null
   // A "don't draft" content rule matched — discard the draft and move on.
-  if (flagOutcome?.noDraft) { await markDrafted(knex, conv.id, orgId); return 'skipped' }
-  const flagMeta = flagged ? { flagged: true, flagReasons: flagOutcome?.reasons || [] } : undefined
+  if (flagOutcome?.noDraft) {
+    await markDrafted(knex, conv.id, orgId)
+    return 'skipped'
+  }
+  const flagMeta = flagged
+    ? { flagged: true, flagReasons: flagOutcome?.reasons || [] }
+    : undefined
 
   let shouldAutoSend = false
   if (mode === 'auto') shouldAutoSend = true
-  else if (mode === 'hybrid') shouldAutoSend = result.autoSendSafe === true && result.confidence >= hybridThreshold
+  else if (mode === 'hybrid')
+    shouldAutoSend =
+      result.autoSendSafe === true && result.confidence >= hybridThreshold
   if (flagOutcome) shouldAutoSend = flagOutcome.shouldPause ? false : true
   // Audience identity actions: 'pause' always holds; 'auto_send' relaxes the hybrid
   // gate (never over a content pause; draft mode still holds).
   if (senderMatch.action === 'pause') shouldAutoSend = false
-  if (senderMatch.action === 'auto_send' && mode === 'hybrid' && !flagOutcome?.shouldPause) shouldAutoSend = true
+  if (
+    senderMatch.action === 'auto_send' &&
+    mode === 'hybrid' &&
+    !flagOutcome?.shouldPause
+  )
+    shouldAutoSend = true
 
   // Fire the flag alert once, regardless of which branch handles the draft.
   const fireAlert = async (paused: boolean) => {
@@ -762,18 +1061,35 @@ async function handleSmsConversation(
     })
     if (sendResult.ok) {
       await createSmsDraftProposal(knex, orgId, tenantId, {
-        displayName, toPhone, contactId: contactId || '', conversationId: conv.id,
-        body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'sent', flag: flagMeta,
+        displayName,
+        toPhone,
+        contactId: contactId || '',
+        conversationId: conv.id,
+        body: result.draft,
+        lastInboundPreview,
+        confidence: result.confidence,
+        status: 'sent',
+        flag: flagMeta,
       })
       await markDrafted(knex, conv.id, orgId)
       await fireAlert(false)
       return 'sent'
     }
     // Send failed: fall back to queuing for manual review.
-    console.error('[customer-service.process] SMS auto-send failed, queuing instead', { orgId, convId: conv.id, err: sendResult.error })
+    console.error(
+      '[customer-service.process] SMS auto-send failed, queuing instead',
+      { orgId, convId: conv.id, err: sendResult.error },
+    )
     await createSmsDraftProposal(knex, orgId, tenantId, {
-      displayName, toPhone, contactId: contactId || '', conversationId: conv.id,
-      body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'pending', flag: flagMeta,
+      displayName,
+      toPhone,
+      contactId: contactId || '',
+      conversationId: conv.id,
+      body: result.draft,
+      lastInboundPreview,
+      confidence: result.confidence,
+      status: 'pending',
+      flag: flagMeta,
     })
     await markDrafted(knex, conv.id, orgId)
     await fireAlert(true)
@@ -781,8 +1097,15 @@ async function handleSmsConversation(
   }
 
   await createSmsDraftProposal(knex, orgId, tenantId, {
-    displayName, toPhone, contactId: contactId || '', conversationId: conv.id,
-    body: result.draft, lastInboundPreview, confidence: result.confidence, status: 'pending', flag: flagMeta,
+    displayName,
+    toPhone,
+    contactId: contactId || '',
+    conversationId: conv.id,
+    body: result.draft,
+    lastInboundPreview,
+    confidence: result.confidence,
+    status: 'pending',
+    flag: flagMeta,
   })
   await markDrafted(knex, conv.id, orgId)
   await fireAlert(true)
@@ -794,7 +1117,11 @@ async function handleSmsConversation(
 function parseMetadata(raw: any): { headers?: Record<string, string> } | null {
   let obj: any = raw
   if (typeof obj === 'string') {
-    try { obj = JSON.parse(obj) } catch { return null }
+    try {
+      obj = JSON.parse(obj)
+    } catch {
+      return null
+    }
   }
   if (!obj || typeof obj !== 'object') return null
   return obj
@@ -802,10 +1129,16 @@ function parseMetadata(raw: any): { headers?: Record<string, string> } | null {
 
 // Per-source override map keyed by email_connection id. jsonb may arrive parsed
 // or as a string depending on the driver path; coerce + validate either way.
-function parseSourceModes(raw: any): Record<string, { mode: string; threshold: number }> {
+function parseSourceModes(
+  raw: any,
+): Record<string, { mode: string; threshold: number }> {
   let obj: any = raw
   if (typeof obj === 'string') {
-    try { obj = JSON.parse(obj) } catch { return {} }
+    try {
+      obj = JSON.parse(obj)
+    } catch {
+      return {}
+    }
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {}
   const out: Record<string, { mode: string; threshold: number }> = {}
@@ -814,14 +1147,26 @@ function parseSourceModes(raw: any): Record<string, { mode: string; threshold: n
     const mode = (v as any).mode
     if (!VALID_MODES.has(mode)) continue
     const t = Number((v as any).threshold)
-    out[k] = { mode, threshold: Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : DEFAULT_HYBRID_THRESHOLD }
+    out[k] = {
+      mode,
+      threshold: Number.isFinite(t)
+        ? Math.min(1, Math.max(0, t))
+        : DEFAULT_HYBRID_THRESHOLD,
+    }
   }
   return out
 }
 
 type FlagAction = 'pause' | 'auto_send' | 'no_draft'
 // audience: 'anyone' | 'new' | 'existing' | 'aud:team' | 'aud:<audienceId>'
-type FlagScenario = { key: string; label: string; enabled: boolean; action: FlagAction; instructions: string; audience?: string }
+type FlagScenario = {
+  key: string
+  label: string
+  enabled: boolean
+  action: FlagAction
+  instructions: string
+  audience?: string
+}
 
 const VALID_FLAG_ACTIONS = new Set(['pause', 'auto_send', 'no_draft'])
 
@@ -830,7 +1175,11 @@ const VALID_FLAG_ACTIONS = new Set(['pause', 'auto_send', 'no_draft'])
 function parseFlagScenarios(raw: any): FlagScenario[] {
   let arr: any = raw
   if (typeof arr === 'string') {
-    try { arr = JSON.parse(arr) } catch { return [] }
+    try {
+      arr = JSON.parse(arr)
+    } catch {
+      return []
+    }
   }
   if (!Array.isArray(arr)) return []
   const out: FlagScenario[] = []
@@ -845,9 +1194,13 @@ function parseFlagScenarios(raw: any): FlagScenario[] {
       label,
       enabled: item.enabled === true,
       action: action as FlagAction,
-      instructions: typeof item.instructions === 'string' ? item.instructions : '',
+      instructions:
+        typeof item.instructions === 'string' ? item.instructions : '',
       audience:
-        item.audience === 'new' || item.audience === 'existing' || (typeof item.audience === 'string' && /^aud:[\w-]+$/.test(item.audience))
+        item.audience === 'new' ||
+        item.audience === 'existing' ||
+        (typeof item.audience === 'string' &&
+          /^aud:[\w-]+$/.test(item.audience))
           ? item.audience
           : 'anyone',
     })
@@ -857,7 +1210,9 @@ function parseFlagScenarios(raw: any): FlagScenario[] {
 
 // Map enabled scenarios to the shape the drafter consumes (key/label/instructions).
 function toDrafterScenarios(scenarios: FlagScenario[]): FlagScenarioInput[] {
-  return scenarios.filter((s) => s.enabled).map((s) => ({ key: s.key, label: s.label, instructions: s.instructions }))
+  return scenarios
+    .filter((s) => s.enabled)
+    .map((s) => ({ key: s.key, label: s.label, instructions: s.instructions }))
 }
 
 // Given the matched keys and the org's scenarios, decide the flag outcome:
@@ -865,7 +1220,14 @@ function toDrafterScenarios(scenarios: FlagScenario[]): FlagScenarioInput[] {
 //  - shouldPause: true if ANY matched scenario is 'pause' (pause overrides
 //    auto_send AND the org's reply_mode). false only when ALL matched are
 //    'auto_send'.
-function resolveFlagOutcome(matchedKeys: string[], scenarios: FlagScenario[]): { reasons: Array<{ key: string; label: string }>; shouldPause: boolean; noDraft: boolean } {
+function resolveFlagOutcome(
+  matchedKeys: string[],
+  scenarios: FlagScenario[],
+): {
+  reasons: Array<{ key: string; label: string }>
+  shouldPause: boolean
+  noDraft: boolean
+} {
   const byKey = new Map(scenarios.map((s) => [s.key, s]))
   const reasons: Array<{ key: string; label: string }> = []
   let anyPause = false
@@ -906,16 +1268,25 @@ async function sendFlagAlert(
       .first()
     if (!recipient?.email_address) return
 
-    const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl =
+      process.env.APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'http://localhost:3000'
     const queueUrl = `${appUrl.replace(/\/$/, '')}/backend/customer-service`
     const labels = d.reasons.map((r) => r.label).filter(Boolean)
-    const scenarioLine = labels.length ? labels.join(', ') : 'a flagged scenario'
+    const scenarioLine = labels.length
+      ? labels.join(', ')
+      : 'a flagged scenario'
     const channelLabel = d.channel === 'sms' ? 'text message' : 'email'
     const actionLine = d.paused
       ? 'The reply is waiting in your review queue. Nothing was sent automatically.'
       : 'A reply was drafted and sent automatically for this scenario.'
 
-    const esc = (s: string) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const esc = (s: string) =>
+      String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
     const subject = 'A customer message was flagged'
     const htmlBody = `
       <div style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; font-size: 14px; color: #1f2937; line-height: 1.6;">
@@ -932,7 +1303,10 @@ async function sendFlagAlert(
       htmlBody,
     })
   } catch (err) {
-    console.error('[customer-service.process] flag alert email failed', { orgId, err })
+    console.error('[customer-service.process] flag alert email failed', {
+      orgId,
+      err,
+    })
   }
 }
 
@@ -966,7 +1340,10 @@ async function createDraftProposal(
     status?: 'pending' | 'sent'
     // Set when the message matched a flag scenario; stored in action metadata so
     // the queue can render the flag badge + reasons.
-    flag?: { flagged: boolean; flagReasons: Array<{ key: string; label: string }> }
+    flag?: {
+      flagged: boolean
+      flagReasons: Array<{ key: string; label: string }>
+    }
     // Set when this is a held auto-send: the draft is pending but will be sent
     // automatically at scheduledSendAt by the scheduled-send pass.
     autoSchedule?: { scheduledSendAt: string }
@@ -977,9 +1354,10 @@ async function createDraftProposal(
   const isSent = status === 'sent'
   // Confidence drives the queue display; clamp to a sane range and fall back to
   // the prior fixed 0.7 when the drafter gave no signal.
-  const conf = typeof d.confidence === 'number' && Number.isFinite(d.confidence)
-    ? Math.min(1, Math.max(0, d.confidence))
-    : 0.7
+  const conf =
+    typeof d.confidence === 'number' && Number.isFinite(d.confidence)
+      ? Math.min(1, Math.max(0, d.confidence))
+      : 0.7
   const emailId = crypto.randomUUID()
   await knex('inbox_emails').insert({
     id: emailId,
@@ -987,7 +1365,9 @@ async function createDraftProposal(
     organization_id: orgId,
     forwarded_by_address: 'customer-service@noliai.com',
     to_address: d.toEmail,
-    subject: isSent ? `Auto-sent reply to ${d.displayName}` : `Draft reply for ${d.displayName}`,
+    subject: isSent
+      ? `Auto-sent reply to ${d.displayName}`
+      : `Draft reply for ${d.displayName}`,
     status: 'processed',
     received_at: now,
     is_active: true,
@@ -1065,15 +1445,19 @@ async function createSmsDraftProposal(
     lastInboundPreview: string
     confidence?: number
     status?: 'pending' | 'sent'
-    flag?: { flagged: boolean; flagReasons: Array<{ key: string; label: string }> }
+    flag?: {
+      flagged: boolean
+      flagReasons: Array<{ key: string; label: string }>
+    }
   },
 ) {
   const now = new Date()
   const status = d.status || 'pending'
   const isSent = status === 'sent'
-  const conf = typeof d.confidence === 'number' && Number.isFinite(d.confidence)
-    ? Math.min(1, Math.max(0, d.confidence))
-    : 0.7
+  const conf =
+    typeof d.confidence === 'number' && Number.isFinite(d.confidence)
+      ? Math.min(1, Math.max(0, d.confidence))
+      : 0.7
   const emailId = crypto.randomUUID()
   // Audit row reuses inbox_emails; to_address holds the phone for SMS.
   await knex('inbox_emails').insert({
@@ -1082,7 +1466,9 @@ async function createSmsDraftProposal(
     organization_id: orgId,
     forwarded_by_address: 'customer-service@noliai.com',
     to_address: d.toPhone,
-    subject: isSent ? `Auto-sent SMS to ${d.displayName}` : `Draft SMS reply for ${d.displayName}`,
+    subject: isSent
+      ? `Auto-sent SMS to ${d.displayName}`
+      : `Draft SMS reply for ${d.displayName}`,
     status: 'processed',
     received_at: now,
     is_active: true,

@@ -12,11 +12,23 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { buildDefaultSignature } from '@/modules/customers/lib/draft-reply'
+import {
+  allowedWatchedConnectionIds,
+  hasWatchedMailboxes,
+  normalizeWatchedConnectionIds,
+  watchedConnectionIdsForStorage,
+} from '@/modules/customers/lib/customer-service-watch'
 
 const VALID_MODES = new Set(['draft', 'auto', 'hybrid'])
 const VALID_FLAG_ACTIONS = new Set(['pause', 'auto_send'])
 
-export type FlagScenario = { key: string; label: string; enabled: boolean; action: 'pause' | 'auto_send'; instructions: string }
+export type FlagScenario = {
+  key: string
+  label: string
+  enabled: boolean
+  action: 'pause' | 'auto_send'
+  instructions: string
+}
 
 // Default flag-scenario seed. Returned by GET when the org has saved none, so
 // the UI always shows the full list. All default to disabled + pause + no custom
@@ -24,12 +36,48 @@ export type FlagScenario = { key: string; label: string; enabled: boolean; actio
 // identifier persisted + matched by the drafter; the `label` is shown to the
 // user AND given to the model so it understands the scenario.
 export const DEFAULT_FLAG_SCENARIOS: FlagScenario[] = [
-  { key: 'angry_or_upset', label: 'Upset or angry customer', enabled: false, action: 'pause', instructions: '' },
-  { key: 'incoherent', label: 'Incoherent or unclear message', enabled: false, action: 'pause', instructions: '' },
-  { key: 'cancel', label: 'Customer wants to cancel', enabled: false, action: 'pause', instructions: '' },
-  { key: 'refund', label: 'Customer wants a refund', enabled: false, action: 'pause', instructions: '' },
-  { key: 'complaint', label: 'Complaint about product or service', enabled: false, action: 'pause', instructions: '' },
-  { key: 'legal', label: 'Legal or compliance matter', enabled: false, action: 'pause', instructions: '' },
+  {
+    key: 'angry_or_upset',
+    label: 'Upset or angry customer',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'incoherent',
+    label: 'Incoherent or unclear message',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'cancel',
+    label: 'Customer wants to cancel',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'refund',
+    label: 'Customer wants a refund',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'complaint',
+    label: 'Complaint about product or service',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'legal',
+    label: 'Legal or compliance matter',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
 ]
 
 // Prefix marking a user-defined (custom) flag scenario. Anything that is not a
@@ -41,7 +89,12 @@ const CANONICAL_KEYS = new Set(DEFAULT_FLAG_SCENARIOS.map((s) => s.key))
 const MAX_FLAG_INSTRUCTIONS_CHARS = 4000
 
 function isCustomKey(key: unknown): key is string {
-  return typeof key === 'string' && key.startsWith(CUSTOM_KEY_PREFIX) && key.length > CUSTOM_KEY_PREFIX.length && !CANONICAL_KEYS.has(key)
+  return (
+    typeof key === 'string' &&
+    key.startsWith(CUSTOM_KEY_PREFIX) &&
+    key.length > CUSTOM_KEY_PREFIX.length &&
+    !CANONICAL_KEYS.has(key)
+  )
 }
 
 // Validate + normalize a single incoming custom-scenario entry. Returns null
@@ -58,7 +111,10 @@ function normalizeCustomScenario(u: any): FlagScenario | null {
     label,
     enabled: u.enabled === true,
     action: action as 'pause' | 'auto_send',
-    instructions: typeof u.instructions === 'string' ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS) : '',
+    instructions:
+      typeof u.instructions === 'string'
+        ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS)
+        : '',
   }
 }
 
@@ -72,12 +128,17 @@ function normalizeCustomScenario(u: any): FlagScenario | null {
 function parseFlagScenarios(raw: any): FlagScenario[] | null {
   let arr: any = raw
   if (typeof arr === 'string') {
-    try { arr = JSON.parse(arr) } catch { return null }
+    try {
+      arr = JSON.parse(arr)
+    } catch {
+      return null
+    }
   }
   if (!Array.isArray(arr)) return null
   const byKey = new Map<string, any>()
   for (const item of arr) {
-    if (item && typeof item === 'object' && typeof item.key === 'string') byKey.set(item.key, item)
+    if (item && typeof item === 'object' && typeof item.key === 'string')
+      byKey.set(item.key, item)
   }
   // Build from the canonical defaults so labels/order stay stable and any
   // removed/renamed canonical keys are ignored.
@@ -90,7 +151,10 @@ function parseFlagScenarios(raw: any): FlagScenario[] | null {
       label: def.label,
       enabled: u.enabled === true,
       action: action as 'pause' | 'auto_send',
-      instructions: typeof u.instructions === 'string' ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS) : '',
+      instructions:
+        typeof u.instructions === 'string'
+          ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS)
+          : '',
     }
   })
   // Append valid custom scenarios after the canonical set, de-duped by key and
@@ -99,7 +163,10 @@ function parseFlagScenarios(raw: any): FlagScenario[] | null {
   const seen = new Set<string>()
   for (const item of arr) {
     const c = normalizeCustomScenario(item)
-    if (c && !seen.has(c.key)) { seen.add(c.key); customs.push(c) }
+    if (c && !seen.has(c.key)) {
+      seen.add(c.key)
+      customs.push(c)
+    }
   }
   return [...canonical, ...customs]
 }
@@ -112,10 +179,16 @@ function normalizeThreshold(v: unknown, fallback: number): number {
 
 // jsonb can come back from pg as a parsed object or (depending on driver/path) a
 // string. Coerce to a plain object map keyed by connection id.
-function parseSourceModes(raw: any): Record<string, { mode: string; threshold: number }> {
+function parseSourceModes(
+  raw: any,
+): Record<string, { mode: string; threshold: number }> {
   let obj: any = raw
   if (typeof obj === 'string') {
-    try { obj = JSON.parse(obj) } catch { return {} }
+    try {
+      obj = JSON.parse(obj)
+    } catch {
+      return {}
+    }
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {}
   const out: Record<string, { mode: string; threshold: number }> = {}
@@ -130,10 +203,13 @@ function parseSourceModes(raw: any): Record<string, { mode: string; threshold: n
 
 // Build the stored source_modes map from client input, keeping only entries for
 // connections that are actually in the watched list and with valid mode/threshold.
-function normalizeSourceModesInput(input: any, watched: string[] | null): Record<string, { mode: string; threshold: number }> {
+function normalizeSourceModesInput(
+  input: any,
+  watched: string[] | null,
+): Record<string, { mode: string; threshold: number }> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
   // watched === null means "watch all"; we can't constrain to ids, so accept any.
-  const allowed = watched && watched.length > 0 ? new Set(watched) : null
+  const allowed = allowedWatchedConnectionIds(watched)
   const out: Record<string, { mode: string; threshold: number }> = {}
   for (const [k, v] of Object.entries(input)) {
     if (typeof k !== 'string' || !k) continue
@@ -162,17 +238,33 @@ function normalizeE164(v: unknown): string | null {
 function serialize(row: any, defaultSignature = '') {
   if (!row) {
     // No saved row: seed the default flag-scenario list so the UI shows it.
-    return { enabled: false, watchedConnectionIds: null, replyMode: 'draft', hybridConfidenceThreshold: 0.8, sourceModes: {}, signature: null, csSmsNumber: null, csChatEnabled: false, flagScenarios: DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s })), defaultSignature }
+    return {
+      enabled: false,
+      watchedConnectionIds: null,
+      replyMode: 'draft',
+      hybridConfidenceThreshold: 0.8,
+      sourceModes: {},
+      signature: null,
+      csSmsNumber: null,
+      csChatEnabled: false,
+      flagScenarios: DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s })),
+      defaultSignature,
+    }
   }
   // Saved row: overlay the user's scenarios onto the canonical defaults. Falls
   // back to the full default seed when nothing usable has been saved yet.
-  const flagScenarios = parseFlagScenarios(row.flag_scenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
+  const flagScenarios =
+    parseFlagScenarios(row.flag_scenarios) ||
+    DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
   return {
     id: row.id,
     enabled: !!row.enabled,
     watchedConnectionIds: row.watched_connection_ids ?? null,
     replyMode: row.reply_mode || 'draft',
-    hybridConfidenceThreshold: row.hybrid_confidence_threshold != null ? Number(row.hybrid_confidence_threshold) : 0.8,
+    hybridConfidenceThreshold:
+      row.hybrid_confidence_threshold != null
+        ? Number(row.hybrid_confidence_threshold)
+        : 0.8,
     sourceModes: parseSourceModes(row.source_modes),
     signature: row.signature ?? null,
     csSmsNumber: row.cs_sms_number ?? null,
@@ -192,57 +284,78 @@ function serialize(row: any, defaultSignature = '') {
 // GET: load the org's customer service config (returns defaults if no row yet)
 export async function GET() {
   const auth = await getAuthFromCookies()
-  if (!auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  if (!auth?.orgId)
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized' },
+      { status: 401 },
+    )
   try {
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
-    const row = await knex('customer_service_settings').where('organization_id', auth.orgId).first()
+    const row = await knex('customer_service_settings')
+      .where('organization_id', auth.orgId)
+      .first()
     // Resolve the org's business name (same source brand voice uses) to build a
     // default sign-off the UI can prepopulate when no signature is saved.
-    const bpRow = await knex('business_profiles').where('organization_id', auth.orgId).select('business_name').first()
+    const bpRow = await knex('business_profiles')
+      .where('organization_id', auth.orgId)
+      .select('business_name')
+      .first()
     const defaultSignature = buildDefaultSignature(bpRow?.business_name)
-    return NextResponse.json({ ok: true, data: serialize(row, defaultSignature) })
+    return NextResponse.json({
+      ok: true,
+      data: serialize(row, defaultSignature),
+    })
   } catch (error) {
     console.error('[customer-service.settings.get]', error)
-    return NextResponse.json({ ok: false, error: 'Failed to load settings' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'Failed to load settings' },
+      { status: 500 },
+    )
   }
 }
 
 // PUT: upsert the single org row. Self-scoped by auth.orgId; client org is ignored.
 export async function PUT(req: Request) {
   const auth = await getAuthFromCookies()
-  if (!auth?.tenantId || !auth?.orgId) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  if (!auth?.tenantId || !auth?.orgId)
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized' },
+      { status: 401 },
+    )
   try {
     const container = await createRequestContainer()
     const knex = (container.resolve('em') as EntityManager).getKnex()
     const body = await req.json().catch(() => ({}))
 
-    const existing = await knex('customer_service_settings').where('organization_id', auth.orgId).first()
+    const existing = await knex('customer_service_settings')
+      .where('organization_id', auth.orgId)
+      .first()
 
-    // Normalize watchedConnectionIds to a string[] or null (null = all active).
-    let watched: string[] | null = existing?.watched_connection_ids ?? null
-    if (body.watchedConnectionIds !== undefined) {
-      if (Array.isArray(body.watchedConnectionIds)) {
-        const cleaned = body.watchedConnectionIds.filter((v: unknown) => typeof v === 'string' && v.length > 0)
-        watched = cleaned.length > 0 ? cleaned : null
-      } else {
-        watched = null
-      }
-    }
+    // Normalize watchedConnectionIds to a string[] or null. null = all active;
+    // an explicit empty array = watch none.
+    const watched = normalizeWatchedConnectionIds(
+      body.watchedConnectionIds,
+      existing?.watched_connection_ids ?? null,
+    )
 
     // reply_mode: one of draft | auto | hybrid. Reject anything else (keep the
     // existing value rather than silently corrupting it).
-    const replyModeIn = typeof body.replyMode === 'string' ? body.replyMode : undefined
-    const replyMode = (replyModeIn && VALID_MODES.has(replyModeIn))
-      ? replyModeIn
-      : (existing?.reply_mode || 'draft')
+    const replyModeIn =
+      typeof body.replyMode === 'string' ? body.replyMode : undefined
+    const replyMode =
+      replyModeIn && VALID_MODES.has(replyModeIn)
+        ? replyModeIn
+        : existing?.reply_mode || 'draft'
 
-    const existingThreshold = existing?.hybrid_confidence_threshold != null
-      ? Number(existing.hybrid_confidence_threshold)
-      : 0.8
-    const hybridConfidenceThreshold = body.hybridConfidenceThreshold !== undefined
-      ? normalizeThreshold(body.hybridConfidenceThreshold, existingThreshold)
-      : existingThreshold
+    const existingThreshold =
+      existing?.hybrid_confidence_threshold != null
+        ? Number(existing.hybrid_confidence_threshold)
+        : 0.8
+    const hybridConfidenceThreshold =
+      body.hybridConfidenceThreshold !== undefined
+        ? normalizeThreshold(body.hybridConfidenceThreshold, existingThreshold)
+        : existingThreshold
 
     // source_modes: per-mailbox overrides keyed by connection id. Only keep
     // entries for connections in the (resolved) watched list and with a valid
@@ -253,9 +366,12 @@ export async function PUT(req: Request) {
     } else {
       sourceModes = parseSourceModes(existing?.source_modes)
       // Drop overrides for any connection no longer watched.
-      if (watched && watched.length > 0) {
-        const allowed = new Set(watched)
-        sourceModes = Object.fromEntries(Object.entries(sourceModes).filter(([k]) => allowed.has(k)))
+      if (watched !== null) {
+        const allowed =
+          allowedWatchedConnectionIds(watched) ?? new Set<string>()
+        sourceModes = Object.fromEntries(
+          Object.entries(sourceModes).filter(([k]) => allowed.has(k)),
+        )
       }
     }
 
@@ -276,11 +392,25 @@ export async function PUT(req: Request) {
           .where('is_active', true)
           .first()
         if (!conn) {
-          return NextResponse.json({ ok: false, error: 'Connect your Twilio account before choosing a customer service SMS number.' }, { status: 400 })
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                'Connect your Twilio account before choosing a customer service SMS number.',
+            },
+            { status: 400 },
+          )
         }
         const inboxNumber = normalizeE164(conn.phone_number)
         if (inboxNumber && requested === inboxNumber) {
-          return NextResponse.json({ ok: false, error: 'Use a number that is different from your Inbox SMS number. Customer Service needs a dedicated support number.' }, { status: 400 })
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                'Use a number that is different from your Inbox SMS number. Customer Service needs a dedicated support number.',
+            },
+            { status: 400 },
+          )
         }
         csSmsNumber = requested
       }
@@ -288,35 +418,46 @@ export async function PUT(req: Request) {
 
     // cs_chat_enabled: route the public website chat widget through the Customer
     // Service drafter. Omitted in the body = keep existing. Defaults to false.
-    const csChatEnabled = body.csChatEnabled !== undefined
-      ? body.csChatEnabled === true
-      : !!existing?.cs_chat_enabled
+    const csChatEnabled =
+      body.csChatEnabled !== undefined
+        ? body.csChatEnabled === true
+        : !!existing?.cs_chat_enabled
 
     // Auto-derive `enabled` instead of trusting a client toggle. The feature is
     // active whenever at least one mailbox is being watched OR a dedicated
     // customer-service SMS number is configured OR the website chat is handled by
     // Customer Service. watched === null means "watch all connected support
     // inboxes", which also counts as active.
-    const hasWatched = watched === null || (Array.isArray(watched) && watched.length > 0)
-    const enabled = (hasWatched || !!csSmsNumber || csChatEnabled) ? true : false
+    const hasWatched = hasWatchedMailboxes(watched)
+    const enabled = hasWatched || !!csSmsNumber || csChatEnabled ? true : false
 
     // flag_scenarios: clamp/validate the client list onto the canonical default
     // keys/labels. Omitted in the body = keep existing. parseFlagScenarios always
     // returns the full canonical set, so we store a complete, trusted array.
     let flagScenarios: FlagScenario[]
     if (body.flagScenarios !== undefined) {
-      flagScenarios = parseFlagScenarios(body.flagScenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
+      flagScenarios =
+        parseFlagScenarios(body.flagScenarios) ||
+        DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
     } else {
-      flagScenarios = parseFlagScenarios(existing?.flag_scenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
+      flagScenarios =
+        parseFlagScenarios(existing?.flag_scenarios) ||
+        DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
     }
 
     const fields = {
       enabled,
-      watched_connection_ids: watched ? JSON.stringify(watched) : null,
+      watched_connection_ids: watchedConnectionIdsForStorage(watched),
       reply_mode: replyMode,
       hybrid_confidence_threshold: hybridConfidenceThreshold,
-      source_modes: Object.keys(sourceModes).length > 0 ? JSON.stringify(sourceModes) : null,
-      signature: body.signature !== undefined ? (body.signature || null) : (existing?.signature ?? null),
+      source_modes:
+        Object.keys(sourceModes).length > 0
+          ? JSON.stringify(sourceModes)
+          : null,
+      signature:
+        body.signature !== undefined
+          ? body.signature || null
+          : (existing?.signature ?? null),
       cs_sms_number: csSmsNumber,
       cs_chat_enabled: csChatEnabled,
       flag_scenarios: JSON.stringify(flagScenarios),
@@ -324,7 +465,9 @@ export async function PUT(req: Request) {
     }
 
     if (existing) {
-      await knex('customer_service_settings').where('id', existing.id).update(fields)
+      await knex('customer_service_settings')
+        .where('id', existing.id)
+        .update(fields)
     } else {
       await knex('customer_service_settings').insert({
         id: crypto.randomUUID(),
@@ -335,11 +478,16 @@ export async function PUT(req: Request) {
       })
     }
 
-    const updated = await knex('customer_service_settings').where('organization_id', auth.orgId).first()
+    const updated = await knex('customer_service_settings')
+      .where('organization_id', auth.orgId)
+      .first()
     return NextResponse.json({ ok: true, data: serialize(updated) })
   } catch (error) {
     console.error('[customer-service.settings.put]', error)
-    return NextResponse.json({ ok: false, error: 'Failed to save settings' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'Failed to save settings' },
+      { status: 500 },
+    )
   }
 }
 
@@ -347,7 +495,13 @@ export const openApi: OpenApiRouteDoc = {
   tag: 'Customer Service',
   summary: 'Customer Service settings',
   methods: {
-    GET: { summary: 'Get customer service settings for the current org', tags: ['Customer Service'] },
-    PUT: { summary: 'Update customer service settings for the current org', tags: ['Customer Service'] },
+    GET: {
+      summary: 'Get customer service settings for the current org',
+      tags: ['Customer Service'],
+    },
+    PUT: {
+      summary: 'Update customer service settings for the current org',
+      tags: ['Customer Service'],
+    },
   },
 }

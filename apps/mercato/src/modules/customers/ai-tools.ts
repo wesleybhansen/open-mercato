@@ -19,6 +19,12 @@
 
 import { z } from 'zod'
 import crypto from 'crypto'
+import {
+  allowedWatchedConnectionIds,
+  hasWatchedMailboxes,
+  normalizeWatchedConnectionIds,
+  watchedConnectionIdsForStorage,
+} from '@/modules/customers/lib/customer-service-watch'
 import type { AwilixContainer } from 'awilix'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { aiTools as coreCustomersTools } from '@open-mercato/core/modules/customers/ai-tools'
@@ -41,8 +47,12 @@ interface AiToolDefinition {
   handler: (input: never, ctx: ToolContext) => Promise<unknown>
 }
 
-function requireScope(ctx: ToolContext): { tenantId: string; organizationId: string } {
-  if (!ctx.tenantId || !ctx.organizationId) throw new Error('Tenant context is required')
+function requireScope(ctx: ToolContext): {
+  tenantId: string
+  organizationId: string
+} {
+  if (!ctx.tenantId || !ctx.organizationId)
+    throw new Error('Tenant context is required')
   return { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
 }
 
@@ -55,7 +65,11 @@ function getKnex(ctx: ToolContext) {
 
 function safeParse(s: any) {
   if (s && typeof s === 'object') return s
-  try { return JSON.parse(s) } catch { return null }
+  try {
+    return JSON.parse(s)
+  } catch {
+    return null
+  }
 }
 
 const VALID_MODES = new Set(['draft', 'auto', 'hybrid'])
@@ -71,16 +85,58 @@ const MAX_CONTENT_CHARS = 20000
 const VALID_FLAG_ACTIONS = new Set(['pause', 'auto_send'])
 const MAX_FLAG_INSTRUCTIONS_CHARS = 4000
 
-type FlagScenario = { key: string; label: string; enabled: boolean; action: 'pause' | 'auto_send'; instructions: string }
+type FlagScenario = {
+  key: string
+  label: string
+  enabled: boolean
+  action: 'pause' | 'auto_send'
+  instructions: string
+}
 
 // Canonical 6-key seed. Must match settings/route.ts DEFAULT_FLAG_SCENARIOS.
 const DEFAULT_FLAG_SCENARIOS: FlagScenario[] = [
-  { key: 'angry_or_upset', label: 'Upset or angry customer', enabled: false, action: 'pause', instructions: '' },
-  { key: 'incoherent', label: 'Incoherent or unclear message', enabled: false, action: 'pause', instructions: '' },
-  { key: 'cancel', label: 'Customer wants to cancel', enabled: false, action: 'pause', instructions: '' },
-  { key: 'refund', label: 'Customer wants a refund', enabled: false, action: 'pause', instructions: '' },
-  { key: 'complaint', label: 'Complaint about product or service', enabled: false, action: 'pause', instructions: '' },
-  { key: 'legal', label: 'Legal or compliance matter', enabled: false, action: 'pause', instructions: '' },
+  {
+    key: 'angry_or_upset',
+    label: 'Upset or angry customer',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'incoherent',
+    label: 'Incoherent or unclear message',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'cancel',
+    label: 'Customer wants to cancel',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'refund',
+    label: 'Customer wants a refund',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'complaint',
+    label: 'Complaint about product or service',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
+  {
+    key: 'legal',
+    label: 'Legal or compliance matter',
+    enabled: false,
+    action: 'pause',
+    instructions: '',
+  },
 ]
 
 // Prefix marking a user-defined (custom) flag scenario. Must match the settings
@@ -89,7 +145,12 @@ const CUSTOM_KEY_PREFIX = 'custom_'
 const CANONICAL_KEYS = new Set(DEFAULT_FLAG_SCENARIOS.map((s) => s.key))
 
 function isCustomKey(key: unknown): key is string {
-  return typeof key === 'string' && key.startsWith(CUSTOM_KEY_PREFIX) && key.length > CUSTOM_KEY_PREFIX.length && !CANONICAL_KEYS.has(key)
+  return (
+    typeof key === 'string' &&
+    key.startsWith(CUSTOM_KEY_PREFIX) &&
+    key.length > CUSTOM_KEY_PREFIX.length &&
+    !CANONICAL_KEYS.has(key)
+  )
 }
 
 // Validate + normalize a single incoming custom-scenario entry. Returns null
@@ -106,7 +167,10 @@ function normalizeCustomScenario(u: any): FlagScenario | null {
     label,
     enabled: u.enabled === true,
     action: action as 'pause' | 'auto_send',
-    instructions: typeof u.instructions === 'string' ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS) : '',
+    instructions:
+      typeof u.instructions === 'string'
+        ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS)
+        : '',
   }
 }
 
@@ -121,12 +185,17 @@ function normalizeCustomScenario(u: any): FlagScenario | null {
 function parseFlagScenarios(raw: any): FlagScenario[] | null {
   let arr: any = raw
   if (typeof arr === 'string') {
-    try { arr = JSON.parse(arr) } catch { return null }
+    try {
+      arr = JSON.parse(arr)
+    } catch {
+      return null
+    }
   }
   if (!Array.isArray(arr)) return null
   const byKey = new Map<string, any>()
   for (const item of arr) {
-    if (item && typeof item === 'object' && typeof item.key === 'string') byKey.set(item.key, item)
+    if (item && typeof item === 'object' && typeof item.key === 'string')
+      byKey.set(item.key, item)
   }
   const canonical = DEFAULT_FLAG_SCENARIOS.map((def) => {
     const u = byKey.get(def.key)
@@ -137,14 +206,20 @@ function parseFlagScenarios(raw: any): FlagScenario[] | null {
       label: def.label,
       enabled: u.enabled === true,
       action: action as 'pause' | 'auto_send',
-      instructions: typeof u.instructions === 'string' ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS) : '',
+      instructions:
+        typeof u.instructions === 'string'
+          ? u.instructions.slice(0, MAX_FLAG_INSTRUCTIONS_CHARS)
+          : '',
     }
   })
   const customs: FlagScenario[] = []
   const seen = new Set<string>()
   for (const item of arr) {
     const c = normalizeCustomScenario(item)
-    if (c && !seen.has(c.key)) { seen.add(c.key); customs.push(c) }
+    if (c && !seen.has(c.key)) {
+      seen.add(c.key)
+      customs.push(c)
+    }
   }
   return [...canonical, ...customs]
 }
@@ -156,10 +231,16 @@ function normalizeThreshold(v: unknown, fallback: number): number {
 }
 
 // jsonb source_modes can arrive parsed or as a string; coerce + validate.
-function parseSourceModes(raw: any): Record<string, { mode: string; threshold: number }> {
+function parseSourceModes(
+  raw: any,
+): Record<string, { mode: string; threshold: number }> {
   let obj: any = raw
   if (typeof obj === 'string') {
-    try { obj = JSON.parse(obj) } catch { return {} }
+    try {
+      obj = JSON.parse(obj)
+    } catch {
+      return {}
+    }
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {}
   const out: Record<string, { mode: string; threshold: number }> = {}
@@ -174,9 +255,12 @@ function parseSourceModes(raw: any): Record<string, { mode: string; threshold: n
 
 // Build stored source_modes from tool input, keeping only entries for watched
 // connections and with valid mode/threshold. watched === null = watch all (any id ok).
-function normalizeSourceModesInput(input: any, watched: string[] | null): Record<string, { mode: string; threshold: number }> {
+function normalizeSourceModesInput(
+  input: any,
+  watched: string[] | null,
+): Record<string, { mode: string; threshold: number }> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
-  const allowed = watched && watched.length > 0 ? new Set(watched) : null
+  const allowed = allowedWatchedConnectionIds(watched)
   const out: Record<string, { mode: string; threshold: number }> = {}
   for (const [k, v] of Object.entries(input)) {
     if (typeof k !== 'string' || !k) continue
@@ -197,19 +281,32 @@ function previewOf(content: string): string {
 function serializeSettings(row: any) {
   if (!row) {
     // No saved row: seed the full default flag-scenario list so the COS sees it.
-    return { enabled: false, watchedConnectionIds: null, replyMode: 'draft', hybridConfidenceThreshold: 0.8, sourceModes: {}, signature: null, flagScenarios: DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s })) }
+    return {
+      enabled: false,
+      watchedConnectionIds: null,
+      replyMode: 'draft',
+      hybridConfidenceThreshold: 0.8,
+      sourceModes: {},
+      signature: null,
+      flagScenarios: DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s })),
+    }
   }
   return {
     id: row.id,
     enabled: !!row.enabled,
     watchedConnectionIds: row.watched_connection_ids ?? null,
     replyMode: row.reply_mode || 'draft',
-    hybridConfidenceThreshold: row.hybrid_confidence_threshold != null ? Number(row.hybrid_confidence_threshold) : 0.8,
+    hybridConfidenceThreshold:
+      row.hybrid_confidence_threshold != null
+        ? Number(row.hybrid_confidence_threshold)
+        : 0.8,
     sourceModes: parseSourceModes(row.source_modes),
     signature: row.signature ?? null,
     // Overlay the user's scenarios onto the canonical defaults; full default seed
     // if nothing usable has been saved yet, so the COS always sees all 6 keys.
-    flagScenarios: parseFlagScenarios(row.flag_scenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s })),
+    flagScenarios:
+      parseFlagScenarios(row.flag_scenarios) ||
+      DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s })),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -240,7 +337,9 @@ flagScenarios is the list of special situations the assistant watches for. Alway
   handler: async (_input: never, ctx) => {
     const scope = requireScope(ctx)
     const knex = getKnex(ctx)
-    const row = await knex('customer_service_settings').where('organization_id', scope.organizationId).first()
+    const row = await knex('customer_service_settings')
+      .where('organization_id', scope.organizationId)
+      .first()
     return serializeSettings(row)
   },
 }
@@ -253,58 +352,98 @@ const updateSettingsTool: AiToolDefinition = {
   name: 'customer_service_update_settings',
   description: `Set up or modify the customer-service auto-reply configuration for the authenticated organization. Upserts the single settings row. Only provided fields are changed; omitted fields keep their current value.
 replyMode: "draft" queues replies for human approval, "auto" sends automatically, "hybrid" auto-sends only when the model's confidence is at or above hybridConfidenceThreshold (clamped to 0..1). This is the account-wide default.
-watchedConnectionIds: list of email connection ids to watch, or omit / pass an empty list to watch all active accounts.
+watchedConnectionIds: list of email connection ids to watch. Pass an empty list to pause mailbox watching; omit the field to preserve the current selection.
 sourceModes: optional per-mailbox overrides, keyed by email connection id, e.g. { "<connectionId>": { "mode": "auto", "threshold": 0.8 } }. Each overrides the account default for that specific mailbox. Only ids in the watched list are kept. Threshold is clamped to 0..1. Omit to leave per-mailbox overrides unchanged.
 flagScenarios: optional list to turn special situations on/off, choose pause-vs-auto, and set per-scenario instructions. Pass an array of { key, label?, enabled?, action? ("pause"|"auto_send"), instructions? }. The 6 canonical keys (angry_or_upset, incoherent, cancel, refund, complaint, legal) always exist with fixed labels; a canonical scenario you omit from the array resets to its default (disabled + pause). You can ALSO add custom scenarios: give a key that starts with "custom_" (e.g. "custom_wholesale") AND a non-empty label; valid customs are kept and appended after the canonical set. Include an existing custom in the array to keep it; omit it to remove it. Unknown non-custom keys and customs missing a label are ignored. Omit the whole flagScenarios arg to leave scenarios unchanged.
 Returns the saved settings.`,
   inputSchema: z.object({
-    enabled: z.boolean().optional().describe('Turn customer service on or off'),
-    watchedConnectionIds: z.array(z.string()).optional().describe('Email connection ids to watch; empty = all active accounts'),
+    enabled: z
+      .boolean()
+      .optional()
+      .describe(
+        'Compatibility field; active state is derived from configured channels',
+      ),
+    watchedConnectionIds: z
+      .array(z.string())
+      .optional()
+      .describe('Email connection ids to watch; empty = watch none'),
     replyMode: z.enum(['draft', 'auto', 'hybrid']).optional(),
-    hybridConfidenceThreshold: z.number().optional().describe('Confidence cutoff for hybrid auto-send, 0..1'),
-    sourceModes: z.record(z.string(), z.object({
-      mode: z.enum(['draft', 'auto', 'hybrid']),
-      threshold: z.number().optional(),
-    })).optional().describe('Per-mailbox overrides keyed by email connection id; overrides the account default for that mailbox'),
-    flagScenarios: z.array(z.object({
-      key: z.string().describe('A canonical key (angry_or_upset, incoherent, cancel, refund, complaint, legal) OR a custom key starting with "custom_" for a user-defined scenario'),
-      label: z.string().optional().describe('Required for custom scenarios (key starting with "custom_"); ignored for canonical keys, which keep their fixed labels'),
-      enabled: z.boolean().optional(),
-      action: z.enum(['pause', 'auto_send']).optional(),
-      instructions: z.string().optional(),
-    })).optional().describe('Turn special situations on/off and set their action + instructions. The 6 canonical keys are always kept (omitted ones reset to default); custom scenarios (custom_ prefix + label) are kept when present and removed when omitted'),
-    signature: z.string().optional().describe('Signature appended to replies; pass empty string to clear'),
+    hybridConfidenceThreshold: z
+      .number()
+      .optional()
+      .describe('Confidence cutoff for hybrid auto-send, 0..1'),
+    sourceModes: z
+      .record(
+        z.string(),
+        z.object({
+          mode: z.enum(['draft', 'auto', 'hybrid']),
+          threshold: z.number().optional(),
+        }),
+      )
+      .optional()
+      .describe(
+        'Per-mailbox overrides keyed by email connection id; overrides the account default for that mailbox',
+      ),
+    flagScenarios: z
+      .array(
+        z.object({
+          key: z
+            .string()
+            .describe(
+              'A canonical key (angry_or_upset, incoherent, cancel, refund, complaint, legal) OR a custom key starting with "custom_" for a user-defined scenario',
+            ),
+          label: z
+            .string()
+            .optional()
+            .describe(
+              'Required for custom scenarios (key starting with "custom_"); ignored for canonical keys, which keep their fixed labels',
+            ),
+          enabled: z.boolean().optional(),
+          action: z.enum(['pause', 'auto_send']).optional(),
+          instructions: z.string().optional(),
+        }),
+      )
+      .optional()
+      .describe(
+        'Turn special situations on/off and set their action + instructions. The 6 canonical keys are always kept (omitted ones reset to default); custom scenarios (custom_ prefix + label) are kept when present and removed when omitted',
+      ),
+    signature: z
+      .string()
+      .optional()
+      .describe('Signature appended to replies; pass empty string to clear'),
   }),
   requiredFeatures: ['email.send'],
   handler: async (input: any, ctx) => {
     const scope = requireScope(ctx)
     const knex = getKnex(ctx)
 
-    const existing = await knex('customer_service_settings').where('organization_id', scope.organizationId).first()
+    const existing = await knex('customer_service_settings')
+      .where('organization_id', scope.organizationId)
+      .first()
 
-    // Normalize watchedConnectionIds to a string[] or null (null = all active).
-    let watched: string[] | null = existing?.watched_connection_ids ?? null
-    if (input.watchedConnectionIds !== undefined) {
-      if (Array.isArray(input.watchedConnectionIds)) {
-        const cleaned = input.watchedConnectionIds.filter((v: unknown) => typeof v === 'string' && v.length > 0)
-        watched = cleaned.length > 0 ? cleaned : null
-      } else {
-        watched = null
-      }
-    }
+    // Normalize watchedConnectionIds to a string[] or null. null = all active;
+    // an explicit empty array = watch none.
+    const watched = normalizeWatchedConnectionIds(
+      input.watchedConnectionIds,
+      existing?.watched_connection_ids ?? null,
+    )
 
     // reply_mode: validate against draft | auto | hybrid; otherwise keep existing.
-    const replyModeIn = typeof input.replyMode === 'string' ? input.replyMode : undefined
-    const replyMode = (replyModeIn && VALID_MODES.has(replyModeIn))
-      ? replyModeIn
-      : (existing?.reply_mode || 'draft')
+    const replyModeIn =
+      typeof input.replyMode === 'string' ? input.replyMode : undefined
+    const replyMode =
+      replyModeIn && VALID_MODES.has(replyModeIn)
+        ? replyModeIn
+        : existing?.reply_mode || 'draft'
 
-    const existingThreshold = existing?.hybrid_confidence_threshold != null
-      ? Number(existing.hybrid_confidence_threshold)
-      : 0.8
-    const hybridConfidenceThreshold = input.hybridConfidenceThreshold !== undefined
-      ? normalizeThreshold(input.hybridConfidenceThreshold, existingThreshold)
-      : existingThreshold
+    const existingThreshold =
+      existing?.hybrid_confidence_threshold != null
+        ? Number(existing.hybrid_confidence_threshold)
+        : 0.8
+    const hybridConfidenceThreshold =
+      input.hybridConfidenceThreshold !== undefined
+        ? normalizeThreshold(input.hybridConfidenceThreshold, existingThreshold)
+        : existingThreshold
 
     // Per-mailbox overrides: keep only entries for watched connections. Omitted
     // in input = keep existing (pruned to the current watched list).
@@ -313,9 +452,12 @@ Returns the saved settings.`,
       sourceModes = normalizeSourceModesInput(input.sourceModes, watched)
     } else {
       sourceModes = parseSourceModes(existing?.source_modes)
-      if (watched && watched.length > 0) {
-        const allowed = new Set(watched)
-        sourceModes = Object.fromEntries(Object.entries(sourceModes).filter(([k]) => allowed.has(k)))
+      if (watched !== null) {
+        const allowed =
+          allowedWatchedConnectionIds(watched) ?? new Set<string>()
+        sourceModes = Object.fromEntries(
+          Object.entries(sourceModes).filter(([k]) => allowed.has(k)),
+        )
       }
     }
 
@@ -325,24 +467,38 @@ Returns the saved settings.`,
     // settings PUT route.
     let flagScenarios: FlagScenario[]
     if (input.flagScenarios !== undefined) {
-      flagScenarios = parseFlagScenarios(input.flagScenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
+      flagScenarios =
+        parseFlagScenarios(input.flagScenarios) ||
+        DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
     } else {
-      flagScenarios = parseFlagScenarios(existing?.flag_scenarios) || DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
+      flagScenarios =
+        parseFlagScenarios(existing?.flag_scenarios) ||
+        DEFAULT_FLAG_SCENARIOS.map((s) => ({ ...s }))
     }
 
+    const hasWatched = hasWatchedMailboxes(watched)
     const fields = {
-      enabled: typeof input.enabled === 'boolean' ? input.enabled : (existing?.enabled ?? false),
-      watched_connection_ids: watched ? JSON.stringify(watched) : null,
+      enabled:
+        hasWatched || !!existing?.cs_sms_number || !!existing?.cs_chat_enabled,
+      watched_connection_ids: watchedConnectionIdsForStorage(watched),
       reply_mode: replyMode,
       hybrid_confidence_threshold: hybridConfidenceThreshold,
-      source_modes: Object.keys(sourceModes).length > 0 ? JSON.stringify(sourceModes) : null,
-      signature: input.signature !== undefined ? (input.signature || null) : (existing?.signature ?? null),
+      source_modes:
+        Object.keys(sourceModes).length > 0
+          ? JSON.stringify(sourceModes)
+          : null,
+      signature:
+        input.signature !== undefined
+          ? input.signature || null
+          : (existing?.signature ?? null),
       flag_scenarios: JSON.stringify(flagScenarios),
       updated_at: new Date(),
     }
 
     if (existing) {
-      await knex('customer_service_settings').where('id', existing.id).update(fields)
+      await knex('customer_service_settings')
+        .where('id', existing.id)
+        .update(fields)
     } else {
       await knex('customer_service_settings').insert({
         id: crypto.randomUUID(),
@@ -353,7 +509,9 @@ Returns the saved settings.`,
       })
     }
 
-    const updated = await knex('customer_service_settings').where('organization_id', scope.organizationId).first()
+    const updated = await knex('customer_service_settings')
+      .where('organization_id', scope.organizationId)
+      .first()
     return serializeSettings(updated)
   },
 }
@@ -368,7 +526,12 @@ const listQueueTool: AiToolDefinition = {
 Returns: { total, drafts: [{ id (action id, pass to approve/dismiss), proposalId, createdAt, summary, contact: { id, name, email }, conversationId, channel, lastInboundPreview, subject, body, flagged (bool), flagReasons (matched scenario keys/labels) }] }`,
   inputSchema: z.object({
     limit: z.number().int().min(1).max(100).optional().default(50),
-    flaggedOnly: z.boolean().optional().describe('If true, only return drafts that were flagged by a flag scenario'),
+    flaggedOnly: z
+      .boolean()
+      .optional()
+      .describe(
+        'If true, only return drafts that were flagged by a flag scenario',
+      ),
   }),
   requiredFeatures: ['email.view'],
   handler: async (input: any, ctx) => {
@@ -406,12 +569,24 @@ Returns: { total, drafts: [{ id (action id, pass to approve/dismiss), proposalId
       .limit(limit)
 
     const drafts = actions.map((row: any) => {
-      const payload = typeof row.payload === 'string' ? safeParse(row.payload) : (row.payload || {})
-      const metadata = typeof row.metadata === 'string' ? safeParse(row.metadata) : (row.metadata || {})
-      const participants = typeof row.participants === 'string' ? safeParse(row.participants) : (row.participants || [])
+      const payload =
+        typeof row.payload === 'string'
+          ? safeParse(row.payload)
+          : row.payload || {}
+      const metadata =
+        typeof row.metadata === 'string'
+          ? safeParse(row.metadata)
+          : row.metadata || {}
+      const participants =
+        typeof row.participants === 'string'
+          ? safeParse(row.participants)
+          : row.participants || []
       const first = Array.isArray(participants) ? participants[0] : null
       const flagged = metadata?.flagged === true
-      const flagReasons = flagged && Array.isArray(metadata?.flagReasons) ? metadata.flagReasons : []
+      const flagReasons =
+        flagged && Array.isArray(metadata?.flagReasons)
+          ? metadata.flagReasons
+          : []
       return {
         id: row.action_id,
         proposalId: row.proposal_id,
@@ -446,7 +621,10 @@ const approveDraftTool: AiToolDefinition = {
 Returns: { id, status: "sent", sentVia } on success.`,
   inputSchema: z.object({
     id: z.string().describe('The draft/action id from the queue'),
-    body: z.string().optional().describe('Edited reply body to send instead of the stored draft'),
+    body: z
+      .string()
+      .optional()
+      .describe('Edited reply body to send instead of the stored draft'),
   }),
   requiredFeatures: ['email.send'],
   handler: async (input: any, ctx) => {
@@ -470,34 +648,52 @@ Returns: { id, status: "sent", sentVia } on success.`,
     const to: string | undefined = payload.to
     const subject: string = payload.subject || 'Re: your message'
     const editedBody = typeof input.body === 'string' ? input.body : undefined
-    const bodyText: string = (editedBody !== undefined && editedBody.trim().length > 0)
-      ? editedBody
-      : (payload.body || '')
+    const bodyText: string =
+      editedBody !== undefined && editedBody.trim().length > 0
+        ? editedBody
+        : payload.body || ''
     const contactId: string | null = payload.contactId || null
 
-    if (!to || !bodyText) throw new Error('Draft is missing a recipient or body')
+    if (!to || !bodyText)
+      throw new Error('Draft is missing a recipient or body')
 
     // Shared send path (same code the interactive Approve button and the auto/
     // hybrid engine use): resolves the sending connection, sends via the router,
     // records the outbound email_messages row, updates inbox + timeline.
-    const sendResult = await sendReply(knex, scope.organizationId, scope.tenantId, {
-      to,
-      subject,
-      body: bodyText,
-      contactId,
-      sentByUserId: ctx.userId || null,
-    })
+    const sendResult = await sendReply(
+      knex,
+      scope.organizationId,
+      scope.tenantId,
+      {
+        to,
+        subject,
+        body: bodyText,
+        contactId,
+        sentByUserId: ctx.userId || null,
+      },
+    )
 
-    if (!sendResult.ok) throw new Error(sendResult.error || 'Failed to send email')
+    if (!sendResult.ok)
+      throw new Error(sendResult.error || 'Failed to send email')
 
     const now = new Date()
     await knex('inbox_proposal_actions')
       .where('id', action.id)
-      .update({ status: 'sent', executed_at: now, executed_by_user_id: ctx.userId || null, updated_at: now })
+      .update({
+        status: 'sent',
+        executed_at: now,
+        executed_by_user_id: ctx.userId || null,
+        updated_at: now,
+      })
     await knex('inbox_proposals')
       .where('id', action.proposal_id)
       .where('organization_id', scope.organizationId)
-      .update({ status: 'accepted', reviewed_by_user_id: ctx.userId || null, reviewed_at: now, updated_at: now })
+      .update({
+        status: 'accepted',
+        reviewed_by_user_id: ctx.userId || null,
+        reviewed_at: now,
+        updated_at: now,
+      })
 
     return { id: action.id, status: 'sent', sentVia: sendResult.sentVia }
   },
@@ -537,7 +733,12 @@ Returns: { id, status: "dismissed" } on success.`,
     await knex('inbox_proposals')
       .where('id', action.proposal_id)
       .where('organization_id', scope.organizationId)
-      .update({ status: 'rejected', reviewed_by_user_id: ctx.userId || null, reviewed_at: now, updated_at: now })
+      .update({
+        status: 'rejected',
+        reviewed_by_user_id: ctx.userId || null,
+        reviewed_at: now,
+        updated_at: now,
+      })
 
     return { id: action.id, status: 'dismissed' }
   },
@@ -575,7 +776,10 @@ const addKnowledgeTool: AiToolDefinition = {
 Returns the created entry summary.`,
   inputSchema: z.object({
     kind: z.enum(['model_answer', 'document']).default('model_answer'),
-    title: z.string().optional().describe('A short label; defaults based on kind if omitted'),
+    title: z
+      .string()
+      .optional()
+      .describe('A short label; defaults based on kind if omitted'),
     content: z.string().min(1).describe('The model answer or document text'),
   }),
   requiredFeatures: ['email.send'],
@@ -583,12 +787,17 @@ Returns the created entry summary.`,
     const scope = requireScope(ctx)
     const knex = getKnex(ctx)
 
-    const kind = typeof input.kind === 'string' && VALID_KINDS.has(input.kind) ? input.kind : 'model_answer'
+    const kind =
+      typeof input.kind === 'string' && VALID_KINDS.has(input.kind)
+        ? input.kind
+        : 'model_answer'
     let content = (input.content || '').toString().trim()
     if (!content) throw new Error('Content is required')
-    if (content.length > MAX_CONTENT_CHARS) content = content.substring(0, MAX_CONTENT_CHARS)
+    if (content.length > MAX_CONTENT_CHARS)
+      content = content.substring(0, MAX_CONTENT_CHARS)
     let title = (input.title || '').toString().trim()
-    if (!title) title = kind === 'model_answer' ? 'Model answer' : 'Reference document'
+    if (!title)
+      title = kind === 'model_answer' ? 'Model answer' : 'Reference document'
     title = title.substring(0, 200)
 
     const now = new Date()

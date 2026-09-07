@@ -1,7 +1,31 @@
 import { cookies, headers } from 'next/headers'
 import Script from 'next/script'
 import { createElement, type ReactNode } from 'react'
-import { Users, Kanban, FileText, Mail, LayoutDashboard, CreditCard, Settings, CalendarDays, BookOpen, GitBranch, GitMerge, Zap, ClipboardList, MessageCircle, Share2, CheckSquare, CalendarCheck, BarChart3, Wrench, Sparkles, Headphones, Star, Mic } from 'lucide-react'
+import {
+  Users,
+  Kanban,
+  FileText,
+  Mail,
+  LayoutDashboard,
+  CreditCard,
+  Settings,
+  CalendarDays,
+  BookOpen,
+  GitBranch,
+  GitMerge,
+  Zap,
+  ClipboardList,
+  MessageCircle,
+  Share2,
+  CheckSquare,
+  CalendarCheck,
+  BarChart3,
+  Wrench,
+  Sparkles,
+  Headphones,
+  Star,
+  Mic,
+} from 'lucide-react'
 import { modules } from '@/.mercato/generated/modules.generated'
 import { findBackendMatch } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
@@ -35,13 +59,18 @@ import type { FilterQuery } from '@mikro-orm/core'
 import type { AwilixContainer } from 'awilix'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { resolveFeatureCheckContext } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { profileSections, profilePathPrefixes } from '@open-mercato/core/modules/auth/lib/profile-sections'
+import {
+  profileSections,
+  profilePathPrefixes,
+} from '@open-mercato/core/modules/auth/lib/profile-sections'
 import { APP_VERSION } from '@open-mercato/shared/lib/version'
 import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageInjectionBoundary'
-import { AiAssistantIntegration, AiChatHeaderButton } from '@open-mercato/ai-assistant/frontend'
+import {
+  AiAssistantIntegration,
+  AiChatHeaderButton,
+} from '@open-mercato/ai-assistant/frontend'
 import { CustomEntity } from '@open-mercato/core/modules/entities/data/entities'
 import { ComponentOverridesBootstrap } from '@/components/ComponentOverridesBootstrap'
-import { AiAssistantWidget } from '@/components/AiAssistantWidget'
 import { FloatingAssistantButton } from '@/components/FloatingAssistantButton'
 import { BackgroundJobs } from '@/components/BackgroundJobs'
 
@@ -64,22 +93,30 @@ type NavGroup = {
   weight: number
 }
 
-export default async function BackendLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug?: string[] }> }) {
+export default async function BackendLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ slug?: string[] }>
+}) {
   const auth = await getAuthFromCookies()
   const cookieStore = await cookies()
   const headerStore = await headers()
   const rawSelectedOrg = cookieStore.get('om_selected_org')?.value
   const rawSelectedTenant = cookieStore.get('om_selected_tenant')?.value
-  const selectedOrgForScope = rawSelectedOrg === undefined
-    ? undefined
-    : rawSelectedOrg && rawSelectedOrg.trim().length > 0
-      ? rawSelectedOrg
-      : null
-  const selectedTenantForScope = rawSelectedTenant === undefined
-    ? undefined
-    : rawSelectedTenant && rawSelectedTenant.trim().length > 0
-      ? rawSelectedTenant
-      : null
+  const selectedOrgForScope =
+    rawSelectedOrg === undefined
+      ? undefined
+      : rawSelectedOrg && rawSelectedOrg.trim().length > 0
+        ? rawSelectedOrg
+        : null
+  const selectedTenantForScope =
+    rawSelectedTenant === undefined
+      ? undefined
+      : rawSelectedTenant && rawSelectedTenant.trim().length > 0
+        ? rawSelectedTenant
+        : null
 
   let requestContainer: AwilixContainer | null = null
   const ensureContainer = async (): Promise<AwilixContainer> => {
@@ -99,7 +136,9 @@ export default async function BackendLayout({ children, params }: { children: Re
   }
   if (!path) {
     const slug = resolvedParams.slug ?? []
-    path = '/backend' + (Array.isArray(slug) && slug.length ? '/' + slug.join('/') : '')
+    path =
+      '/backend' +
+      (Array.isArray(slug) && slug.length ? '/' + slug.join('/') : '')
   }
 
   const ctxAuth = auth
@@ -119,9 +158,12 @@ export default async function BackendLayout({ children, params }: { children: Re
     process.env.MISTRAL_API_KEY ||
     process.env.COHERE_API_KEY ||
     process.env.AWS_ACCESS_KEY_ID ||
-    process.env.OLLAMA_BASE_URL
+    process.env.OLLAMA_BASE_URL,
   )
-  const missingConfigMessage = translate('search.messages.missingConfig', 'Search requires configuring an embedding provider for semantic search.')
+  const missingConfigMessage = translate(
+    'search.messages.missingConfig',
+    'Search requires configuring an embedding provider for semantic search.',
+  )
 
   const featureChecker = auth
     ? async (features: string[]): Promise<Set<string>> => {
@@ -129,23 +171,38 @@ export default async function BackendLayout({ children, params }: { children: Re
         try {
           const container = await ensureContainer()
           const rbac = container.resolve<RbacService>('rbacService')
-          const { organizationId, scope, allowedOrganizationIds } = await resolveFeatureCheckContext({
-            container,
-            auth,
-            selectedId: selectedOrgForScope,
-            tenantId: selectedTenantForScope,
-          })
-          if (Array.isArray(allowedOrganizationIds) && allowedOrganizationIds.length === 0) {
+          const { organizationId, scope, allowedOrganizationIds } =
+            await resolveFeatureCheckContext({
+              container,
+              auth,
+              selectedId: selectedOrgForScope,
+              tenantId: selectedTenantForScope,
+            })
+          if (
+            Array.isArray(allowedOrganizationIds) &&
+            allowedOrganizationIds.length === 0
+          ) {
             return new Set()
           }
           const tenantForCheck = scope.tenantId ?? auth.tenantId ?? null
           const orgForCheck = organizationId ?? null
-          const context = { tenantId: tenantForCheck, organizationId: orgForCheck }
-          const hasAll = await rbac.userHasAllFeatures(auth.sub, features, context)
+          const context = {
+            tenantId: tenantForCheck,
+            organizationId: orgForCheck,
+          }
+          const hasAll = await rbac.userHasAllFeatures(
+            auth.sub,
+            features,
+            context,
+          )
           if (hasAll) return new Set(features)
           const granted: string[] = []
           for (const feature of features) {
-            const hasFeature = await rbac.userHasAllFeatures(auth.sub, [feature], context)
+            const hasFeature = await rbac.userHasAllFeatures(
+              auth.sub,
+              [feature],
+              context,
+            )
             if (hasFeature) granted.push(feature)
           }
           return new Set(granted)
@@ -155,7 +212,15 @@ export default async function BackendLayout({ children, params }: { children: Re
       }
     : undefined
 
-  let userEntities: Array<{ entityId: string; label: string; href: string }> | undefined
+  const conditionalFeatures = featureChecker
+    ? await featureChecker(['ai_assistant.view', 'email.view'])
+    : new Set<string>()
+  const canUseAssistant = conditionalFeatures.has('ai_assistant.view')
+  const canUseCustomerService = conditionalFeatures.has('email.view')
+
+  let userEntities:
+    | Array<{ entityId: string; label: string; href: string }>
+    | undefined
   if (auth) {
     try {
       const container = await ensureContainer()
@@ -165,10 +230,17 @@ export default async function BackendLayout({ children, params }: { children: Re
         showInSidebar: true,
       }
       where.$and = [
-        { $or: [{ organizationId: auth.orgId ?? undefined }, { organizationId: null }] },
+        {
+          $or: [
+            { organizationId: auth.orgId ?? undefined },
+            { organizationId: null },
+          ],
+        },
         { $or: [{ tenantId: auth.tenantId ?? undefined }, { tenantId: null }] },
       ]
-      const entities = await em.find(CustomEntity, where, { orderBy: { label: 'asc' } })
+      const entities = await em.find(CustomEntity, where, {
+        orderBy: { label: 'asc' },
+      })
       userEntities = entities.map((entity) => ({
         entityId: entity.entityId,
         label: entity.label,
@@ -187,17 +259,23 @@ export default async function BackendLayout({ children, params }: { children: Re
     featureChecker ? { checkFeatures: featureChecker } : undefined,
   )
   const showIntegrationsButton = entries.some(
-    (entry) => entry.href === '/backend/integrations' && entry.enabled !== false && entry.hidden !== true,
+    (entry) =>
+      entry.href === '/backend/integrations' &&
+      entry.enabled !== false &&
+      entry.hidden !== true,
   )
 
-  const groupMap = new Map<string, {
-    id: string
-    key?: string
-    name: string
-    defaultName: string
-    items: AdminNavItem[]
-    weight: number
-  }>()
+  const groupMap = new Map<
+    string,
+    {
+      id: string
+      key?: string
+      name: string
+      defaultName: string
+      items: AdminNavItem[]
+      weight: number
+    }
+  >()
   for (const entry of entries) {
     const weight = entry.priority ?? entry.order ?? 10_000
     if (!groupMap.has(entry.groupId)) {
@@ -245,7 +323,9 @@ export default async function BackendLayout({ children, params }: { children: Re
     'directory.nav.group',
     'customers.storage.nav.group',
   ]
-  const groupOrderIndex = new Map(defaultGroupOrder.map((id, index) => [id, index]))
+  const groupOrderIndex = new Map(
+    defaultGroupOrder.map((id, index) => [id, index]),
+  )
   baseGroups.sort((a, b) => {
     const aIndex = groupOrderIndex.get(a.id)
     const bIndex = groupOrderIndex.get(b.id)
@@ -260,7 +340,8 @@ export default async function BackendLayout({ children, params }: { children: Re
   const defaultGroupCount = defaultGroupOrder.length
   baseGroups.forEach((group, index) => {
     const rank = groupOrderIndex.get(group.id)
-    const fallbackWeight = typeof group.weight === 'number' ? group.weight : 10_000
+    const fallbackWeight =
+      typeof group.weight === 'number' ? group.weight : 10_000
     const normalized =
       (rank !== undefined ? rank : defaultGroupCount + index) * 1_000_000 +
       Math.min(Math.max(fallbackWeight, 0), 999_999)
@@ -291,7 +372,9 @@ export default async function BackendLayout({ children, params }: { children: Re
         }
       }
       // For API key auth, use userId (the actual user) if available
-      const effectiveUserId: string | undefined = auth.isApiKey ? auth.userId : auth.sub
+      const effectiveUserId: string | undefined = auth.isApiKey
+        ? auth.userId
+        : auth.sub
       if (effectiveUserId) {
         sidebarPreference = await loadSidebarPreference(em, {
           userId: effectiveUserId,
@@ -305,9 +388,13 @@ export default async function BackendLayout({ children, params }: { children: Re
     }
   }
 
-  const groupsWithRole = rolePreference ? applySidebarPreference(baseGroups, rolePreference) : baseGroups
+  const groupsWithRole = rolePreference
+    ? applySidebarPreference(baseGroups, rolePreference)
+    : baseGroups
   const baseForUser = adoptSidebarDefaults(groupsWithRole)
-  const appliedGroups = sidebarPreference ? applySidebarPreference(baseForUser, sidebarPreference) : baseForUser
+  const appliedGroups = sidebarPreference
+    ? applySidebarPreference(baseForUser, sidebarPreference)
+    : baseForUser
 
   const materializeItem = (item: NavItem): NavItem => ({
     href: item.href,
@@ -335,14 +422,15 @@ export default async function BackendLayout({ children, params }: { children: Re
   try {
     const modeContainer = await ensureContainer()
     const knex = (modeContainer.resolve('em') as EntityManager).getKnex()
-    const profile = await knex('business_profiles').where('organization_id', auth!.orgId).first()
+    const profile = await knex('business_profiles')
+      .where('organization_id', auth!.orgId)
+      .first()
     if (profile) {
       interfaceMode = profile.interface_mode || 'simple'
       onboardingComplete = !!profile.onboarding_complete
       aiPersonaName = profile.ai_persona_name || 'AI Assistant'
     }
   } catch {}
-
 
   const hiddenSidebarRaw = cookieStore.get('crm_hidden_sidebar')?.value || ''
   // In advanced mode, filter out framework / ops-only pages that don't
@@ -351,19 +439,19 @@ export default async function BackendLayout({ children, params }: { children: Re
   // — only the nav is hidden, so direct URLs and bookmarks still resolve.
   const irrelevantPaths = [
     // Bucket A — ops-only infrastructure
-    '/backend/config/cache',                    // Redis cache inspector
-    '/backend/config/system-status',            // Health dashboard (Admin Panel has it)
-    '/backend/settings/record-locks',           // Enterprise concurrency lock viewer
-    '/backend/storage/attachments',             // Raw file browser
-    '/backend/planner/availability-rulesets',   // Internal scheduling config
-    '/backend/customer_accounts/roles',         // Customer portal RBAC (super niche)
+    '/backend/config/cache', // Redis cache inspector
+    '/backend/config/system-status', // Health dashboard (Admin Panel has it)
+    '/backend/settings/record-locks', // Enterprise concurrency lock viewer
+    '/backend/storage/attachments', // Raw file browser
+    '/backend/planner/availability-rulesets', // Internal scheduling config
+    '/backend/customer_accounts/roles', // Customer portal RBAC (super niche)
 
     // Bucket B — confusing / duplicate naming with existing CRM concepts
-    '/backend/events',                          // Workflow events — collides with webhook events
-    '/backend/instances',                       // Workflow instances — technical
-    '/backend/tasks',                           // Workflow task queue — collides with customer tasks
-    '/backend/definitions',                     // Workflow definitions — Automations v2 covers users
-    '/backend/messages',                        // Internal staff messaging
+    '/backend/events', // Workflow events — collides with webhook events
+    '/backend/instances', // Workflow instances — technical
+    '/backend/tasks', // Workflow task queue — collides with customer tasks
+    '/backend/definitions', // Workflow definitions — Automations v2 covers users
+    '/backend/messages', // Internal staff messaging
 
     // Pre-existing framework noise
     '/backend/dictionaries',
@@ -371,14 +459,25 @@ export default async function BackendLayout({ children, params }: { children: Re
     '/backend/query-indexes',
     '/backend/config/attachments',
   ]
-  const advancedGroups = allGroups.map(g => ({
-    ...g,
-    items: g.items.filter(item => !irrelevantPaths.some(p => item.href.startsWith(p))),
-  })).filter(g => g.items.length > 0)
+  const advancedGroups = allGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (item) => !irrelevantPaths.some((p) => item.href.startsWith(p)),
+      ),
+    }))
+    .filter((g) => g.items.length > 0)
 
-  let groups: NavGroup[] = interfaceMode === 'simple'
-    ? filterForSimpleMode(allGroups, translate, hiddenSidebarRaw, aiPersonaName)
-    : advancedGroups
+  let groups: NavGroup[] =
+    interfaceMode === 'simple'
+      ? filterForSimpleMode(
+          allGroups,
+          translate,
+          hiddenSidebarRaw,
+          aiPersonaName,
+          { canUseAssistant, canUseCustomerService },
+        )
+      : advancedGroups
 
   // Add admin link for wesley.b.hansen@gmail.com only — append to the last group (Tools)
   const platformAdminEmails = ['wesley.b.hansen@gmail.com']
@@ -386,13 +485,16 @@ export default async function BackendLayout({ children, params }: { children: Re
   if (isPlatformAdmin && groups.length > 0) {
     const iconClass = 'size-4'
     const lastGroup = groups[groups.length - 1]
-    lastGroup.items = [...lastGroup.items, {
-      href: '/backend/admin',
-      title: 'Admin Panel',
-      defaultTitle: 'Admin Panel',
-      enabled: true,
-      icon: createElement(Settings, { className: iconClass }),
-    }]
+    lastGroup.items = [
+      ...lastGroup.items,
+      {
+        href: '/backend/admin',
+        title: 'Admin Panel',
+        defaultTitle: 'Admin Panel',
+        enabled: true,
+        icon: createElement(Settings, { className: iconClass }),
+      },
+    ]
   }
 
   type NavEntry = NavItem & { group: string }
@@ -405,23 +507,30 @@ export default async function BackendLayout({ children, params }: { children: Re
   const rawBreadcrumb = match?.route.breadcrumb
   const breadcrumb = rawBreadcrumb?.map((item) => {
     const fallback = item.label
-    const label = item.labelKey ? translate(item.labelKey, fallback || item.labelKey) : fallback
+    const label = item.labelKey
+      ? translate(item.labelKey, fallback || item.labelKey)
+      : fallback
     return { ...item, label }
   })
 
   const settingsSectionOrder: Record<string, number> = {
-    'system': 1,
-    'auth': 2,
+    system: 1,
+    auth: 2,
     'data-designer': 3,
     'module-configs': 4,
-    'directory': 5,
+    directory: 5,
     'feature-toggles': 6,
   }
-  const generatedSettingsSections = buildSettingsSections(entries, settingsSectionOrder)
-  const settingsPathPrefixes = computeSettingsPathPrefixes(generatedSettingsSections)
+  const generatedSettingsSections = buildSettingsSections(
+    entries,
+    settingsSectionOrder,
+  )
+  const settingsPathPrefixes = computeSettingsPathPrefixes(
+    generatedSettingsSections,
+  )
   const filteredSettingsSections = convertToSectionNavGroups(
     generatedSettingsSections,
-    (key, fallback) => (key ? translate(key, fallback) : fallback)
+    (key, fallback) => (key ? translate(key, fallback) : fallback),
   )
 
   const collapsedCookie = cookieStore.get('om_sidebar_collapsed')?.value
@@ -429,12 +538,17 @@ export default async function BackendLayout({ children, params }: { children: Re
 
   const rightHeaderContent = (
     <>
-      <AiChatHeaderButton />
-      <GlobalSearchDialog embeddingConfigured={embeddingConfigured} missingConfigMessage={missingConfigMessage} />
+      {canUseAssistant ? <AiChatHeaderButton /> : null}
+      <GlobalSearchDialog
+        embeddingConfigured={embeddingConfigured}
+        missingConfigMessage={missingConfigMessage}
+      />
       <div className="hidden lg:contents">
         <OrganizationSwitcher />
       </div>
-      {interfaceMode !== 'simple' && showIntegrationsButton ? <IntegrationsButton /> : null}
+      {interfaceMode !== 'simple' && showIntegrationsButton ? (
+        <IntegrationsButton />
+      ) : null}
       {interfaceMode !== 'simple' && <SettingsButton />}
       <ProfileDropdown email={auth?.email} />
       <NotificationBellWrapper />
@@ -446,9 +560,10 @@ export default async function BackendLayout({ children, params }: { children: Re
 
   const deployEnv = process.env.DEPLOY_ENV
   const baseProductName = 'Noli CRM'
-  const productName = deployEnv && deployEnv !== 'local'
-    ? `${baseProductName} (${deployEnv.charAt(0).toUpperCase() + deployEnv.slice(1)})`
-    : baseProductName
+  const productName =
+    deployEnv && deployEnv !== 'local'
+      ? `${baseProductName} (${deployEnv.charAt(0).toUpperCase() + deployEnv.slice(1)})`
+      : baseProductName
   const injectionContext = {
     path,
     userId: auth?.sub ?? null,
@@ -456,8 +571,43 @@ export default async function BackendLayout({ children, params }: { children: Re
     organizationId: auth?.orgId ?? null,
   }
 
+  const appShell = (
+    <AppShell
+      key={path}
+      productName="Noli CRM"
+      email={auth?.email}
+      groups={groups}
+      currentTitle={currentTitle}
+      breadcrumb={breadcrumb}
+      sidebarCollapsedDefault={initialCollapsed}
+      rightHeaderSlot={rightHeaderContent}
+      mobileSidebarSlot={mobileSidebarContent}
+      adminNavApi={
+        interfaceMode === 'simple' ? undefined : '/api/auth/admin/nav'
+      }
+      version={APP_VERSION}
+      settingsPathPrefixes={
+        interfaceMode === 'simple' ? [] : settingsPathPrefixes
+      }
+      settingsSections={
+        interfaceMode === 'simple' ? [] : filteredSettingsSections
+      }
+      hideCustomizeSidebar={interfaceMode === 'simple'}
+      settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
+      profileSections={profileSections}
+      profileSectionTitle={translate('profile.page.title', 'Profile')}
+      profilePathPrefixes={profilePathPrefixes}
+    >
+      <PageInjectionBoundary path={path} context={injectionContext}>
+        {children}
+      </PageInjectionBoundary>
+    </AppShell>
+  )
+
   return (
-    <div className={interfaceMode === 'simple' ? 'simple-mode' : 'advanced-mode'}>
+    <div
+      className={interfaceMode === 'simple' ? 'simple-mode' : 'advanced-mode'}
+    >
       {interfaceMode === 'simple' && (
         <Script id="hide-customize-sidebar" strategy="afterInteractive">{`
           (function hide(){
@@ -471,38 +621,19 @@ export default async function BackendLayout({ children, params }: { children: Re
       )}
       <I18nProvider locale={locale} dict={dict}>
         <ComponentOverridesBootstrap>
-          <AiAssistantIntegration
-            tenantId={auth?.tenantId ?? null}
-            organizationId={auth?.orgId ?? null}
-          >
-            <AppShell
-              key={path}
-              productName='Noli CRM'
-              email={auth?.email}
-              groups={groups}
-              currentTitle={currentTitle}
-              breadcrumb={breadcrumb}
-              sidebarCollapsedDefault={initialCollapsed}
-              rightHeaderSlot={rightHeaderContent}
-              mobileSidebarSlot={mobileSidebarContent}
-              adminNavApi={interfaceMode === 'simple' ? undefined : "/api/auth/admin/nav"}
-              version={APP_VERSION}
-              settingsPathPrefixes={interfaceMode === 'simple' ? [] : settingsPathPrefixes}
-              settingsSections={interfaceMode === 'simple' ? [] : filteredSettingsSections}
-              hideCustomizeSidebar={interfaceMode === 'simple'}
-              settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
-              profileSections={profileSections}
-              profileSectionTitle={translate('profile.page.title', 'Profile')}
-              profilePathPrefixes={profilePathPrefixes}
+          {canUseAssistant ? (
+            <AiAssistantIntegration
+              tenantId={auth?.tenantId ?? null}
+              organizationId={auth?.orgId ?? null}
             >
-              <PageInjectionBoundary path={path} context={injectionContext}>
-                {children}
-              </PageInjectionBoundary>
-            </AppShell>
-          </AiAssistantIntegration>
+              {appShell}
+            </AiAssistantIntegration>
+          ) : (
+            appShell
+          )}
         </ComponentOverridesBootstrap>
       </I18nProvider>
-      <FloatingAssistantButton />
+      {canUseAssistant ? <FloatingAssistantButton /> : null}
       <BackgroundJobs />
     </div>
   )
@@ -529,7 +660,13 @@ function adoptSidebarDefaults(groups: NavGroup[]): NavGroup[] {
  * Shows only the essential nav items for solopreneurs and small teams.
  * All modules stay active — just hidden from the sidebar.
  */
-function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallback: string) => string, hiddenSidebarCookie?: string, personaName?: string): NavGroup[] {
+function filterForSimpleMode(
+  groups: NavGroup[],
+  translate: (key: string, fallback: string) => string,
+  hiddenSidebarCookie: string | undefined,
+  personaName: string | undefined,
+  capabilities: { canUseAssistant: boolean; canUseCustomerService: boolean },
+): NavGroup[] {
   // Allowed hrefs in simple mode
   const allowedPaths = new Set([
     '/backend/dashboards',
@@ -545,12 +682,12 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
   const simpleGroups: NavGroup[] = []
 
   // Find and collect allowed items from existing groups
-  const allItems = groups.flatMap(g => g.items)
+  const allItems = groups.flatMap((g) => g.items)
 
   const iconClass = 'size-4'
 
   // Dashboard + AI Assistant (no group header — direct links)
-  const dashboardItem = allItems.find(i => i.href === '/backend/dashboards')
+  const dashboardItem = allItems.find((i) => i.href === '/backend/dashboards')
   simpleGroups.push({
     id: 'simple-main',
     name: '',
@@ -563,13 +700,17 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         enabled: true,
         icon: createElement(LayoutDashboard, { className: iconClass }),
       },
-      {
-        href: '/backend/assistant',
-        title: personaName || 'AI Assistant',
-        defaultTitle: 'AI Assistant',
-        enabled: true,
-        icon: createElement(Sparkles, { className: iconClass }),
-      },
+      ...(capabilities.canUseAssistant
+        ? [
+            {
+              href: '/backend/assistant',
+              title: personaName || 'AI Assistant',
+              defaultTitle: 'AI Assistant',
+              enabled: true,
+              icon: createElement(Sparkles, { className: iconClass }),
+            },
+          ]
+        : []),
     ],
     weight: 0,
   })
@@ -617,13 +758,17 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
       },
       // The unified personal inbox now lives in the Noli dashboard (app.noliai.com),
       // not the CRM. The CRM keeps only the email ENGINE + the customer-service desk.
-      {
-        href: '/backend/customer-service',
-        title: translate('nav.customerService', 'Customer Service'),
-        defaultTitle: 'Customer Service',
-        enabled: true,
-        icon: createElement(Headphones, { className: iconClass }),
-      },
+      ...(capabilities.canUseCustomerService
+        ? [
+            {
+              href: '/backend/customer-service',
+              title: translate('nav.customerService', 'Customer Service'),
+              defaultTitle: 'Customer Service',
+              enabled: true,
+              icon: createElement(Headphones, { className: iconClass }),
+            },
+          ]
+        : []),
       {
         href: '/backend/reports',
         title: translate('nav.reports', 'Reports'),
@@ -716,13 +861,17 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
         enabled: true,
         icon: createElement(Star, { className: iconClass }),
       },
-      {
-        href: '/backend/debrief',
-        title: translate('nav.debrief', 'Call Debrief'),
-        defaultTitle: 'Call Debrief',
-        enabled: true,
-        icon: createElement(Mic, { className: iconClass }),
-      },
+      ...(capabilities.canUseAssistant
+        ? [
+            {
+              href: '/backend/debrief',
+              title: translate('nav.debrief', 'Call Debrief'),
+              defaultTitle: 'Call Debrief',
+              enabled: true,
+              icon: createElement(Mic, { className: iconClass }),
+            },
+          ]
+        : []),
       {
         href: '/backend/surveys',
         title: translate('nav.surveys', 'Surveys'),
@@ -752,7 +901,9 @@ function filterForSimpleMode(groups: NavGroup[], translate: (key: string, fallba
 
   if (hiddenItems.length > 0) {
     for (const group of simpleGroups) {
-      group.items = group.items.filter((item: any) => !hiddenItems.includes(item.href))
+      group.items = group.items.filter(
+        (item: any) => !hiddenItems.includes(item.href),
+      )
     }
   }
 

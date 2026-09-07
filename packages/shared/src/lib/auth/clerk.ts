@@ -1,6 +1,17 @@
 import 'server-only'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { AuthContext } from './server'
+import type {
+  NoliOrgMembership,
+  NoliOrgRole,
+} from '@open-mercato/shared/lib/noli/core-client'
+
+/** @internal Exported for credential-free role-boundary tests. */
+export function mercatoRoleForNoliOrgRole(
+  role: NoliOrgRole,
+): 'admin' | 'employee' {
+  return role === 'member' ? 'employee' : 'admin'
+}
 
 /**
  * Resolve a Clerk session id to a Mercato AuthContext.
@@ -31,26 +42,23 @@ export async function resolveClerkUserToAuthContext(
   if (!clerkUserId) return null
 
   // 1. noli-core lookup + entitlement gate
-  let noliUser:
-    | {
-        id: string
-        clerk_user_id: string
-        email: string
-        first_name: string | null
-        last_name: string | null
-      }
-    | null = null
-  let noliOrgId: string | null = null
+  let noliUser: {
+    id: string
+    clerk_user_id: string
+    email: string
+    first_name: string | null
+    last_name: string | null
+  } | null = null
+  let noliMembership: NoliOrgMembership | null = null
   try {
-    const { findUserByClerkId, isEntitled, findPrimaryOrgIdForUser } = await import(
-      '@open-mercato/shared/lib/noli/core-client'
-    )
+    const { findUserByClerkId, isEntitled, findPrimaryOrgMembershipForUser } =
+      await import('@open-mercato/shared/lib/noli/core-client')
     noliUser = await findUserByClerkId(clerkUserId)
     if (!noliUser) return null
     const entitled = await isEntitled(noliUser.id, 'crm')
     if (!entitled) return null
-    // The user's noli-core org — every member of it shares ONE Mercato org.
-    noliOrgId = await findPrimaryOrgIdForUser(noliUser.id)
+    noliMembership = await findPrimaryOrgMembershipForUser(noliUser.id)
+    if (!noliMembership) return null
   } catch (err) {
     console.error('[clerk-auth] noli-core lookup failed:', err)
     return null
@@ -58,22 +66,18 @@ export async function resolveClerkUserToAuthContext(
 
   // 2. Resolve to Mercato User
   try {
-    const { createRequestContainer } = await import(
-      '@open-mercato/shared/lib/di/container'
-    )
+    const { createRequestContainer } =
+      await import('@open-mercato/shared/lib/di/container')
     const container = await createRequestContainer()
     const em = container.resolve('em') as EntityManager
-    const { User, UserRole } = await import(
-      '@open-mercato/core/modules/auth/data/entities'
-    )
-    const { Organization } = await import(
-      '@open-mercato/core/modules/directory/data/entities'
-    )
-    const { computeEmailHash } = await import(
-      '@open-mercato/core/modules/auth/lib/emailHash'
-    )
+    const { User, Role, UserRole } =
+      await import('@open-mercato/core/modules/auth/data/entities')
+    const { Organization } =
+      await import('@open-mercato/core/modules/directory/data/entities')
+    const { computeEmailHash } =
+      await import('@open-mercato/core/modules/auth/lib/emailHash')
 
-    let user = await em.findOne(User, { clerkUserId })
+    let user = await em.findOne(User, { clerkUserId, deletedAt: null })
 
     // 3. Email-fallback: stamp clerk_user_id onto a pre-Clerk legacy row.
     if (!user && noliUser.email) {
@@ -98,39 +102,93 @@ export async function resolveClerkUserToAuthContext(
         em,
         noliUser,
         clerkUserId,
-        noliOrgId,
+        noliMembership,
       )) as typeof user
       if (!provisioned) {
-        console.error(
-          `[clerk-auth] Auto-provision failed for clerkUserId=${clerkUserId} email=${noliUser.email}`,
-        )
+        console.error('[clerk-auth] Auto-provision failed')
         return null
       }
       user = provisioned
-    } else if (noliOrgId && user.organizationId) {
-      // Lazy backfill: link a pre-multi-tenancy Mercato org to its noli-core
-      // org the first time its owner signs in, so invited teammates can find
-      // and join this existing org. (Existing orgs are single-user = the owner.)
-      const existingOrg = await em.findOne(Organization, { id: user.organizationId })
-      if (existingOrg && !existingOrg.noliOrgId) {
-        existingOrg.noliOrgId = noliOrgId
-        try {
-          await em.persistAndFlush(existingOrg)
-        } catch {
-          // Unique-violation if that noli org already links elsewhere — ignore.
-        }
-      }
     }
 
-    // 5. Resolve role names for downstream requireRoles checks.
-    const links = await em.find(
+    if (!user?.organizationId || !user.tenantId) return null
+
+    // The noli-core membership is the organization authority. A stale local
+    // user may be backfilled only when its organization is not linked yet;
+    // an existing different link or a uniqueness race fails closed.
+    const existingOrg = await em.findOne(Organization, {
+      id: user.organizationId,
+      deletedAt: null,
+    })
+    if (!existingOrg) return null
+    if (!existingOrg.noliOrgId) {
+      const linkedOrg = await em.findOne(Organization, {
+        noliOrgId: noliMembership.organizationId,
+        deletedAt: null,
+      })
+      if (linkedOrg && linkedOrg.id !== existingOrg.id) return null
+      existingOrg.noliOrgId = noliMembership.organizationId
+      try {
+        await em.persistAndFlush(existingOrg)
+      } catch {
+        return null
+      }
+    }
+    if (existingOrg.noliOrgId !== noliMembership.organizationId) return null
+
+    // Reconcile every Noli-managed CRM identity to exactly one local role.
+    // owner/admin map to admin; member maps to employee. This makes upgrades,
+    // downgrades, and stale local role assignments effective on the next
+    // authenticated request without inventing a parallel permission switch.
+    const desiredRoleName = mercatoRoleForNoliOrgRole(noliMembership.role)
+    const desiredRole =
+      (await em.findOne(Role, {
+        name: desiredRoleName,
+        tenantId: user.tenantId,
+        deletedAt: null,
+      })) ??
+      (await em.findOne(Role, {
+        name: desiredRoleName,
+        tenantId: null,
+        deletedAt: null,
+      }))
+    if (!desiredRole) return null
+
+    const activeLinks = await em.find(
       UserRole,
       { user, deletedAt: null },
       { populate: ['role'] },
     )
-    const roleNames = links
-      .map((l) => l.role.name)
-      .filter((n): n is string => typeof n === 'string' && n.length > 0)
+    const roleIsExact =
+      activeLinks.length === 1 && activeLinks[0]?.role?.id === desiredRole.id
+    if (!roleIsExact) {
+      await em.transactional(async (transactionalEm) => {
+        const currentLinks = await transactionalEm.find(
+          UserRole,
+          { user, deletedAt: null },
+          { populate: ['role'] },
+        )
+        const changedAt = new Date()
+        for (const link of currentLinks) link.deletedAt = changedAt
+        transactionalEm.persist(
+          transactionalEm.create(UserRole, {
+            user,
+            role: desiredRole,
+            createdAt: changedAt,
+          }),
+        )
+        await transactionalEm.flush()
+      })
+    }
+
+    try {
+      const rbacService = container.resolve('rbacService') as {
+        invalidateUserCache: (userId: string) => Promise<void>
+      }
+      await rbacService.invalidateUserCache(user.id)
+    } catch {
+      return null
+    }
 
     return {
       sub: user.id,
@@ -138,11 +196,16 @@ export async function resolveClerkUserToAuthContext(
       email: noliUser.email,
       tenantId: user.tenantId ?? null,
       orgId: user.organizationId ?? null,
-      roles: roleNames,
+      // The transaction above reconciles this Noli-managed user to exactly
+      // one authoritative local role. Returning the admitted role directly
+      // avoids consulting a stale identity-map view after the transaction.
+      roles: [desiredRoleName],
       // noliUserId is consumed by lib/usage/log.ts to write per-call rows
       // into noli-core's ai_usage table for cross-app aggregation. The
       // AuthContext type has `[k: string]: unknown` so this is type-safe.
       noliUserId: noliUser.id,
+      noliOrgId: noliMembership.organizationId,
+      noliOrgRole: noliMembership.role,
     }
   } catch (err) {
     console.error('[clerk-auth] Mercato user resolution failed:', err)
@@ -176,33 +239,25 @@ async function provisionMercatoUserForClerk(
     last_name: string | null
   },
   clerkUserId: string,
-  noliOrgId: string | null,
+  noliMembership: NoliOrgMembership,
 ): Promise<unknown | null> {
   try {
-    const { Tenant, Organization } = await import(
-      '@open-mercato/core/modules/directory/data/entities'
-    )
-    const { User, Role, UserRole } = await import(
-      '@open-mercato/core/modules/auth/data/entities'
-    )
-    const { EncryptionMap } = await import(
-      '@open-mercato/core/modules/entities/data/entities'
-    )
-    const { DEFAULT_ENCRYPTION_MAPS } = await import(
-      '@open-mercato/core/modules/entities/lib/encryptionDefaults'
-    )
-    const { isTenantDataEncryptionEnabled } = await import(
-      '@open-mercato/shared/lib/encryption/toggles'
-    )
-    const { createKmsService } = await import(
-      '@open-mercato/shared/lib/encryption/kms'
-    )
-    const { TenantDataEncryptionService } = await import(
-      '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
-    )
-    const { computeEmailHash } = await import(
-      '@open-mercato/core/modules/auth/lib/emailHash'
-    )
+    const { Tenant, Organization } =
+      await import('@open-mercato/core/modules/directory/data/entities')
+    const { User, Role, UserRole } =
+      await import('@open-mercato/core/modules/auth/data/entities')
+    const { EncryptionMap } =
+      await import('@open-mercato/core/modules/entities/data/entities')
+    const { DEFAULT_ENCRYPTION_MAPS } =
+      await import('@open-mercato/core/modules/entities/lib/encryptionDefaults')
+    const { isTenantDataEncryptionEnabled } =
+      await import('@open-mercato/shared/lib/encryption/toggles')
+    const { createKmsService } =
+      await import('@open-mercato/shared/lib/encryption/kms')
+    const { TenantDataEncryptionService } =
+      await import('@open-mercato/shared/lib/encryption/tenantDataEncryptionService')
+    const { computeEmailHash } =
+      await import('@open-mercato/core/modules/auth/lib/emailHash')
 
     const envTenantId = process.env.NOLI_TENANT_ID?.trim() || null
     let tenant = envTenantId
@@ -232,147 +287,155 @@ async function provisionMercatoUserForClerk(
     // sign-in raced us on the unique noli_org_id, reset the EM and retry — the
     // org findOne then resolves the winner and we join it (no duplicate org).
     for (let attempt = 0; attempt < 2; attempt++) {
-     try {
-      await em.transactional(async (tem) => {
-      // a. Find the team's shared Mercato org by its noli-core link, or create
-      //    it. All members of one noli-core org share ONE Mercato org (so they
-      //    see the same contacts/deals/pipelines). The org's tenant governs the
-      //    encryption context below.
-      let organization = noliOrgId
-        ? await tem.findOne(
+      try {
+        await em.transactional(async (tem) => {
+          // a. Find the team's shared Mercato org by its noli-core link, or create
+          //    it. All members of one noli-core org share ONE Mercato org (so they
+          //    see the same contacts/deals/pipelines). The org's tenant governs the
+          //    encryption context below.
+          let organization = await tem.findOne(
             Organization,
-            { noliOrgId, deletedAt: null },
+            { noliOrgId: noliMembership.organizationId, deletedAt: null },
             { populate: ['tenant'] },
           )
-        : null
-      const orgTenant = organization?.tenant ?? tenant
-      if (!organization) {
-        organization = tem.create(Organization, {
-          name: displayName,
-          tenant,
-          noliOrgId: noliOrgId ?? null,
-          isActive: true,
-          depth: 0,
-          ancestorIds: [],
-          childIds: [],
-          descendantIds: [],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        tem.persist(organization)
-        await tem.flush()
-      }
+          const orgTenant = organization?.tenant ?? tenant
+          if (!organization) {
+            organization = tem.create(Organization, {
+              name: displayName,
+              tenant,
+              noliOrgId: noliMembership.organizationId,
+              isActive: true,
+              depth: 0,
+              ancestorIds: [],
+              childIds: [],
+              descendantIds: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            tem.persist(organization)
+            await tem.flush()
+          }
 
-      // b. EncryptionMap rows for (orgTenant, org). Idempotent — only creates
-      //    maps that are missing, so it's safe whether the org is brand-new or
-      //    a pre-existing one this member is joining.
-      if (isTenantDataEncryptionEnabled()) {
-        for (const spec of DEFAULT_ENCRYPTION_MAPS) {
-          const existing = await tem.findOne(EncryptionMap, {
-            entityId: spec.entityId,
-            tenantId: orgTenant.id,
-            organizationId: organization.id,
-            deletedAt: null,
-          })
-          if (!existing) {
-            tem.persist(
-              tem.create(EncryptionMap, {
+          // b. EncryptionMap rows for (orgTenant, org). Idempotent — only creates
+          //    maps that are missing, so it's safe whether the org is brand-new or
+          //    a pre-existing one this member is joining.
+          if (isTenantDataEncryptionEnabled()) {
+            for (const spec of DEFAULT_ENCRYPTION_MAPS) {
+              const existing = await tem.findOne(EncryptionMap, {
                 entityId: spec.entityId,
                 tenantId: orgTenant.id,
                 organizationId: organization.id,
-                fieldsJson: spec.fields,
-                isActive: true,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              }),
+                deletedAt: null,
+              })
+              if (!existing) {
+                tem.persist(
+                  tem.create(EncryptionMap, {
+                    entityId: spec.entityId,
+                    tenantId: orgTenant.id,
+                    organizationId: organization.id,
+                    fieldsJson: spec.fields,
+                    isActive: true,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  }),
+                )
+              }
+            }
+            await tem.flush()
+          }
+
+          // c. Encrypt the email under (orgTenant, org) if enabled.
+          const encryptionService = isTenantDataEncryptionEnabled()
+            ? new TenantDataEncryptionService(tem as unknown as EntityManager, {
+                kms: createKmsService(),
+              })
+            : null
+          if (encryptionService) {
+            await encryptionService.invalidateMap(
+              'auth:user',
+              String(orgTenant.id),
+              String(organization.id),
             )
           }
-        }
-        await tem.flush()
-      }
+          const encryptedPayload = encryptionService
+            ? await encryptionService.encryptEntityPayload(
+                'auth:user',
+                { email: noliUser.email },
+                orgTenant.id,
+                organization.id,
+              )
+            : {
+                email: noliUser.email,
+                emailHash: computeEmailHash(noliUser.email),
+              }
 
-      // c. Encrypt the email under (orgTenant, org) if enabled.
-      const encryptionService = isTenantDataEncryptionEnabled()
-        ? new TenantDataEncryptionService(tem as unknown as EntityManager, {
-            kms: createKmsService(),
-          })
-        : null
-      if (encryptionService) {
-        await encryptionService.invalidateMap(
-          'auth:user',
-          String(orgTenant.id),
-          String(organization.id),
-        )
-      }
-      const encryptedPayload = encryptionService
-        ? await encryptionService.encryptEntityPayload(
-            'auth:user',
-            { email: noliUser.email },
-            orgTenant.id,
-            organization.id,
-          )
-        : { email: noliUser.email, emailHash: computeEmailHash(noliUser.email) }
-
-      // d. Create the User attached to the (shared or new) org. Clerk owns auth
-      //    so passwordHash stays null.
-      const newUser = tem.create(User, {
-        email:
-          ((encryptedPayload as Record<string, unknown>).email as string) ??
-          noliUser.email,
-        emailHash:
-          ((encryptedPayload as Record<string, unknown>).emailHash as string) ??
-          computeEmailHash(noliUser.email),
-        passwordHash: null,
-        organizationId: organization.id,
-        tenantId: orgTenant.id,
-        clerkUserId,
-        name: displayName,
-        isConfirmed: true,
-        createdAt: new Date(),
-      })
-      tem.persist(newUser)
-      await tem.flush()
-
-      // e. Grant the admin role (v1: every member of a team's CRM is an org
-      //    admin since CRM data is team-shared). Prefer tenant-scoped Role;
-      //    fall back to global Role with tenantId=NULL.
-      const adminRole =
-        (await tem.findOne(Role, { name: 'admin', tenantId: orgTenant.id })) ??
-        (await tem.findOne(Role, { name: 'admin', tenantId: null }))
-      if (adminRole) {
-        tem.persist(
-          tem.create(UserRole, {
-            user: newUser,
-            role: adminRole,
+          // d. Create the User attached to the (shared or new) org. Clerk owns auth
+          //    so passwordHash stays null.
+          const newUser = tem.create(User, {
+            email:
+              ((encryptedPayload as Record<string, unknown>).email as string) ??
+              noliUser.email,
+            emailHash:
+              ((encryptedPayload as Record<string, unknown>)
+                .emailHash as string) ?? computeEmailHash(noliUser.email),
+            passwordHash: null,
+            organizationId: organization.id,
+            tenantId: orgTenant.id,
+            clerkUserId,
+            name: displayName,
+            isConfirmed: true,
             createdAt: new Date(),
-          }),
-        )
-        await tem.flush()
-      } else {
-        console.warn(
-          '[clerk-auth] No admin role found for tenant; user provisioned without role',
-        )
-      }
+          })
+          tem.persist(newUser)
+          await tem.flush()
 
-      createdUser = newUser
-      })
-      break
-     } catch (txErr) {
-      const code = (txErr as { code?: string }).code
-      if (
-        attempt === 0 &&
-        (code === '23505' || /unique|duplicate key/i.test(String(txErr)))
-      ) {
-        em.clear()
-        continue
+          // e. Mirror the authoritative noli-core organization role. Prefer the
+          //    tenant-scoped role and fall back to the matching global role.
+          const desiredRoleName = mercatoRoleForNoliOrgRole(noliMembership.role)
+          const desiredRole =
+            (await tem.findOne(Role, {
+              name: desiredRoleName,
+              tenantId: orgTenant.id,
+              deletedAt: null,
+            })) ??
+            (await tem.findOne(Role, {
+              name: desiredRoleName,
+              tenantId: null,
+              deletedAt: null,
+            }))
+          if (desiredRole) {
+            tem.persist(
+              tem.create(UserRole, {
+                user: newUser,
+                role: desiredRole,
+                createdAt: new Date(),
+              }),
+            )
+            await tem.flush()
+          } else {
+            console.warn(
+              '[clerk-auth] Required organization role is unavailable',
+            )
+            throw new Error('Required organization role is unavailable')
+          }
+
+          createdUser = newUser
+        })
+        break
+      } catch (txErr) {
+        const code = (txErr as { code?: string }).code
+        if (
+          attempt === 0 &&
+          (code === '23505' || /unique|duplicate key/i.test(String(txErr)))
+        ) {
+          em.clear()
+          continue
+        }
+        throw txErr
       }
-      throw txErr
-     }
     }
 
-    console.info(
-      `[clerk-auth] Auto-provisioned Mercato user for clerkUserId=${clerkUserId} email=${noliUser.email}`,
-    )
+    console.info('[clerk-auth] Auto-provisioned Mercato user')
     return createdUser
   } catch (err) {
     console.error('[clerk-auth] Auto-provision exception:', err)
