@@ -31,9 +31,15 @@ export type AdapterCapability = {
 }
 
 export type AdapterLicenseConstraints = {
+  // Legal/commercial review state. Only `approved` providers may serve
+  // customers; `test_only` is reserved for deterministic local fixtures.
+  status: 'approved' | 'test_only' | 'provisional' | 'blocked'
+  // Immutable identifier for the exact provider terms reviewed by Noli.
+  terms_version: string
   export: boolean
   customer_display: boolean
   outreach_allowed: boolean
+  retention_days: number | null
 }
 
 export type AdapterRateLimits = {
@@ -51,8 +57,17 @@ export type AdapterCostModel = {
   // what one billed unit is, e.g. 'candidate' | 'contact_point' | 'verification'
   unit: string
   quoted_credits_per_unit: number
+  // Immutable identifier for the rate card used to create a quote.
+  price_version: string
   // true = only found/returned units are charged (no_result costs 0)
   pay_on_found: boolean
+}
+
+export type AdapterEvidencePolicy = {
+  source_url: 'required' | 'preferred' | 'not_applicable'
+  observed_at: 'required' | 'preferred' | 'not_applicable'
+  max_age_days: number | null
+  min_confidence: number
 }
 
 export type AdapterAmbiguityContract = {
@@ -67,11 +82,13 @@ export type AdapterDsr = {
 }
 
 export type AdapterDescriptor = {
+  contract_version: '2'
   adapter_id: string
   layer: AdapterLayer
   capabilities: AdapterCapability[]
   constraints: AdapterConstraints
   cost_model: AdapterCostModel
+  evidence_policy: AdapterEvidencePolicy
   ambiguity_contract: AdapterAmbiguityContract
   dsr: AdapterDsr
 }
@@ -109,6 +126,13 @@ export type CandidateIdentity = {
   title?: string | null
   domain?: string | null
   urls?: string[]
+  location?: string | null
+  industry?: string | null
+  employee_range?: string | null
+  technologies?: string[]
+  company_description?: string | null
+  seniority?: string | null
+  department?: string | null
 }
 
 export type CandidateEvidence = {
@@ -145,6 +169,7 @@ export type VerificationState =
   | 'risky'
   | 'catch_all'
   | 'not_found'
+  | 'unknown'
   | 'provider_ambiguous'
 
 export type VerificationOutcome = {
@@ -168,6 +193,7 @@ export type SourceSearchPlan = {
   entity_unit: string
   geography: string
   query: string
+  provider_query?: Record<string, unknown>
   max_candidates: number
   call_sequence?: number
   /*
@@ -179,6 +205,21 @@ export type SourceSearchPlan = {
    * adapter then falls back to its own configured cap.
    */
   max_charge_usd?: number
+}
+
+export type SourceQuote = {
+  // Candidate ceiling sent to the provider. It is deliberately distinct
+  // from provider_units because many providers bill per search/task/request.
+  max_candidates: number
+  provider_units: number
+  billable_unit: string
+  expected_candidates: {
+    low: number
+    high: number
+    basis: 'contract' | 'historical' | 'provider_quote' | 'unknown'
+  }
+  quoted_credits_per_unit: number
+  estimated_credits_before_markup: number
 }
 
 export type EnrichRequest = {
@@ -210,6 +251,7 @@ export type VerifyRequest = {
 
 export interface SourceAdapter {
   descriptor: AdapterDescriptor
+  quote(plan: Omit<SourceSearchPlan, 'call_sequence' | 'max_charge_usd'>): SourceQuote
   search(plan: SourceSearchPlan): Promise<AdapterResult<Candidate[]>>
 }
 

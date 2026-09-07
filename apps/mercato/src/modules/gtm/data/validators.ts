@@ -15,6 +15,8 @@ export const importedPlaySchema = z.object({
   market_type: optionalText,
   audience: optionalText,
   signal: optionalText,
+  signal_kind: optionalText,
+  provider_query: z.record(z.string(), z.unknown()).optional().nullable(),
   source_hint: optionalText,
   source: optionalText,
   geography: optionalText,
@@ -25,6 +27,15 @@ export const importedPlaySchema = z.object({
   estimated_size: z.record(z.string(), z.unknown()).optional().nullable(),
   entity_unit: optionalText,
   estimate_method: optionalText,
+  estimate_basis: z.enum(['measured', 'sampled', 'modeled', 'unknown']).optional().nullable(),
+  business_evidence: z
+    .array(z.object({
+      url: z.string().url().max(4000),
+      excerpt: z.string().trim().min(1).max(1000),
+    }))
+    .max(20)
+    .optional()
+    .nullable(),
   confidence: optionalText,
   confidence_rationale: optionalText,
 })
@@ -70,6 +81,9 @@ export type GtmPlayDetailBody = z.infer<typeof gtmPlayDetailBodySchema>
 const idString = z.string().trim().min(1).max(200)
 
 const researchLimitsSchema = z.object({
+  targetAccepted: z.number().int().min(1).max(100).optional(),
+  maxRawCandidates: z.number().int().min(1).max(100).optional(),
+  // Legacy alias retained for current Hub and v1 clients.
   maxCandidates: z.number().int().min(1).max(100).optional(),
   maxCredits: z.number().int().min(1).optional(),
 })
@@ -94,11 +108,13 @@ export const gtmResearchRunsBodySchema = z.discriminatedUnion('op', [
     noliUserId: idString,
     playId: idString,
     limits: researchLimitsSchema.optional(),
+    expectedPlanHash: z.string().regex(/^[a-f0-9]{64}$/),
   }),
   z.object({
     op: z.literal('execute'),
     noliUserId: idString,
     runId: idString,
+    expectedPlanHash: z.string().regex(/^[a-f0-9]{64}$/),
   }),
   z.object({
     op: z.literal('status'),
@@ -121,11 +137,18 @@ export const gtmResearchRunsBodySchema = z.discriminatedUnion('op', [
 // the at-least-one rule so both shapes share the union discriminator.
 export const gtmEnrichBodySchema = z.discriminatedUnion('op', [
   z.object({
+    op: z.literal('plan'),
+    noliUserId: idString,
+    runId: idString.optional(),
+    workspaceId: idString.optional(),
+  }),
+  z.object({
     op: z.literal('run'),
     noliUserId: idString,
     runId: idString.optional(),
     workspaceId: idString.optional(),
     maxCredits: z.number().int().min(1).optional(),
+    expectedPlanHash: z.string().regex(/^[a-f0-9]{64}$/),
   }),
   z.object({
     op: z.literal('status'),
@@ -143,7 +166,7 @@ export const gtmCandidatesBodySchema = z.object({
   // list filters
   runId: idString.optional(),
   workspaceId: idString.optional(),
-  fitStatus: z.enum(['unscored', 'accepted', 'rejected']).optional(),
+  fitStatus: z.enum(['unscored', 'accepted', 'review', 'rejected']).optional(),
   // review + detail ops
   candidateId: idString.optional(),
   verdict: z.enum(['accepted', 'rejected']).optional(),
@@ -229,7 +252,7 @@ export const gtmCampaignsBodySchema = z.discriminatedUnion('op', [
     op: z.literal('approve'),
     noliUserId: idString,
     campaignId: idString,
-    expected_content_hash: z.string().trim().min(16).max(128).optional(),
+    expected_content_hash: z.string().trim().min(16).max(128),
   }),
   z.object({
     op: z.literal('invalidate'),

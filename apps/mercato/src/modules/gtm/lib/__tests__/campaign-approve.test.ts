@@ -161,12 +161,16 @@ describe('approveCampaign (immutable freeze)', () => {
 
   it('cannot approve a strategy_only play even by direct call with raw ids (boundary 4)', async () => {
     const { em, play, campaign } = await setup()
+    const reviewed = await computeDraftState(em, ctx, campaign)
     // The play drifts out of scope AFTER the campaign was attached; the
     // stored execution_eligibility column still says executable and is
     // rightly ignored.
     play.marketType = 'b2c'
     await expect(
-      approveCampaign(em, ctx, { campaignId: campaign.id }),
+      approveCampaign(em, ctx, {
+        campaignId: campaign.id,
+        expectedContentHash: reviewed.contentHash,
+      }),
     ).rejects.toMatchObject({ code: 'play_not_executable' })
     expect(em.table(GtmCampaignVersion)).toHaveLength(0)
     expect(em.table(GtmEnrollment)).toHaveLength(0)
@@ -190,9 +194,18 @@ describe('approveCampaign (immutable freeze)', () => {
     )
     await em.flush()
 
-    // Approving without an expected hash freezes the CURRENT recomputed
-    // draft; with the reviewer's stale hash it would 409 instead.
-    const result = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    await expect(
+      approveCampaign(em, ctx, {
+        campaignId: campaign.id,
+        expectedContentHash: draft.contentHash,
+      }),
+    ).rejects.toMatchObject({ code: 'stale_draft' })
+
+    const reviewedAfterSuppression = await computeDraftState(em, ctx, campaign)
+    const result = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: reviewedAfterSuppression.contentHash,
+    })
     const snapshot = result.version.snapshot as Record<string, unknown>
     expect((snapshot.recipients as Array<Record<string, unknown>>).length).toBe(1)
     const exclusions = snapshot.exclusions as Array<Record<string, unknown>>
@@ -217,9 +230,13 @@ describe('approveCampaign (immutable freeze)', () => {
       playId: play.id,
       name: 'Empty',
     })
-    await expect(approveCampaign(em, ctx, { campaignId: campaign.id })).rejects.toMatchObject({
-      code: 'no_recipients',
-    })
+    const draft = await computeDraftState(em, ctx, campaign)
+    await expect(
+      approveCampaign(em, ctx, {
+        campaignId: campaign.id,
+        expectedContentHash: draft.contentHash,
+      }),
+    ).rejects.toMatchObject({ code: 'no_recipients' })
   })
 
   it('treats an enrollment unique violation as already-enrolled (race safety)', async () => {
@@ -239,6 +256,8 @@ describe('approveCampaign (immutable freeze)', () => {
     em.persist(preexisting)
     await em.flush()
 
+    const draft = await computeDraftState(em, ctx, campaign)
+
     const originalFindOne = em.findOne.bind(em)
     let misses = 1
     jest.spyOn(em, 'findOne').mockImplementation(async (Ctor: any, where: any) => {
@@ -249,7 +268,10 @@ describe('approveCampaign (immutable freeze)', () => {
       return originalFindOne(Ctor, where)
     })
 
-    const result = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const result = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: draft.contentHash,
+    })
     const enrollments = em.table(GtmEnrollment).filter((row) => row.campaignId === campaign.id)
     expect(enrollments).toHaveLength(1)
     expect(enrollments[0].id).toBe(preexisting.id)
@@ -346,9 +368,13 @@ describe('invalidation (immutable versions, mutable campaign pointer)', () => {
     expect(em.table(GtmCampaign)[0].status).toBe('draft')
 
     // And the now strategy_only play can never be re-approved (boundary 4).
-    await expect(approveCampaign(em, ctx, { campaignId: campaign.id })).rejects.toMatchObject({
-      code: 'play_not_executable',
-    })
+    const changedDraft = await computeDraftState(em, ctx, campaign)
+    await expect(
+      approveCampaign(em, ctx, {
+        campaignId: campaign.id,
+        expectedContentHash: changedDraft.contentHash,
+      }),
+    ).rejects.toMatchObject({ code: 'play_not_executable' })
   })
 
   it('explicit invalidate is a no-op on a draft campaign', async () => {
@@ -403,9 +429,13 @@ describe('postal address approval gate (CAN-SPAM: sender is the org, not Noli)',
 
   it('approval fails typed postal_address_required while the address is unset', async () => {
     const { em, campaign } = await setupWithoutAddress()
-    await expect(approveCampaign(em, ctx, { campaignId: campaign.id })).rejects.toMatchObject({
-      code: 'postal_address_required',
-    })
+    const draft = await computeDraftState(em, ctx, campaign)
+    await expect(
+      approveCampaign(em, ctx, {
+        campaignId: campaign.id,
+        expectedContentHash: draft.contentHash,
+      }),
+    ).rejects.toMatchObject({ code: 'postal_address_required' })
     // Nothing was frozen.
     expect(em.table(GtmCampaignVersion)).toHaveLength(0)
     expect(em.table(GtmEnrollment)).toHaveLength(0)

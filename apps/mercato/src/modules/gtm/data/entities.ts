@@ -158,11 +158,12 @@ export class GtmVoiceVersion {
 @Entity({ tableName: 'gtm_plays' })
 @Index({ name: 'gtm_plays_org_tenant_idx', properties: ['organizationId', 'tenantId'] })
 @Index({ name: 'gtm_plays_org_tenant_workspace_idx', properties: ['organizationId', 'tenantId', 'workspaceId'] })
-// Race-safe import idempotency: one live imported play per (org, report token hash).
+// Race-safe import idempotency: one live imported play per
+// (org, report token hash, stable play key). A report contains several plays.
 @Index({
-  name: 'gtm_plays_org_report_token_hash_unique',
+  name: 'gtm_plays_org_report_play_key_unique',
   expression:
-    `create unique index "gtm_plays_org_report_token_hash_unique" on "gtm_plays" ("organization_id", "imported_report_token_hash") where imported_report_token_hash is not null and deleted_at is null`,
+    `create unique index "gtm_plays_org_report_play_key_unique" on "gtm_plays" ("organization_id", "imported_report_token_hash", "imported_play_key") where imported_report_token_hash is not null and imported_play_key is not null and deleted_at is null`,
 })
 export class GtmPlay {
   [OptionalProps]?: 'id' | 'createdAt' | 'updatedAt'
@@ -187,6 +188,9 @@ export class GtmPlay {
   @Property({ name: 'imported_report_token_hash', type: 'text', nullable: true })
   importedReportTokenHash?: string | null
 
+  @Property({ name: 'imported_play_key', type: 'text', nullable: true })
+  importedPlayKey?: string | null
+
   // Typed play fields per GTM-SPEC-01 section 3.5
   // b2b | b2c | mixed | unknown
   @Property({ name: 'market_type', type: 'text', nullable: true })
@@ -197,6 +201,12 @@ export class GtmPlay {
 
   @Property({ type: 'text', nullable: true })
   signal?: string | null
+
+  @Property({ name: 'signal_kind', type: 'text', nullable: true })
+  signalKind?: string | null
+
+  @Property({ name: 'provider_query', type: 'jsonb', nullable: true })
+  providerQuery?: Record<string, unknown> | null
 
   @Property({ name: 'source_hint', type: 'text', nullable: true })
   sourceHint?: string | null
@@ -224,6 +234,12 @@ export class GtmPlay {
 
   @Property({ name: 'estimate_method', type: 'text', nullable: true })
   estimateMethod?: string | null
+
+  @Property({ name: 'estimate_basis', type: 'text', nullable: true })
+  estimateBasis?: string | null
+
+  @Property({ name: 'business_evidence', type: 'jsonb', nullable: true })
+  businessEvidence?: unknown[] | null
 
   // low | medium | high
   @Property({ type: 'text', nullable: true })
@@ -351,7 +367,7 @@ export class GtmCandidate {
   @Property({ name: 'dedupe_key', type: 'text' })
   dedupeKey!: string
 
-  // unscored | accepted | rejected
+  // unscored | accepted | review | rejected
   @Property({ name: 'fit_status', type: 'text', default: 'unscored' })
   fitStatus: string = 'unscored'
 
@@ -360,6 +376,18 @@ export class GtmCandidate {
 
   @Property({ name: 'reject_reason', type: 'text', nullable: true })
   rejectReason?: string | null
+
+  @Property({ name: 'quality_status', type: 'text', nullable: true })
+  qualityStatus?: string | null
+
+  @Property({ name: 'quality_score', type: 'decimal', precision: 6, scale: 3, nullable: true })
+  qualityScore?: string | null
+
+  @Property({ type: 'jsonb', nullable: true })
+  qualification?: Record<string, unknown> | null
+
+  @Property({ name: 'qualification_version', type: 'text', nullable: true })
+  qualificationVersion?: string | null
 
   @Property({ name: 'retention_expires_at', type: 'timestamptz', nullable: true })
   retentionExpiresAt?: Date | null
@@ -410,12 +438,24 @@ export class GtmEvidence {
   @Property({ name: 'observed_at', type: 'timestamptz', nullable: true })
   observedAt?: Date | null
 
+  @Property({ name: 'retrieved_at', type: 'timestamptz', nullable: true })
+  retrievedAt?: Date | null
+
   @Property({ type: 'decimal', precision: 6, scale: 3, nullable: true })
   confidence?: string | null
 
   // { export / display constraints }
   @Property({ type: 'jsonb', nullable: true })
   license?: Record<string, unknown> | null
+
+  @Property({ name: 'quality_status', type: 'text', nullable: true })
+  qualityStatus?: string | null
+
+  @Property({ name: 'quality_issues', type: 'jsonb', nullable: true })
+  qualityIssues?: unknown[] | null
+
+  @Property({ name: 'evidence_type', type: 'text', nullable: true })
+  evidenceType?: string | null
 
   @Property({ name: 'created_at', type: 'timestamptz', defaultRaw: 'now()' })
   createdAt: Date = new Date()
@@ -454,7 +494,7 @@ export class GtmContactPoint {
   @Property({ type: 'text' })
   value!: string
 
-  // found | verified | risky | catch_all | not_found | provider_ambiguous
+  // found | verified | risky | catch_all | not_found | unknown | provider_ambiguous
   @Property({ name: 'verification_state', type: 'text', default: 'found' })
   verificationState: string = 'found'
 

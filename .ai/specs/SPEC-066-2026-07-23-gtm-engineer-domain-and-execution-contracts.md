@@ -69,8 +69,8 @@ All tables: uuid PK `id`, `organization_id uuid NOT NULL`, `tenant_id uuid NOT N
 | `GtmIcpVersion` | `gtm_icp_versions` | `workspace_id FK`, `version int`, `content jsonb`, `locked bool`, `locked_by_user_id`, `locked_at`, `provenance jsonb (author: user\|agent, source refs)`; **unique `(workspace_id, version)`; rows immutable after insert** |
 | `GtmVoiceVersion` | `gtm_voice_versions` | same shape as ICP versions; `derived_from jsonb` (website/sent-mail/pasted/social provenance) |
 | `GtmPlay` | `gtm_plays` | `workspace_id FK`, `source(imported\|authored)`, `imported_report_token_hash`, typed play fields per GTM-SPEC-01 §3.5 (`market_type`, `audience`, `signal`, `source_hint`, `geography`, `recency_window`, `why_now`, `recommended_angle`, `supported_channels jsonb`, `estimated_size jsonb`, `entity_unit`, `estimate_method`, `confidence`), `execution_eligibility(executable\|strategy_only\|unsupported)`, `eligibility_reason`, `eligibility_evaluated_at` |
-| `GtmResearchRun` | `gtm_research_runs` | `workspace_id FK`, `play_id FK`, `input_snapshot jsonb`, `provider_plan jsonb`, `limits jsonb (max_candidates, max_credits)`, `status(planned\|priced\|running\|completed\|failed\|cancelled)`, `estimated_credits`, `reconciled_credits`, `started_at`, `completed_at` |
-| `GtmCandidate` | `gtm_candidates` | `research_run_id FK`, `workspace_id FK`, `entity_kind(person\|company)`, `identity jsonb (name, company, title, urls)`, `dedupe_key text` (normalized identity hash; **unique `(organization_id, workspace_id, dedupe_key)`**), `fit_status(unscored\|accepted\|rejected)`, `fit_score numeric`, `reject_reason`, `retention_expires_at`, `promoted_contact_id uuid null -> customer_entities.id` |
+| `GtmResearchRun` | `gtm_research_runs` | `workspace_id FK`, `play_id FK`, `input_snapshot jsonb`, `provider_plan jsonb`, `limits jsonb (target_accepted, max_raw_candidates, max_candidates compatibility alias, max_credits)`, `status(planned\|priced\|running\|completed\|failed\|cancelled)`, `estimated_credits`, `reconciled_credits`, `started_at`, `completed_at` |
+| `GtmCandidate` | `gtm_candidates` | `research_run_id FK`, `workspace_id FK`, `entity_kind(person\|company)`, `identity jsonb (name, company, title, urls)`, `dedupe_key text` (normalized identity hash; **unique `(organization_id, workspace_id, dedupe_key)`**), `fit_status(unscored\|accepted\|review\|rejected)`, `fit_score numeric`, `reject_reason`, `qualification jsonb`, `qualification_version`, `retention_expires_at`, `promoted_contact_id uuid null -> customer_entities.id` |
 | `GtmEvidence` | `gtm_evidence` | `candidate_id FK`, `claim`, `source_url`, `provider_ref jsonb (provider, record id, query snapshot)`, `observed_at`, `confidence`, `license jsonb (export/display constraints)` |
 | `GtmContactPoint` | `gtm_contact_points` | `candidate_id FK`, `channel(email\|linkedin\|x)`, `value` (email addr / profile URL), `verification_state(found\|verified\|risky\|catch_all\|not_found\|provider_ambiguous)`, `provider_operation_id FK null`, `provenance jsonb`, `verified_at` |
 | `GtmCampaign` | `gtm_campaigns` | `workspace_id FK`, `play_id FK`, `name`, `status(draft\|in_review\|approved\|launching\|active\|paused\|stopped\|completed)`, `current_version_id FK null`, `channel_mix jsonb`, `settings jsonb (daily cap, send window, timezone, jitter)` |
@@ -171,6 +171,16 @@ Adapter invoke is wrapped: (1) noli-core `provider_op_reserve` (org-scoped idemp
 
 100-200 synthetic/owned/internal test targets across the five cohorts (local B2B services; professional services; B2B SaaS; ecommerce suppliers; solo consultants selling B2B). Candidates: `Crustdata + DataForSEO` (recommended default), Apollo-reseller alternative, Bright Data broad-source alternative; FullEnrich only on rows where the primary source fails to yield an acceptable verified contact. Measured per build plan §6.4 (precision after human review, coverage/freshness, provenance quality, verified-email yield, false-match/dupe rate, latency + failure/ambiguity behavior, cost per qualified/contactable prospect, DSR support, OEM/display/export rights). Hard caps: per-provider spend ceiling agreed before the run, batch sizes <= 25, kill switch, no outreach of any kind, and every operation through the §11.2 reserve path. Output: written decision matrix appended to the build plan (via the progress-doc amendment process, not by editing the plan mid-tranche).
 
+### 11.5 Accepted-yield sourcing and criterion-aware qualification (amended 2026-08-02)
+
+- A research run targets `target_accepted`, not raw inserted rows. `max_raw_candidates` and `max_credits` are independent, user-visible ceilings. The existing `maxCandidates` request and response field remains as an additive compatibility alias for `max_raw_candidates`.
+- Planning prices every eligible source lane up to the confirmed maximum. Execution calls lanes in deterministic order, evaluates each unique row against the frozen play qualification profile, and skips all remaining provider calls as soon as `target_accepted` is met.
+- The qualification profile is derived deterministically from `provider_query`, play geography, and `recency_window`. It evaluates account criteria, person criteria, geography, signal recency, and explicit exclusions. A hard contradiction rejects. Missing proof for a hard positive or exclusion routes the row to `review`, never to accepted.
+- Qualification version `fit-v3` persists the frozen profile, per-criterion pass/fail/unknown result, score breakdown, unknowns, contradictions, and evidence issues on the candidate.
+- The run execution JSON records the funnel `raw_candidates_found -> unique_candidates_inserted -> evidence_qualified -> accepted`, plus review/rejected counts, acceptance rate, reason distribution, target state, and stop reason. This is additive JSON and requires no new migration.
+- A non-timeout transport failure after any real provider request is dispatched is ambiguous because billing cannot be proven. Unreadable successful response bodies are ambiguous for the same reason. They retain the reservation for reconciliation and are never silently refunded.
+- Provider settlement uses authoritative provider billing fields when the provider exposes them. LeadMagic discovery uses `credits_consumed`; DataForSEO uses task/root USD cost against the frozen account rate. A missing or over-ceiling billing receipt is ambiguous.
+
 ## 12. Acceptance tests (focused; implemented alongside their tranches)
 
 Identity/tenancy: wrong user/org/tenant/campaign/sender/provider-account IDs rejected on every internal route; raw IDs and agent prompts cannot cross tenants; `gtm.approve` vs `gtm.launch` role separation enforced; server-to-server calls re-resolve identity (never trust caller-supplied ownership).
@@ -187,7 +197,7 @@ Replies/races: email reply racing a scheduled send (stop wins; claimed attempt f
 
 Suppression: one-click header present on every GTM send; unsubscribe token tamper rejected; suppression added mid-campaign blocks at claim; duplicate-across-campaigns protection; legacy `email_unsubscribes` import respected.
 
-Candidates: dedupe-key uniqueness under concurrent sourcing; rejected candidates never promoted; retention sweep deletes only expired never-promoted candidates and audits the deletion.
+Candidates: dedupe-key uniqueness under concurrent sourcing; hard criterion mismatch and exclusion cases reject; unknown hard criteria route to review; stale signals reject; accepted target stops later provider calls; poor-fit first-source rows trigger the next source lane; rejected candidates never promote; retention sweep deletes only expired never-promoted candidates and audits the deletion.
 
 ## 13. Cross-app boundaries owned elsewhere (pointers)
 
@@ -219,3 +229,4 @@ Migration application to production remains a separately authorized manual psql 
 ## 16. Changelog
 
 - 2026-07-23: Initial Tranche 0 contract freeze (documentation only; no implementation).
+- 2026-08-02: Added accepted-yield sourcing, `fit-v3` criterion-aware qualification, funnel diagnostics, and authoritative provider billing/ambiguity rules. Implementation remains local, uncommitted, flag-off, and undeployed.

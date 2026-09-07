@@ -38,6 +38,7 @@ type SpyAdapter = SourceAdapter & { search: jest.Mock }
 function spyAdapter(adapterId = 'fixture-source'): SpyAdapter {
   return {
     descriptor: { ...fixtureSourceDescriptor, adapter_id: adapterId },
+    quote: fixtureSourceAdapter.quote,
     search: jest.fn((plan: SourceSearchPlan) => fixtureSourceAdapter.search(plan)),
   }
 }
@@ -225,6 +226,28 @@ describe('executeResearchRun', () => {
     expect(ledger.listOperations()).toHaveLength(0)
   })
 
+  it('fails honestly when a frozen plan names an adapter that is no longer enabled', async () => {
+    const em = new FakeEm()
+    const ledger = new FixtureLedger({ poolBalance: 100 })
+    const run = makeRun(em, {
+      adapterPlan: [plannedBatch('disabled-provider', 5)],
+      query: 'companies hiring revenue operations leads',
+      maxCandidates: 5,
+      maxCredits: 10,
+    })
+
+    const result = await executeResearchRun(deps(em, ledger, run, []))
+
+    expect(result.status).toBe('failed')
+    expect(result.failureReason).toBe('unknown adapter disabled-provider')
+    expect(result.batches[0]).toMatchObject({
+      outcome: 'error',
+      failureReason: 'unknown adapter disabled-provider',
+    })
+    expect(ledger.listOperations()).toHaveLength(0)
+    expect(em.table(GtmProviderOperation)).toHaveLength(0)
+  })
+
   it('parks an ambiguous outcome without retry and flags the run for reconciliation', async () => {
     const em = new FakeEm()
     const ledger = new FixtureLedger({ poolBalance: 100 })
@@ -296,7 +319,7 @@ describe('executeResearchRun', () => {
     expect(ledger.availableCredits()).toBe(100 - charged)
   })
 
-  it('enforces maxCandidates mid-run: later batches are skipped, their adapter never called', async () => {
+  it('stops adaptive sourcing when the accepted target is met', async () => {
     const em = new FakeEm()
     const ledger = new FixtureLedger({ poolBalance: 100 })
     const adapterA = spyAdapter('fixture-source')
@@ -313,8 +336,66 @@ describe('executeResearchRun', () => {
     expect(result.candidatesInserted).toBe(3)
     expect(adapterA.search).toHaveBeenCalledTimes(1)
     expect(adapterB.search).not.toHaveBeenCalled()
-    expect(result.batches[1].outcome).toBe('skipped_max_candidates')
+    expect(result.batches[1].outcome).toBe('skipped_target_accepted')
+    expect(result.funnel).toEqual(expect.objectContaining({
+      targetAccepted: 3,
+      accepted: 3,
+      targetMet: true,
+      stopReason: 'target_accepted',
+    }))
     expect(ledger.listOperations()).toHaveLength(1)
+  })
+
+  it('continues to the next source when raw rows do not satisfy the play', async () => {
+    const em = new FakeEm()
+    const ledger = new FixtureLedger({ poolBalance: 100 })
+    const adapterA = spyAdapter('fixture-source')
+    const adapterB = spyAdapter('fixture-source-b')
+    const evidence = [{
+      claim: 'Matched a provider search',
+      source_url: 'https://source.example/result',
+      observed_at: '2026-08-01T12:00:00.000Z',
+      confidence: 0.9,
+    }]
+    adapterA.search.mockResolvedValue({
+      status: 'ok', cost_units: 1, receipt: { provider_request_id: 'bad-1' },
+      data: [{
+        entity_kind: 'company',
+        identity: { name: 'Poor Fit Agency', domain: 'poor-fit.example', industry: 'Advertising' },
+        evidence,
+      }],
+    })
+    adapterB.search.mockResolvedValue({
+      status: 'ok', cost_units: 1, receipt: { provider_request_id: 'good-1' },
+      data: [{
+        entity_kind: 'company',
+        identity: { name: 'Strong Fit Software', domain: 'strong-fit.example', industry: 'Software' },
+        evidence,
+      }],
+    })
+    const run = makeRun(em, {
+      adapterPlan: [plannedBatch('fixture-source', 2), plannedBatch('fixture-source-b', 2)],
+      query: 'software companies',
+      maxCandidates: 4,
+      maxCredits: 100,
+    })
+    run.limits = { targetAccepted: 1, maxRawCandidates: 4, maxCandidates: 4, maxCredits: 100 }
+
+    const result = await executeResearchRun({
+      ...deps(em, ledger, run, [adapterA, adapterB]),
+      play: { ...play, providerQuery: { industries: ['Software'] } },
+      now: () => new Date('2026-08-02T12:00:00.000Z'),
+    })
+
+    expect(adapterA.search).toHaveBeenCalledTimes(1)
+    expect(adapterB.search).toHaveBeenCalledTimes(1)
+    expect(result.funnel).toEqual(expect.objectContaining({
+      rawCandidatesFound: 2,
+      accepted: 1,
+      rejected: 1,
+      targetMet: true,
+      stopReason: 'target_accepted',
+    }))
   })
 
   it('enforces maxCredits mid-run: stops before a reserve that would exceed the cap', async () => {

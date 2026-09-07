@@ -99,6 +99,13 @@ export class NoliCoreLedgerTransportError extends Error {
   }
 }
 
+export class NoliCoreLedgerConfigurationError extends Error {
+  constructor(message: string) {
+    super(`noli-core ledger is not safely configured: ${message}`)
+    this.name = 'NoliCoreLedgerConfigurationError'
+  }
+}
+
 type RpcRow = Record<string, unknown>
 
 function parseRow(operation: string, data: unknown): RpcRow {
@@ -227,18 +234,32 @@ export class NoliCoreRpcLedger implements GtmCreditLedger {
 }
 
 /*
- * Ledger selection (Tranche 4 seam): the fixture ledger stays the default in
- * every environment that must not touch noli-core - explicit GTM_LEDGER=fixture,
- * test runs, and any deployment without the noli-core service credentials.
- * Only a fully configured non-test environment gets the real RPC ledger.
+ * Ledger selection (Tranche 4 seam): tests always use the process fixture.
+ * Local development may opt into it explicitly with GTM_LEDGER=fixture.
+ * Production can never use fixture credits, and every non-test environment
+ * without both noli-core credentials fails closed before provider spend.
  */
 export function getLedger(): GtmCreditLedger {
   const forced = (process.env.GTM_LEDGER ?? '').trim().toLowerCase()
+  if (process.env.NODE_ENV === 'test') return getProcessFixtureLedger()
+
+  if (forced === 'fixture') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new NoliCoreLedgerConfigurationError('GTM_LEDGER=fixture is forbidden in production')
+    }
+    return getProcessFixtureLedger()
+  }
+  if (forced && forced !== 'noli-core' && forced !== 'rpc') {
+    throw new NoliCoreLedgerConfigurationError(`unsupported GTM_LEDGER value: ${forced}`)
+  }
+
   const noliCoreConfigured = Boolean(
     process.env.NOLI_CORE_SUPABASE_URL && process.env.NOLI_CORE_SUPABASE_SERVICE_ROLE_KEY,
   )
-  if (forced === 'fixture' || process.env.NODE_ENV === 'test' || !noliCoreConfigured) {
-    return getProcessFixtureLedger()
+  if (!noliCoreConfigured) {
+    throw new NoliCoreLedgerConfigurationError(
+      'NOLI_CORE_SUPABASE_URL and NOLI_CORE_SUPABASE_SERVICE_ROLE_KEY are required',
+    )
   }
   return new NoliCoreRpcLedger()
 }

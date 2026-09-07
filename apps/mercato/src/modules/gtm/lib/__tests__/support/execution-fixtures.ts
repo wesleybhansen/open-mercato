@@ -1,7 +1,7 @@
 import { FakeEm } from './fake-em'
 import { ORG, TENANT, USER, WORKSPACE, ctx, seedPlay, seedRun, seedCandidate } from './campaign-fixtures'
 import { createCampaign, type ChannelMixInput } from '../../campaign/build'
-import { approveCampaign } from '../../campaign/approve'
+import { approveCampaign, computeDraftState } from '../../campaign/approve'
 import { launchCampaign, type Clock } from '../../execute/schedule'
 import {
   GtmCampaign,
@@ -113,7 +113,11 @@ export async function seedLaunchedCampaign(
       jitter_minutes: options.jitterMinutes ?? 0,
     },
   })
-  const approved = await approveCampaign(em, ctx, { campaignId: campaign.id })
+  const draft = await computeDraftState(em, ctx, campaign)
+  const approved = await approveCampaign(em, ctx, {
+    campaignId: campaign.id,
+    expectedContentHash: draft.contentHash,
+  })
   const launch = await launchCampaign(em, ctx, { campaignId: campaign.id }, { clock: options.clock })
   const enrollments = await em.find(GtmEnrollment, { campaignId: campaign.id })
   const steps = await em.find(GtmStep, { campaignVersionId: approved.version.id })

@@ -7,7 +7,7 @@ import {
   type LaunchedFixture,
 } from './support/execution-fixtures'
 import { createCampaign } from '../campaign/build'
-import { approveCampaign, updateCampaignTemplate } from '../campaign/approve'
+import { approveCampaign, computeDraftState, updateCampaignTemplate } from '../campaign/approve'
 import { claimDueAttempts } from '../execute/claim'
 import type { Clock } from '../execute/schedule'
 import {
@@ -233,7 +233,11 @@ describe('manual social tasks (SPEC-066 section 10, Tranche 7)', () => {
       name: 'X DM campaign',
       channelMix: { emails: 1, x: true },
     })
-    const approved = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const draft = await computeDraftState(em, ctx, campaign)
+    const approved = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: draft.contentHash,
+    })
     const listed = await listManualTasks(em, ctx, { campaignId: campaign.id })
     expect(listed.tasks).toHaveLength(1)
     const dmTask = listed.tasks[0]

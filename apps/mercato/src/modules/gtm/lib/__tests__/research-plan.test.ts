@@ -62,12 +62,16 @@ describe('buildSourcePlan fail-closed boundaries', () => {
 })
 
 describe('buildSourcePlan pricing and limits', () => {
-  it('plans the default first batch of 25 prospects with 2x markup pricing', () => {
+  it('pursues 25 accepted leads under a separate 100-row raw ceiling', () => {
     const plan = buildSourcePlan(executablePlay, adapters, null, 2)
     expect(plan.ok).toBe(true)
     if (plan.ok) {
       expect(DEFAULT_MAX_CANDIDATES).toBe(25)
-      expect(plan.limits.maxCandidates).toBe(25)
+      expect(plan.limits).toEqual(expect.objectContaining({
+        targetAccepted: 25,
+        maxRawCandidates: 100,
+        maxCandidates: 100,
+      }))
       expect(plan.adapterPlan).toEqual([
         expect.objectContaining({
           adapter_id: 'fixture-source',
@@ -99,7 +103,12 @@ describe('buildSourcePlan pricing and limits', () => {
     const plan = buildSourcePlan(executablePlay, adapters, { maxCandidates: 10, maxCredits: 12 }, 2)
     expect(plan.ok).toBe(true)
     if (plan.ok) {
-      expect(plan.limits).toEqual({ maxCandidates: 10, maxCredits: 12 })
+      expect(plan.limits).toEqual({
+        targetAccepted: 10,
+        maxRawCandidates: 10,
+        maxCandidates: 10,
+        maxCredits: 12,
+      })
       expect(plan.estimatedCredits).toBe(20)
     }
   })
@@ -107,6 +116,7 @@ describe('buildSourcePlan pricing and limits', () => {
   it('allocates remaining candidates across additional covering adapters', () => {
     const secondAdapter: SourceAdapter = {
       descriptor: { ...fixtureSourceDescriptor, adapter_id: 'fixture-source-b' },
+      quote: fixtureSourceAdapter.quote,
       search: fixtureSourceAdapter.search,
     }
     const plan = buildSourcePlan(executablePlay, [fixtureSourceAdapter, secondAdapter], {
@@ -115,9 +125,86 @@ describe('buildSourcePlan pricing and limits', () => {
     expect(plan.ok).toBe(true)
     if (plan.ok) {
       expect(plan.adapterPlan.map((batch) => [batch.adapter_id, batch.estimatedUnits])).toEqual([
-        ['fixture-source', 25],
-        ['fixture-source-b', 5],
+        ['fixture-source', 15],
+        ['fixture-source-b', 15],
       ])
+      expect(plan.planHash).toMatch(/^[a-f0-9]{64}$/)
+      expect(plan.schemaVersion).toBe('3')
     }
+  })
+
+  it('changes the immutable hash when price or reviewed terms change', () => {
+    const baseline = buildSourcePlan(executablePlay, adapters)
+    const changed: SourceAdapter = {
+      descriptor: {
+        ...fixtureSourceDescriptor,
+        cost_model: {
+          ...fixtureSourceDescriptor.cost_model,
+          price_version: 'fixture-v-next',
+        },
+      },
+      quote: fixtureSourceAdapter.quote,
+      search: fixtureSourceAdapter.search,
+    }
+    const repriced = buildSourcePlan(executablePlay, [changed])
+    expect(baseline.ok && repriced.ok).toBe(true)
+    if (baseline.ok && repriced.ok) expect(repriced.planHash).not.toBe(baseline.planHash)
+  })
+
+  it('freezes explicit accepted and raw targets plus the qualification profile', () => {
+    const plan = buildSourcePlan({
+      ...executablePlay,
+      providerQuery: {
+        industries: ['Software'],
+        company_keywords: ['revenue operations'],
+        exclude_industries: ['Consumer gambling'],
+      },
+      recencyWindow: 'last 30 days',
+    }, adapters, { targetAccepted: 12, maxRawCandidates: 60 })
+    expect(plan.ok).toBe(true)
+    if (plan.ok) {
+      expect(plan.limits).toEqual(expect.objectContaining({
+        targetAccepted: 12, maxRawCandidates: 60, maxCandidates: 60,
+      }))
+      expect(plan.qualificationProfile.criteria.map((row) => row.id)).toEqual(expect.arrayContaining([
+        'account.industry', 'account.keywords', 'exclusion.industry', 'signal.recency',
+      ]))
+      expect(plan.adapterPlan[0]).toEqual(expect.objectContaining({
+        adaptiveOrder: 1, stopWhenTargetAccepted: true,
+      }))
+    }
+  })
+
+  it('hashes distinct Unicode keys independently of insertion order', () => {
+    const first = buildSourcePlan({
+      ...executablePlay,
+      providerQuery: { '\u00e9': ['one'], 'e\u0301': ['two'] },
+    }, adapters)
+    const second = buildSourcePlan({
+      ...executablePlay,
+      providerQuery: { 'e\u0301': ['two'], '\u00e9': ['one'] },
+    }, adapters)
+    expect(first.ok && second.ok).toBe(true)
+    if (first.ok && second.ok) expect(first.planHash).toBe(second.planHash)
+  })
+
+  it('does not plan a provider whose customer-use rights are provisional', () => {
+    const provisional: SourceAdapter = {
+      descriptor: {
+        ...fixtureSourceDescriptor,
+        constraints: {
+          ...fixtureSourceDescriptor.constraints,
+          license: {
+            ...fixtureSourceDescriptor.constraints.license,
+            status: 'provisional',
+          },
+        },
+      },
+      quote: fixtureSourceAdapter.quote,
+      search: fixtureSourceAdapter.search,
+    }
+    const plan = buildSourcePlan(executablePlay, [provisional])
+    expect(plan.ok).toBe(false)
+    if (!plan.ok) expect(plan.unsupportedDimensions[0]?.dimension).toBe('license')
   })
 })

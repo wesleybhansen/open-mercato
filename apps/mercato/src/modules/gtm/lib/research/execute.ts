@@ -12,6 +12,7 @@ import {
 } from '../credits/markup'
 import type { SourcePlanBatch } from './plan'
 import { ruleBasedFitScorer, type FitScorer } from './qualify'
+import { assessEvidence } from './evidence-quality'
 import { GtmCandidate, GtmEvidence, GtmProviderOperation, GtmResearchRun } from '../../data/entities'
 
 /*
@@ -56,7 +57,7 @@ export interface ResearchEm {
 export type ExecuteResearchRunDeps = {
   em: ResearchEm
   ledger: GtmCreditLedger
-  // adapter_id -> adapter; the fixture registry in this tranche
+  // adapter_id -> adapter; registries fail closed when no real provider is enabled
   adapters: Record<string, SourceAdapter>
   run: GtmResearchRun
   play: {
@@ -64,6 +65,9 @@ export type ExecuteResearchRunDeps = {
     signal?: string | null
     entityUnit?: string | null
     geography?: string | null
+    audience?: string | null
+    providerQuery?: Record<string, unknown> | null
+    recencyWindow?: string | null
   }
   userId: string
   scorer?: FitScorer
@@ -83,6 +87,8 @@ export type BatchOutcome = {
     | 'no_result'
     | 'error'
     | 'ambiguous'
+    | 'skipped_target_accepted'
+    | 'skipped_max_raw_candidates'
     | 'skipped_max_candidates'
     | 'skipped_max_credits'
     | 'blocked_insufficient_credits'
@@ -90,7 +96,27 @@ export type BatchOutcome = {
   chargedCredits: number
   candidatesInserted: number
   duplicatesSkipped: number
+  rawCandidatesFound: number
+  accepted: number
+  review: number
+  rejected: number
   failureReason: string | null
+}
+
+export type ResearchFunnel = {
+  targetAccepted: number
+  maxRawCandidates: number
+  rawCandidatesFound: number
+  uniqueCandidatesInserted: number
+  duplicatesSkipped: number
+  evidenceQualified: number
+  accepted: number
+  review: number
+  rejected: number
+  acceptanceRate: number
+  targetMet: boolean
+  stopReason: 'target_accepted' | 'max_raw_candidates' | 'max_credits' | 'sources_exhausted' | 'failed'
+  byReason: Record<string, number>
 }
 
 export type ResearchRunExecutionResult = {
@@ -101,6 +127,7 @@ export type ResearchRunExecutionResult = {
   candidatesInserted: number
   duplicatesSkipped: number
   evidenceInserted: number
+  funnel: ResearchFunnel
   batches: BatchOutcome[]
 }
 
@@ -133,12 +160,25 @@ function parseProviderPlan(run: GtmResearchRun): ParsedProviderPlan {
   return { adapterPlan, query }
 }
 
-function parseLimits(run: GtmResearchRun): { maxCandidates: number; maxCredits: number } {
+function parseLimits(run: GtmResearchRun): {
+  targetAccepted: number
+  maxRawCandidates: number
+  maxCredits: number
+} {
   const limits = (run.limits ?? {}) as Record<string, unknown>
-  const maxCandidates = Number(limits.maxCandidates)
+  const legacyMaxCandidates = Number(limits.maxCandidates)
+  const maxRawCandidates = Number(limits.maxRawCandidates ?? limits.maxCandidates)
+  const targetAccepted = Number(limits.targetAccepted ?? limits.maxCandidates)
   const maxCredits = Number(limits.maxCredits)
   return {
-    maxCandidates: Number.isFinite(maxCandidates) && maxCandidates > 0 ? Math.floor(maxCandidates) : 0,
+    targetAccepted: Number.isFinite(targetAccepted) && targetAccepted > 0
+      ? Math.floor(targetAccepted)
+      : Number.isFinite(legacyMaxCandidates) && legacyMaxCandidates > 0
+        ? Math.floor(legacyMaxCandidates)
+        : 0,
+    maxRawCandidates: Number.isFinite(maxRawCandidates) && maxRawCandidates > 0
+      ? Math.floor(maxRawCandidates)
+      : 0,
     maxCredits: Number.isFinite(maxCredits) && maxCredits > 0 ? Math.floor(maxCredits) : 0,
   }
 }
@@ -150,6 +190,7 @@ export async function executeResearchRun(
   const scorer = deps.scorer ?? ruleBasedFitScorer
   const markup = deps.markupMultiplier ?? defaultMarkupMultiplier()
   const now = deps.now ?? (() => new Date())
+  const qualificationReferenceTime = now()
 
   const { adapterPlan, query } = parseProviderPlan(run)
   const limits = parseLimits(run)
@@ -159,6 +200,12 @@ export async function executeResearchRun(
   let candidatesInserted = 0
   let duplicatesSkipped = 0
   let evidenceInserted = 0
+  let rawCandidatesFound = 0
+  let evidenceQualified = 0
+  let accepted = 0
+  let review = 0
+  let rejected = 0
+  const fitByReason: Record<string, number> = {}
   let reconciledCredits = 0
   let outstandingReserved = 0
   let reconciliationRequired = false
@@ -179,19 +226,35 @@ export async function executeResearchRun(
       chargedCredits: 0,
       candidatesInserted: 0,
       duplicatesSkipped: 0,
+      rawCandidatesFound: 0,
+      accepted: 0,
+      review: 0,
+      rejected: 0,
       failureReason: null,
     }
 
-    // Cap: stop planning further batches once maxCandidates is reached.
-    if (limits.maxCandidates > 0 && candidatesInserted >= limits.maxCandidates) {
-      batches.push({ ...base, outcome: 'skipped_max_candidates' })
+    // Adaptive stop: later source lanes are shortfall refills, not mandatory
+    // spend. Once enough qualified leads exist, no more provider is contacted.
+    if (limits.targetAccepted > 0 && accepted >= limits.targetAccepted) {
+      batches.push({ ...base, outcome: 'skipped_target_accepted' })
+      continue
+    }
+    if (limits.maxRawCandidates > 0 && rawCandidatesFound >= limits.maxRawCandidates) {
+      batches.push({ ...base, outcome: 'skipped_max_raw_candidates' })
       continue
     }
 
-    const remainingCandidates =
-      limits.maxCandidates > 0 ? limits.maxCandidates - candidatesInserted : planned.estimatedUnits
-    const requestUnits = Math.min(planned.estimatedUnits, remainingCandidates)
-    const batchEstimatedCredits = creditsForUnits(requestUnits, planned.quotedCreditsPerUnit, markup)
+    const plannedCandidateCap = planned.maxCandidates ?? planned.estimatedUnits
+    const remainingCandidates = limits.maxRawCandidates > 0
+      ? limits.maxRawCandidates - rawCandidatesFound
+      : plannedCandidateCap
+    const requestCandidates = Math.min(plannedCandidateCap, remainingCandidates)
+    const providerUnits = planned.providerUnits ?? planned.estimatedUnits
+    const batchEstimatedCredits = creditsForUnits(
+      providerUnits,
+      planned.quotedCreditsPerUnit,
+      markup,
+    )
 
     // Cap: stop BEFORE a reserve that would exceed maxCredits.
     if (
@@ -204,7 +267,9 @@ export async function executeResearchRun(
 
     const adapter = adapters[planned.adapter_id]
     if (!adapter) {
-      batches.push({ ...base, outcome: 'error', failureReason: `unknown adapter ${planned.adapter_id}` })
+      const reason = `unknown adapter ${planned.adapter_id}`
+      failureReason ??= reason
+      batches.push({ ...base, outcome: 'error', failureReason: reason })
       continue
     }
 
@@ -220,9 +285,12 @@ export async function executeResearchRun(
         estimatedCredits: batchEstimatedCredits,
         idempotencyKey,
         unitCostSnapshot: {
-          unit: 'candidate',
+          unit: planned.billableUnit ?? 'candidate',
+          provider_units: providerUnits,
           quoted_credits_per_unit: planned.quotedCreditsPerUnit,
           markup_multiplier: markup,
+          price_version: planned.priceVersion ?? 'legacy',
+          terms_version: planned.termsVersion ?? 'legacy',
         },
         fingerprint: {
           research_run_id: run.id,
@@ -232,7 +300,11 @@ export async function executeResearchRun(
           entity_unit: planned.capability.entity_unit,
           geography: planned.capability.geography,
           query,
-          max_candidates: requestUnits,
+          provider_query: planned.providerQuery ?? null,
+          max_candidates: requestCandidates,
+          provider_units: providerUnits,
+          billable_unit: planned.billableUnit ?? 'candidate',
+          descriptor_hash: planned.descriptorHash ?? null,
         },
       })
       operationId = reserved.operationId
@@ -281,7 +353,8 @@ export async function executeResearchRun(
       entity_unit: planned.capability.entity_unit,
       geography: planned.capability.geography,
       query,
-      max_candidates: requestUnits,
+      provider_query: planned.providerQuery ?? undefined,
+      max_candidates: requestCandidates,
       max_charge_usd: maxChargeUsd,
     })
 
@@ -350,10 +423,21 @@ export async function executeResearchRun(
     // 6. Candidates + evidence + deterministic qualification.
     let batchInserted = 0
     let batchDuplicates = 0
+    let batchAccepted = 0
+    let batchReview = 0
+    let batchRejected = 0
     const found = Array.isArray(result.data) ? result.data : []
+    rawCandidatesFound += found.length
     for (const candidate of found) {
-      if (limits.maxCandidates > 0 && candidatesInserted >= limits.maxCandidates) break
-      const fit = scorer.score(candidate, play, candidate.evidence ?? [])
+      const evidenceAssessment = assessEvidence(
+        candidate.evidence ?? [],
+        adapter.descriptor.evidence_policy,
+        now(),
+      )
+      const fit = scorer.score(candidate, {
+        ...play,
+        referenceTime: qualificationReferenceTime,
+      }, evidenceAssessment.validEvidence)
       const dedupeKey = candidateDedupeKey(candidate)
       try {
         const insertedEvidence = await em.transactional(async (tem) => {
@@ -370,14 +454,27 @@ export async function executeResearchRun(
             dedupeKey,
             fitStatus: fit.verdict,
             fitScore: String(fit.fitScore),
-            rejectReason: fit.verdict === 'rejected' ? fit.reason : null,
+            rejectReason: fit.verdict === 'accepted' ? null : fit.reason,
+            qualityStatus: evidenceAssessment.status,
+            qualityScore: String(evidenceAssessment.score),
+            qualification: {
+              reason: fit.reason,
+              breakdown: fit.breakdown,
+              unknowns: fit.unknowns,
+              contradictions: fit.contradictions,
+              profile: fit.profile ?? null,
+              criteria: fit.criteria ?? [],
+              evidence_issues: evidenceAssessment.issues,
+            },
+            qualificationVersion: fit.version,
             retentionExpiresAt: new Date(
               now().getTime() + CANDIDATE_RETENTION_DAYS * 24 * 60 * 60 * 1000,
             ),
           })
           tem.persist(row)
           let evidenceRows = 0
-          for (const evidence of candidate.evidence ?? []) {
+          for (const assessed of evidenceAssessment.rows) {
+            const evidence = assessed.evidence
             const evidenceRow = tem.create(GtmEvidence, {
               organizationId: run.organizationId,
               tenantId: run.tenantId,
@@ -395,7 +492,12 @@ export async function executeResearchRun(
                 ...(evidence.detail ? { detail: evidence.detail } : {}),
               },
               observedAt: evidence.observed_at ? new Date(evidence.observed_at) : null,
+              retrievedAt: now(),
               confidence: String(evidence.confidence),
+              license: adapter.descriptor.constraints.license,
+              qualityStatus: assessed.status,
+              qualityIssues: assessed.issues,
+              evidenceType: 'provider_observation',
             })
             tem.persist(evidenceRow)
             evidenceRows += 1
@@ -406,6 +508,18 @@ export async function executeResearchRun(
         batchInserted += 1
         candidatesInserted += 1
         evidenceInserted += insertedEvidence
+        if (evidenceAssessment.validEvidence.length > 0) evidenceQualified += 1
+        if (fit.verdict === 'accepted') {
+          accepted += 1
+          batchAccepted += 1
+        } else if (fit.verdict === 'review') {
+          review += 1
+          batchReview += 1
+        } else {
+          rejected += 1
+          batchRejected += 1
+        }
+        fitByReason[fit.reason] = (fitByReason[fit.reason] ?? 0) + 1
       } catch (err) {
         // Race-safe dedupe: a concurrent (or same-run) duplicate loses the
         // unique (org, workspace, dedupe_key) race and is counted, not fatal.
@@ -426,11 +540,41 @@ export async function executeResearchRun(
       chargedCredits,
       candidatesInserted: batchInserted,
       duplicatesSkipped: batchDuplicates,
+      rawCandidatesFound: found.length,
+      accepted: batchAccepted,
+      review: batchReview,
+      rejected: batchRejected,
       failureReason: batchFailure,
     })
   }
 
   const status: 'completed' | 'failed' = failureReason ? 'failed' : 'completed'
+  const targetMet = limits.targetAccepted > 0 && accepted >= limits.targetAccepted
+  const skippedForCredits = batches.some((batch) => batch.outcome === 'skipped_max_credits')
+  const stopReason: ResearchFunnel['stopReason'] = failureReason
+    ? 'failed'
+    : targetMet
+      ? 'target_accepted'
+      : limits.maxRawCandidates > 0 && rawCandidatesFound >= limits.maxRawCandidates
+        ? 'max_raw_candidates'
+        : skippedForCredits
+          ? 'max_credits'
+          : 'sources_exhausted'
+  const funnel: ResearchFunnel = {
+    targetAccepted: limits.targetAccepted,
+    maxRawCandidates: limits.maxRawCandidates,
+    rawCandidatesFound,
+    uniqueCandidatesInserted: candidatesInserted,
+    duplicatesSkipped,
+    evidenceQualified,
+    accepted,
+    review,
+    rejected,
+    acceptanceRate: candidatesInserted > 0 ? accepted / candidatesInserted : 0,
+    targetMet,
+    stopReason,
+    byReason: fitByReason,
+  }
   const summary: ResearchRunExecutionResult = {
     status,
     failureReason,
@@ -439,6 +583,7 @@ export async function executeResearchRun(
     candidatesInserted,
     duplicatesSkipped,
     evidenceInserted,
+    funnel,
     batches,
   }
 
@@ -460,6 +605,21 @@ export async function executeResearchRun(
         candidates_inserted: candidatesInserted,
         duplicates_skipped: duplicatesSkipped,
         evidence_inserted: evidenceInserted,
+        funnel: {
+          target_accepted: funnel.targetAccepted,
+          max_raw_candidates: funnel.maxRawCandidates,
+          raw_candidates_found: funnel.rawCandidatesFound,
+          unique_candidates_inserted: funnel.uniqueCandidatesInserted,
+          duplicates_skipped: funnel.duplicatesSkipped,
+          evidence_qualified: funnel.evidenceQualified,
+          accepted: funnel.accepted,
+          review: funnel.review,
+          rejected: funnel.rejected,
+          acceptance_rate: funnel.acceptanceRate,
+          target_met: funnel.targetMet,
+          stop_reason: funnel.stopReason,
+          by_reason: funnel.byReason,
+        },
         batches: batches.map((batch) => ({
           batch_no: batch.batchNo,
           adapter_id: batch.adapterId,
@@ -470,6 +630,10 @@ export async function executeResearchRun(
           charged_credits: batch.chargedCredits,
           candidates_inserted: batch.candidatesInserted,
           duplicates_skipped: batch.duplicatesSkipped,
+          raw_candidates_found: batch.rawCandidatesFound,
+          accepted: batch.accepted,
+          review: batch.review,
+          rejected: batch.rejected,
           failure_reason: batch.failureReason,
         })),
       },

@@ -18,6 +18,7 @@ import type { GtmCandidate } from '../../../data/entities'
  * trusted and every query self-scopes by organization_id + tenant_id.
  *
  * Ops (body.op):
+ * - 'plan'   returns an immutable maximum-credit quote without spending.
  * - 'run'    executes the enrichment waterfall over ACCEPTED candidates of a
  *            research run or a workspace (exactly one of runId | workspaceId).
  *            Optional maxCredits caps this run's spend BEFORE each reserve.
@@ -28,10 +29,9 @@ import type { GtmCandidate } from '../../../data/entities'
  * - 'status' returns the contact-point verification-state distribution for
  *            the same scope.
  *
- * The ledger is selected via getLedger(): the fixture ledger in tests and in
- * any environment without noli-core credentials, the noli-core RPC ledger
- * otherwise. Adapters come from the fixture registries until real providers
- * land - no provider or network call is possible by construction.
+ * The ledger is selected via getLedger(): fixture credits are test-only by
+ * default, and non-test environments require canonical noli-core credits.
+ * Adapters are independently gated; production never registers fixtures.
  *
  * Public at the dispatcher level (requireAuth: false) - we authenticate with
  * the shared secret instead of a Clerk/JWT session, mirroring
@@ -156,6 +156,7 @@ export async function POST(req: Request) {
         risky: 0,
         catch_all: 0,
         not_found: 0,
+        unknown: 0,
         provider_ambiguous: 0,
       }
       for (const point of contactPoints) {
@@ -171,21 +172,47 @@ export async function POST(req: Request) {
       })
     }
 
+    const { enrichAdapterList, verifyAdapterList } = await import('../../../lib/adapters/registry')
+    const enrichAdapters = enrichAdapterList()
+    const verifyAdapters = verifyAdapterList()
+    const { buildEnrichmentPlan } = await import('../../../lib/enrich/plan')
+    const plan = buildEnrichmentPlan(candidates, contactPoints, enrichAdapters, verifyAdapters)
+    if (body.op === 'plan') {
+      return NextResponse.json({ ok: true, plan })
+    }
+
+    if (body.expectedPlanHash !== plan.plan_hash) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'The enrichment quote changed; review the refreshed plan before continuing',
+          code: 'plan_changed',
+          plan,
+        },
+        { status: 409 },
+      )
+    }
+    if (plan.providers.length === 0 || plan.maximum_credits <= 0) {
+      return NextResponse.json(
+        { ok: false, error: 'No approved enrichment and verification provider is available' },
+        { status: 422 },
+      )
+    }
+
     // op === 'run'
     const { runEnrichmentWaterfall } = await import('../../../lib/enrich/waterfall')
     const { getLedger } = await import('../../../lib/credits/noli-core-ledger')
-    const { enrichAdapterList, verifyAdapterList } = await import('../../../lib/adapters/registry')
 
     const summary = await runEnrichmentWaterfall({
       em: em as unknown as import('../../../lib/research/execute').ResearchEm,
       ledger: getLedger(),
-      enrichAdapters: enrichAdapterList(),
-      verifyAdapters: verifyAdapterList(),
+      enrichAdapters,
+      verifyAdapters,
       candidates,
       contactPoints,
       userId,
       runId,
-      maxCredits: body.op === 'run' ? body.maxCredits ?? null : null,
+      maxCredits: Math.min(body.maxCredits ?? plan.maximum_credits, plan.maximum_credits),
     })
 
     await em.transactional(async (tem) => {
@@ -204,6 +231,7 @@ export async function POST(req: Request) {
           risky: summary.risky,
           catch_all: summary.catch_all,
           not_found: summary.not_found,
+          unknown: summary.unknown,
           ambiguous: summary.ambiguous,
           credits: summary.credits,
           stopped: summary.stopped,

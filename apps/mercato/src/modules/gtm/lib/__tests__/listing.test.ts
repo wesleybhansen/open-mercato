@@ -7,7 +7,7 @@ import {
   listResearchRuns,
 } from '../listing'
 import { GtmCampaign, GtmContactPoint, GtmEvidence, GtmResearchRun } from '../../data/entities'
-import { gtmCampaignsBodySchema, gtmResearchRunsBodySchema } from '../../data/validators'
+import { gtmCampaignsBodySchema, gtmEnrichBodySchema, gtmResearchRunsBodySchema } from '../../data/validators'
 
 /*
  * Read-side list helpers (lib/listing.ts) behind the campaigns/research-runs
@@ -392,6 +392,24 @@ describe('list op validators (additive union branches)', () => {
     ).toBe(true)
   })
 
+  it('requires the reviewed content hash for campaign approval', () => {
+    expect(
+      gtmCampaignsBodySchema.safeParse({
+        op: 'approve',
+        noliUserId: 'u1',
+        campaignId: 'campaign-1',
+      }).success,
+    ).toBe(false)
+    expect(
+      gtmCampaignsBodySchema.safeParse({
+        op: 'approve',
+        noliUserId: 'u1',
+        campaignId: 'campaign-1',
+        expected_content_hash: 'a'.repeat(64),
+      }).success,
+    ).toBe(true)
+  })
+
   it('research-runs accepts list with optional workspaceId/playId and still parses existing ops', () => {
     expect(gtmResearchRunsBodySchema.safeParse({ op: 'list', noliUserId: 'u1' }).success).toBe(true)
     expect(
@@ -405,5 +423,27 @@ describe('list op validators (additive union branches)', () => {
     expect(
       gtmResearchRunsBodySchema.safeParse({ op: 'status', noliUserId: 'u1', runId: 'r1' }).success,
     ).toBe(true)
+  })
+
+  it('requires the exact immutable quote hash for provider-running operations', () => {
+    const hash = 'a'.repeat(64)
+    expect(gtmResearchRunsBodySchema.safeParse({
+      op: 'create', noliUserId: 'u1', playId: PLAY_A,
+    }).success).toBe(false)
+    expect(gtmResearchRunsBodySchema.safeParse({
+      op: 'create', noliUserId: 'u1', playId: PLAY_A, expectedPlanHash: hash,
+    }).success).toBe(true)
+    expect(gtmResearchRunsBodySchema.safeParse({
+      op: 'execute', noliUserId: 'u1', runId: 'r1', expectedPlanHash: hash,
+    }).success).toBe(true)
+    expect(gtmEnrichBodySchema.safeParse({
+      op: 'plan', noliUserId: 'u1', workspaceId: WORKSPACE,
+    }).success).toBe(true)
+    expect(gtmEnrichBodySchema.safeParse({
+      op: 'run', noliUserId: 'u1', workspaceId: WORKSPACE,
+    }).success).toBe(false)
+    expect(gtmEnrichBodySchema.safeParse({
+      op: 'run', noliUserId: 'u1', workspaceId: WORKSPACE, expectedPlanHash: hash,
+    }).success).toBe(true)
   })
 })

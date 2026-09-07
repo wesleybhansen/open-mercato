@@ -1,6 +1,7 @@
 import { FixtureLedger, GtmCreditLedgerError } from '../credits/ledger'
 import {
   NoliCoreLedgerTransportError,
+  NoliCoreLedgerConfigurationError,
   NoliCoreRpcLedger,
   getLedger,
   mapRpcErrorToLedgerError,
@@ -186,18 +187,26 @@ describe('getLedger selection', () => {
     expect(getLedger()).toBeInstanceOf(FixtureLedger)
   })
 
-  it('returns the fixture ledger when noli-core env is unset, even outside tests', () => {
+  it('fails closed when noli-core env is unset outside tests', () => {
     process.env.NODE_ENV = 'production'
     delete process.env.NOLI_CORE_SUPABASE_URL
     delete process.env.NOLI_CORE_SUPABASE_SERVICE_ROLE_KEY
-    expect(getLedger()).toBeInstanceOf(FixtureLedger)
+    expect(() => getLedger()).toThrow(NoliCoreLedgerConfigurationError)
   })
 
-  it('returns the fixture ledger when GTM_LEDGER=fixture regardless of env', () => {
+  it('forbids fixture credits in production even when explicitly requested', () => {
     process.env.NODE_ENV = 'production'
     process.env.GTM_LEDGER = 'fixture'
     process.env.NOLI_CORE_SUPABASE_URL = 'https://example.supabase.co'
     process.env.NOLI_CORE_SUPABASE_SERVICE_ROLE_KEY = 'service-role-key'
+    expect(() => getLedger()).toThrow(NoliCoreLedgerConfigurationError)
+  })
+
+  it('allows an explicit fixture ledger in local development', () => {
+    process.env.NODE_ENV = 'development'
+    process.env.GTM_LEDGER = 'fixture'
+    delete process.env.NOLI_CORE_SUPABASE_URL
+    delete process.env.NOLI_CORE_SUPABASE_SERVICE_ROLE_KEY
     expect(getLedger()).toBeInstanceOf(FixtureLedger)
   })
 

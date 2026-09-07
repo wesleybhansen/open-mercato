@@ -1,7 +1,7 @@
 import { FakeEm } from './support/fake-em'
 import { WORKSPACE, ctx, seedCandidate, seedPlay, seedRun } from './support/campaign-fixtures'
 import { createCampaign } from '../campaign/build'
-import { approveCampaign } from '../campaign/approve'
+import { approveCampaign, computeDraftState } from '../campaign/approve'
 import {
   KB_MIRROR_CANONICAL_NOTICE,
   KbMirrorClient,
@@ -148,7 +148,11 @@ describe('KB mirror handoff (SPEC-066 section 13)', () => {
       name: 'Mirror summary campaign',
       channelMix: { emails: 2, linkedin: true },
     })
-    const approved = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const draft = await computeDraftState(em, ctx, campaign)
+    const approved = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: draft.contentHash,
+    })
 
     const doc = buildCampaignSummaryDoc(campaign, approved.version)
     expect(doc.content.startsWith(KB_MIRROR_CANONICAL_NOTICE)).toBe(true)

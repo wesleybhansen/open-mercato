@@ -14,6 +14,7 @@ import {
   defaultMarkupMultiplier,
   providerSpendCapUsd,
 } from '../credits/markup'
+import { descriptorHash } from '../research/plan'
 import type { ResearchEm } from '../research/execute'
 import { GtmCandidate, GtmContactPoint, GtmProviderOperation } from '../../data/entities'
 
@@ -41,7 +42,7 @@ import { GtmCandidate, GtmContactPoint, GtmProviderOperation } from '../../data/
  *   verify phase (over email points in state 'found'):
  *     adapters run in registry order, idempotency key
  *     `verify:{contactPointId}:{adapter_id}`, mapping outcomes onto
- *     verified | risky | catch_all | not_found | provider_ambiguous.
+ *     verified | risky | catch_all | not_found | unknown | provider_ambiguous.
  *     provider_ambiguous points are PARKED: they are skipped on every later
  *     run and never auto-retried (reconciliation resolves the SAME parked
  *     noli-core operation). A definitive outcome ends the verify waterfall
@@ -89,6 +90,7 @@ export type EnrichWaterfallSummary = {
   risky: number
   catch_all: number
   not_found: number
+  unknown: number
   // parked outcomes this run (enrich or verify operations marked ambiguous)
   ambiguous: number
   // credits actually charged this run
@@ -105,6 +107,17 @@ const VERIFY_ENTITY_UNIT = 'contacts'
 
 function entityUnitFor(candidate: GtmCandidate): string {
   return candidate.entityKind === 'company' ? 'companies' : 'people'
+}
+
+function customerUseAllowed(descriptor: AdapterDescriptor): boolean {
+  const license = descriptor.constraints.license
+  return (
+    (license.status === 'approved' || license.status === 'test_only') &&
+    Boolean(license.terms_version) &&
+    license.export &&
+    license.customer_display &&
+    license.outreach_allowed
+  )
 }
 
 type Budget = {
@@ -185,6 +198,9 @@ async function invokeWithLedger<T>(
         quoted_credits_per_unit: quoted,
         markup_multiplier: markup,
         pay_on_found: descriptor.cost_model.pay_on_found,
+        price_version: descriptor.cost_model.price_version,
+        terms_version: descriptor.constraints.license.terms_version,
+        descriptor_hash: descriptorHash(descriptor),
       },
       fingerprint: deps.fingerprint,
     })
@@ -318,6 +334,7 @@ export async function runEnrichmentWaterfall(
     risky: 0,
     catch_all: 0,
     not_found: 0,
+    unknown: 0,
     ambiguous: 0,
     credits: 0,
     stopped: 'completed',
@@ -357,6 +374,7 @@ export async function runEnrichmentWaterfall(
     if (emailPoints().length === 0) {
       for (const adapter of deps.enrichAdapters) {
         const descriptor = adapter.descriptor
+        if (!customerUseAllowed(descriptor)) continue
         const request = {
           signal_kind: ENRICH_SIGNAL,
           entity_unit: entityUnitFor(candidate),
@@ -464,6 +482,7 @@ export async function runEnrichmentWaterfall(
 
       for (const adapter of deps.verifyAdapters) {
         const descriptor = adapter.descriptor
+        if (!customerUseAllowed(descriptor)) continue
         const request = {
           signal_kind: VERIFY_SIGNAL,
           entity_unit: VERIFY_ENTITY_UNIT,
@@ -544,6 +563,7 @@ export async function runEnrichmentWaterfall(
         else if (state === 'risky') summary.risky += 1
         else if (state === 'catch_all') summary.catch_all += 1
         else if (state === 'not_found') summary.not_found += 1
+        else if (state === 'unknown') summary.unknown += 1
         else if (state === 'provider_ambiguous') summary.ambiguous += 1
 
         if (state === 'verified') continue candidateLoop // stop at first verified point

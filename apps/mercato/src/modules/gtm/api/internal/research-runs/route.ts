@@ -6,6 +6,7 @@ import { gtmResearchRunsBodySchema } from '../../../data/validators'
 import { isUuid } from '../../../lib/play-shape'
 import { buildSourcePlan } from '../../../lib/research/plan'
 import type { GtmResearchRun } from '../../../data/entities'
+import type { GtmCreditLedger } from '../../../lib/credits/ledger'
 
 /*
  * Internal GTM research runs (SPEC-066 sections 5, 11.2, 14 Tranche 3).
@@ -23,16 +24,16 @@ import type { GtmResearchRun } from '../../../data/entities'
  * - 'plan'    prices a source plan for a play WITHOUT creating a run
  * - 'create'  persists a GtmResearchRun in status 'priced' with the frozen
  *             input snapshot, provider plan, limits, and estimated credits
- * - 'execute' runs the priced plan against the FIXTURE adapter registry and
- *             the FIXTURE credit ledger (real adapters and the noli-core RPC
- *             ledger are Tranche 4). Idempotent: a non-'priced' run returns
- *             its current status; the priced->running claim is a conditional
- *             UPDATE so two concurrent executes cannot double-run.
+ * - 'execute' runs the priced plan against the environment-gated adapter
+ *             registry and canonical noli-core credit ledger. Idempotent: a
+ *             non-'priced' run returns its current status; the
+ *             priced->running claim is a conditional UPDATE so two
+ *             concurrent executes cannot double-run.
  * - 'status'  returns the run plus candidate/operation counts
  *
  * Fail-closed: flag-off 404; a strategy_only play can never be priced,
  * created, or executed (section 7 ladder boundary 1, recomputed in
- * buildSourcePlan); insufficient fixture credits fail the run before any
+ * buildSourcePlan); insufficient credits fail the run before any
  * adapter call (execute.ts).
  *
  * Public at the dispatcher level (requireAuth: false) - we authenticate with
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
           status: run.status,
           estimated_credits: run.estimatedCredits != null ? Number(run.estimatedCredits) : null,
           reconciled_credits: run.reconciledCredits != null ? Number(run.reconciledCredits) : null,
+          execution: shapeRun(run).execution,
           created_at: run.createdAt,
         })),
         cap: GTM_LIST_CAP,
@@ -191,10 +193,37 @@ export async function POST(req: Request) {
           plan: {
             adapterPlan: plan.adapterPlan,
             estimated_credits: plan.estimatedCredits,
+            planned_raw_capacity: plan.plannedRawCapacity,
             unsupportedDimensions: plan.unsupportedDimensions,
             limits: plan.limits,
+            qualificationProfile: plan.qualificationProfile,
+            schema_version: plan.schemaVersion,
+            plan_hash: plan.planHash,
           },
         })
+      }
+
+      // The user confirms the exact quote they saw. A create request without
+      // the same immutable plan hash can never silently accept provider,
+      // pricing, terms, targeting, or limit drift.
+      if (body.expectedPlanHash !== plan.planHash) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Provider quote changed; review the refreshed plan before continuing',
+            code: 'plan_changed',
+            plan: {
+              adapterPlan: plan.adapterPlan,
+              estimated_credits: plan.estimatedCredits,
+              planned_raw_capacity: plan.plannedRawCapacity,
+              limits: plan.limits,
+              qualificationProfile: plan.qualificationProfile,
+              schema_version: plan.schemaVersion,
+              plan_hash: plan.planHash,
+            },
+          },
+          { status: 409 },
+        )
       }
 
       const run = await em.transactional(async (tem) => {
@@ -213,14 +242,20 @@ export async function POST(req: Request) {
               geography: play.geography ?? null,
               market_type: play.marketType ?? null,
               audience: play.audience ?? null,
+              provider_query: play.providerQuery ?? null,
+              recency_window: play.recencyWindow ?? null,
               execution_eligibility: play.executionEligibility,
             },
             requested_limits: body.limits ?? null,
             query: plan.query,
           },
           providerPlan: {
+            schemaVersion: plan.schemaVersion,
+            planHash: plan.planHash,
             adapterPlan: plan.adapterPlan,
+            plannedRawCapacity: plan.plannedRawCapacity,
             unsupportedDimensions: plan.unsupportedDimensions,
+            qualificationProfile: plan.qualificationProfile,
             query: plan.query,
           },
           limits: plan.limits,
@@ -252,8 +287,12 @@ export async function POST(req: Request) {
         plan: {
           adapterPlan: plan.adapterPlan,
           estimated_credits: plan.estimatedCredits,
+          planned_raw_capacity: plan.plannedRawCapacity,
           unsupportedDimensions: plan.unsupportedDimensions,
           limits: plan.limits,
+          qualificationProfile: plan.qualificationProfile,
+          schema_version: plan.schemaVersion,
+          plan_hash: plan.planHash,
         },
       })
     }
@@ -262,25 +301,47 @@ export async function POST(req: Request) {
     if (!isUuid(body.runId)) return opaqueNotFound()
 
     if (body.op === 'execute') {
-      // Idempotent claim: only a 'priced' run may start; the conditional
-      // UPDATE guarantees exactly one of two concurrent executes wins.
-      const claimed = await em.nativeUpdate(
-        GtmResearchRun,
-        { id: body.runId, organizationId, tenantId, status: 'priced', deletedAt: null },
-        { status: 'running', startedAt: new Date() },
-      )
-      const run = await em.findOne(GtmResearchRun, {
+      let run = await em.findOne(GtmResearchRun, {
         id: body.runId,
         organizationId,
         tenantId,
         deletedAt: null,
-      }, { refresh: true })
+      })
       if (!run) return opaqueNotFound()
-      if (claimed === 0) {
-        // Non-priced run (already running, completed, failed, cancelled, or
-        // planned): return the current state instead of re-running.
+      if (run.status !== 'priced') {
         return NextResponse.json({ ok: true, run: shapeRun(run), alreadyExecuted: true })
       }
+
+
+      const frozenProviderPlan = (run.providerPlan ?? {}) as Record<string, unknown>
+      const frozenPlanHash = typeof frozenProviderPlan.planHash === 'string'
+        ? frozenProviderPlan.planHash
+        : null
+      if (!frozenPlanHash || body.expectedPlanHash !== frozenPlanHash) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'The confirmed provider plan does not match this run',
+            code: 'plan_hash_mismatch',
+          },
+          { status: 409 },
+        )
+      }
+
+      // Resolve every spend dependency before claiming the run. A missing
+      // canonical ledger must not strand a priced run in `running`.
+      let ledger: GtmCreditLedger
+      try {
+        const { getLedger } = await import('../../../lib/credits/noli-core-ledger')
+        ledger = getLedger()
+      } catch (error) {
+        console.error('[internal.gtm.research-runs] credit ledger unavailable', error)
+        return NextResponse.json(
+          { ok: false, error: 'Provider billing is not configured' },
+          { status: 503 },
+        )
+      }
+      const adapters = sourceAdapterRegistry()
 
       const play = await em.findOne(GtmPlay, {
         id: run.playId,
@@ -289,38 +350,58 @@ export async function POST(req: Request) {
         deletedAt: null,
       })
       if (!play) {
-        // The play vanished between pricing and execution: fail the run closed.
-        await em.transactional(async (tem) => {
-          run.status = 'failed'
-          run.completedAt = new Date()
-          tem.persist(run)
-        })
         return NextResponse.json({ ok: false, error: 'Play no longer available' }, { status: 422 })
       }
 
-      // Section 7 ladder: eligibility is re-checked at execution time too; a
-      // play edited out of scope after pricing can never source candidates.
-      const replan = buildSourcePlan(play, sourceAdapterList(), null)
-      if (!replan.ok && replan.code === 'play_not_executable') {
-        await em.transactional(async (tem) => {
-          run.status = 'failed'
-          run.completedAt = new Date()
-          run.providerPlan = {
-            ...((run.providerPlan ?? {}) as Record<string, unknown>),
-            execution: { status: 'failed', failure_reason: replan.reason },
-          }
-          tem.persist(run)
-        })
-        return NextResponse.json({ ok: false, error: replan.reason, code: replan.code }, { status: 422 })
+      // Re-price from the current adapter descriptors before claiming the run.
+      // Any terms, price, provider, play, targeting, or capability drift makes
+      // the old quote stale and requires a new explicit confirmation.
+      const limits = (run.limits ?? {}) as {
+        targetAccepted?: number
+        maxRawCandidates?: number
+        maxCandidates?: number
+        maxCredits?: number
+      }
+      const currentPlan = buildSourcePlan(play, Object.values(adapters), limits)
+      if (!currentPlan.ok || currentPlan.planHash !== frozenPlanHash) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: currentPlan.ok
+              ? 'Provider quote changed; create a new run from a refreshed plan'
+              : currentPlan.reason,
+            code: currentPlan.ok ? 'plan_changed' : currentPlan.code,
+          },
+          { status: currentPlan.ok ? 409 : 422 },
+        )
+      }
+
+      // Idempotent claim: only a 'priced' run may start; the conditional
+      // UPDATE guarantees exactly one of two concurrent executes wins.
+      const claimed = await em.nativeUpdate(
+        GtmResearchRun,
+        { id: body.runId, organizationId, tenantId, status: 'priced', deletedAt: null },
+        { status: 'running', startedAt: new Date() },
+      )
+      const refreshed = await em.findOne(GtmResearchRun, {
+        id: body.runId,
+        organizationId,
+        tenantId,
+        deletedAt: null,
+      }, { refresh: true })
+      if (!refreshed) return opaqueNotFound()
+      run = refreshed
+      if (claimed === 0) {
+        // Non-priced run (already running, completed, failed, cancelled, or
+        // planned): return the current state instead of re-running.
+        return NextResponse.json({ ok: true, run: shapeRun(run), alreadyExecuted: true })
       }
 
       const { executeResearchRun } = await import('../../../lib/research/execute')
-      const { getProcessFixtureLedger } = await import('../../../lib/credits/ledger')
       const result = await executeResearchRun({
         em: em as unknown as import('../../../lib/research/execute').ResearchEm,
-        // Tranche 4 swaps in the noli-core RPC ledger behind the same seam.
-        ledger: getProcessFixtureLedger(),
-        adapters: sourceAdapterRegistry(),
+        ledger,
+        adapters,
         run,
         play,
         userId,
@@ -341,6 +422,10 @@ export async function POST(req: Request) {
             reconciled_credits: result.reconciledCredits,
             candidates_inserted: result.candidatesInserted,
             duplicates_skipped: result.duplicatesSkipped,
+            target_accepted: result.funnel.targetAccepted,
+            accepted: result.funnel.accepted,
+            target_met: result.funnel.targetMet,
+            stop_reason: result.funnel.stopReason,
             reconciliation_required: result.reconciliationRequired,
           },
         })
@@ -360,9 +445,10 @@ export async function POST(req: Request) {
     if (!run) return opaqueNotFound()
 
     const scope = { organizationId, tenantId, researchRunId: run.id, deletedAt: null }
-    const [total, accepted, rejected, unscored, providerOperations] = await Promise.all([
+    const [total, accepted, review, rejected, unscored, providerOperations] = await Promise.all([
       em.count(GtmCandidate, scope),
       em.count(GtmCandidate, { ...scope, fitStatus: 'accepted' }),
+      em.count(GtmCandidate, { ...scope, fitStatus: 'review' }),
       em.count(GtmCandidate, { ...scope, fitStatus: 'rejected' }),
       em.count(GtmCandidate, { ...scope, fitStatus: 'unscored' }),
       em.count(GtmProviderOperation, scope),
@@ -372,7 +458,7 @@ export async function POST(req: Request) {
       ok: true,
       run: shapeRun(run),
       counts: {
-        candidates: { total, accepted, rejected, unscored },
+        candidates: { total, accepted, review, rejected, unscored },
         providerOperations,
       },
     })

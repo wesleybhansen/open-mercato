@@ -325,14 +325,14 @@ export type ApproveCampaignResult = {
 export async function approveCampaign(
   em: CampaignEm,
   ctx: GtmCtx,
-  input: { campaignId: string; expectedContentHash?: string | null },
+  input: { campaignId: string; expectedContentHash: string },
 ): Promise<ApproveCampaignResult> {
   const campaign = await loadCampaign(em, ctx, input.campaignId)
 
   // A LAUNCHED campaign is never re-approvable. launchCampaign sets status
   // 'active', which fell straight through the double-approve guard below
-  // (that guard only recognises 'approved'), so a bare re-approve - no body
-  // change, no hash required - minted a second version, repointed every
+  // (that guard only recognises 'approved'), so a replayed re-approve minted
+  // a second version, repointed every
   // enrollment at it, silently deactivated the running campaign, and armed a
   // duplicate send batch.
   //
@@ -359,7 +359,7 @@ export async function approveCampaign(
       tenantId: ctx.tenantId,
     })
     if (current && !current.invalidatedAt) {
-      if (input.expectedContentHash && input.expectedContentHash === current.contentHash) {
+      if (input.expectedContentHash === current.contentHash) {
         return {
           campaign,
           version: current,
@@ -383,7 +383,7 @@ export async function approveCampaign(
   }
 
   // Concurrent-edit guard: the reviewer approves exactly what they saw.
-  if (input.expectedContentHash && input.expectedContentHash !== draft.contentHash) {
+  if (input.expectedContentHash !== draft.contentHash) {
     throw new GtmCampaignError(
       'stale_draft',
       'The draft changed since it was reviewed; reload the draft state and approve again',

@@ -1,6 +1,7 @@
 import {
   parseImportAudiencePlayBody,
   normalizeReportTokenHash,
+  computeImportedPlayKey,
   buildImportedPlayValues,
 } from '../import-play'
 
@@ -106,12 +107,28 @@ describe('buildImportedPlayValues', () => {
     )
     expect(values.source).toBe('imported')
     expect(values.importedReportTokenHash).toBe('a'.repeat(64))
+    expect(values.importedPlayKey).toMatch(/^[0-9a-f]{32}$/)
     expect(values.marketType).toBe('b2b')
     expect(values.sourceHint).toBe('Crunchbase-style funding feeds')
     expect(values.supportedChannels).toEqual(['email', 'linkedin'])
     expect(values.likelyBuyer).toBe('Founder or head of ops')
     expect(values.executionEligibility).toBe('executable')
     expect(values.eligibilityEvaluatedAt).toBe(now)
+  })
+
+  it('gives retries the same key while keeping distinct report plays distinct', () => {
+    const first = computeImportedPlayKey(validBody.play, validBody.likely_buyer)
+    const retry = computeImportedPlayKey(
+      { ...validBody.play, audience: `  ${validBody.play.audience.toUpperCase()}  ` },
+      validBody.likely_buyer,
+    )
+    const second = computeImportedPlayKey(
+      { ...validBody.play, audience: 'US healthcare operators adopting a new CRM' },
+      validBody.likely_buyer,
+    )
+
+    expect(retry).toBe(first)
+    expect(second).not.toBe(first)
   })
 
   it('prefers an explicit source_hint over the hub source alias', () => {

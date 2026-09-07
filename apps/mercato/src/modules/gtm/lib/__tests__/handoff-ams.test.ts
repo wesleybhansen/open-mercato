@@ -193,7 +193,11 @@ describe('asset references freeze into the approval snapshot', () => {
   it('a ref present at approval is frozen in the snapshot and immune to later channel_mix edits', async () => {
     const { em, campaign } = await draftFixture()
     await attachAssetRef(em, ctx, { campaignId: campaign.id, assetRef: REF_A })
-    const approved = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const reviewed = await computeDraftState(em, ctx, campaign)
+    const approved = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: reviewed.contentHash,
+    })
 
     const snapshotRefs = (approved.version.snapshot as Record<string, unknown>)
       .asset_refs as Array<Record<string, unknown>>
@@ -233,7 +237,11 @@ describe('asset references freeze into the approval snapshot', () => {
       asset_refs: parseAssetRefs(campaignRow) /* empty now */,
     }
     await attachAssetRef(em, ctx, { campaignId: campaign.id, assetRef: REF_B })
-    const reapproved = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const reviewedAgain = await computeDraftState(em, ctx, campaign)
+    const reapproved = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: reviewedAgain.contentHash,
+    })
     expect(reapproved.version.version).toBe(2)
     const newRefs = (reapproved.version.snapshot as Record<string, unknown>)
       .asset_refs as Array<Record<string, unknown>>

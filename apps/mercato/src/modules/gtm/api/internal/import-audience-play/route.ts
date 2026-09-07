@@ -16,8 +16,9 @@ import { parseImportAudiencePlayBody, buildImportedPlayValues } from '../../../l
  * about org/tenant ownership are never trusted. Execution eligibility is
  * recomputed server-side and the caller's value is discarded (section 7).
  *
- * Idempotent: re-importing the same (org, report_token_hash) returns the
- * existing play (enforced by a partial unique index).
+ * Idempotent: re-importing the same play from the same report returns the
+ * existing play (enforced by a partial unique index). Distinct plays in one
+ * report remain distinct records.
  *
  * Public at the dispatcher level (requireAuth: false) - we authenticate with
  * the shared secret instead of a Clerk/JWT session, mirroring
@@ -81,12 +82,13 @@ export async function POST(req: Request) {
     const values = buildImportedPlayValues(body.play, body.likely_buyer ?? null, body.report_token_hash)
     const requestId = req.headers.get('x-request-id')
 
-    // 5. Idempotent short-circuit: same (org, report_token_hash) returns the
-    //    existing play. Self-scoped by organization_id + tenant_id.
+    // 5. Idempotent short-circuit: same report + stable play identity returns
+    //    the existing play. Self-scoped by organization_id + tenant_id.
     const existing = await em.findOne(GtmPlay, {
       organizationId,
       tenantId,
       importedReportTokenHash: values.importedReportTokenHash,
+      importedPlayKey: values.importedPlayKey,
       deletedAt: null,
     })
     if (existing) {
@@ -143,6 +145,7 @@ export async function POST(req: Request) {
           metadata: {
             source: 'audience_plays_import',
             reportTokenHash: values.importedReportTokenHash,
+            importedPlayKey: values.importedPlayKey,
             executionEligibility: values.executionEligibility,
           },
         })
@@ -168,6 +171,7 @@ export async function POST(req: Request) {
           organizationId,
           tenantId,
           importedReportTokenHash: values.importedReportTokenHash,
+          importedPlayKey: values.importedPlayKey,
           deletedAt: null,
         })
         if (winner) {

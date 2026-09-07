@@ -48,7 +48,13 @@ const TOKEN = 'apify_test_token_never_logged'
 const CLOCK = new Date('2026-07-24T12:00:00.000Z')
 const now = () => CLOCK
 
-const ENABLED_ENV = { GTM_APIFY_ENABLED: 'true', GTM_APIFY_TOKEN: TOKEN }
+const ENABLED_ENV = {
+  GTM_APIFY_ENABLED: 'true',
+  GTM_APIFY_TOKEN: TOKEN,
+  GTM_APIFY_CUSTOMER_USE_APPROVED: 'true',
+  GTM_APIFY_TERMS_VERSION: 'reviewed-2026-08-02',
+  GTM_APIFY_PRICE_VERSION: 'measured-2026-07-24',
+}
 
 const POST_URL = 'https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000000/'
 
@@ -220,6 +226,9 @@ describe('apify source adapter env gate', () => {
     const saved = { ...process.env }
     process.env.GTM_APIFY_ENABLED = 'true'
     process.env.GTM_APIFY_TOKEN = TOKEN
+    process.env.GTM_APIFY_CUSTOMER_USE_APPROVED = 'true'
+    process.env.GTM_APIFY_TERMS_VERSION = 'reviewed-2026-08-02'
+    process.env.GTM_APIFY_PRICE_VERSION = 'measured-2026-07-24'
     try {
       expect(apifySourceEnabled()).toBe(true)
       const registry = sourceAdapterRegistry()
@@ -289,6 +298,7 @@ describe('apify source descriptor', () => {
       // (Origami's "0.2 credits per result" is a different vendor's credit
       // unit and would undercharge by ~3,750x; never quote it here.)
       quoted_credits_per_unit: 750,
+      price_version: 'measured-2026-07-24',
       pay_on_found: true,
     })
     expect(descriptor.ambiguity_contract.timeout_is_ambiguous).toBe(true)
@@ -326,13 +336,23 @@ describe('apify source descriptor', () => {
     expect(37_500 / CREDITS_PER_USD).toBeCloseTo(0.15, 10)
   })
 
-  it('marks the license declaration as provisional pending legal review', () => {
+  it('keeps customer rights closed until the exact terms and price are approved', () => {
     expect(APIFY_PROVISIONAL_LICENSE).toBe(true)
-    expect(adapter.descriptor.constraints.license).toEqual({
-      export: true,
-      customer_display: true,
-      outreach_allowed: true,
-    })
+    const provisional = createApifySourceAdapter({
+      env: { GTM_APIFY_ENABLED: 'true', GTM_APIFY_TOKEN: TOKEN },
+      now,
+    }).descriptor.constraints.license
+    expect(provisional).toEqual(expect.objectContaining({
+      status: 'provisional',
+      terms_version: 'unapproved',
+      export: false,
+      customer_display: false,
+      outreach_allowed: false,
+    }))
+    expect(adapter.descriptor.constraints.license).toEqual(expect.objectContaining({
+      status: 'approved',
+      terms_version: 'reviewed-2026-08-02',
+    }))
   })
 })
 

@@ -29,10 +29,13 @@ import {
 } from './client'
 import {
   APIFY_ENABLED_ENV,
+  APIFY_PRICE_VERSION_ENV,
+  APIFY_TERMS_VERSION_ENV,
   APIFY_MAX_CHARGE_USD_ENV,
   APIFY_RECEIPT_FIELDS,
   APIFY_TOKEN_ENVS,
   apifyEnabled,
+  apifyCustomerUseApproved,
   apifyToken,
 } from './source'
 
@@ -123,7 +126,7 @@ function processEnv(): ApifyEnv {
 
 // Registry-facing gate: BOTH conditions, default off.
 export function apifyEnrichEnabled(env: ApifyEnv = processEnv()): boolean {
-  return apifyEnabled(env) && apifyToken(env) !== null
+  return apifyEnabled(env) && apifyToken(env) !== null && apifyCustomerUseApproved(env)
 }
 
 // Default true; only an explicit 'false' turns the email search off.
@@ -194,13 +197,22 @@ function capabilityRow(signalKind: string): AdapterCapability {
 }
 
 export function apifyEnrichDescriptor(env: ApifyEnv = processEnv()): AdapterDescriptor {
+  const approved = apifyCustomerUseApproved(env)
   return {
+    contract_version: '2',
     adapter_id: APIFY_ENRICH_ADAPTER_ID,
     layer: 'enrich',
     capabilities: APIFY_ENRICH_SIGNAL_KINDS.map(capabilityRow),
     constraints: {
       // PROVISIONAL pending legal review; see APIFY_ENRICH_PROVISIONAL_LICENSE.
-      license: { export: true, customer_display: true, outreach_allowed: true },
+      license: {
+        status: approved ? 'approved' : 'provisional',
+        terms_version: (env[APIFY_TERMS_VERSION_ENV] ?? '').trim() || 'unapproved',
+        export: approved,
+        customer_display: approved,
+        outreach_allowed: approved,
+        retention_days: 90,
+      },
       rate_limits: { requests_per_minute: 30, concurrent: 2 },
       max_batch: APIFY_ENRICH_MAX_BATCH,
     },
@@ -208,6 +220,7 @@ export function apifyEnrichDescriptor(env: ApifyEnv = processEnv()): AdapterDesc
       // one billed unit = one profile ATTEMPTED, not one email delivered
       unit: 'profile',
       quoted_credits_per_unit: creditsPerProfile(env),
+      price_version: (env[APIFY_PRICE_VERSION_ENV] ?? '').trim() || 'unapproved',
       /*
        * FALSE, and this is a LIVE-VERIFIED fact, not a conservative guess: a
        * run that returned `emails: []` was still charged $0.01. Flipping this
@@ -215,6 +228,12 @@ export function apifyEnrichDescriptor(env: ApifyEnv = processEnv()): AdapterDesc
        * invoices us for it, so we would eat the cost of every unfound contact.
        */
       pay_on_found: false,
+    },
+    evidence_policy: {
+      source_url: 'not_applicable',
+      observed_at: 'not_applicable',
+      max_age_days: null,
+      min_confidence: 0,
     },
     ambiguity_contract: { timeout_is_ambiguous: true, receipt_fields: [...APIFY_RECEIPT_FIELDS] },
     // No per-subject deletion endpoint exists on a marketplace actor run.
@@ -322,6 +341,13 @@ export function createApifyEnrichAdapter(deps: ApifyEnrichDeps = {}): EnrichAdap
           actorId,
           `provider_unconfigured: no Apify token configured (${APIFY_TOKEN_ENVS.join(' or ')})`,
           { provider_status: 'unconfigured', attempted_at: attemptedAt },
+        )
+      }
+      if (!apifyCustomerUseApproved(env)) {
+        return refusal(
+          actorId,
+          'provider_disabled: Apify customer use requires approved terms and price versions',
+          { provider_status: 'license_unapproved', attempted_at: attemptedAt },
         )
       }
 

@@ -281,7 +281,7 @@ export async function POST(req: Request) {
     if (body.op === 'approve') {
       const result = await approveLib.approveCampaign(em, ctx, {
         campaignId: body.campaignId,
-        expectedContentHash: body.expected_content_hash ?? null,
+        expectedContentHash: body.expected_content_hash,
       })
       return NextResponse.json({
         ok: true,

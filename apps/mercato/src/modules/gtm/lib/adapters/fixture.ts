@@ -264,6 +264,7 @@ function slugify(name: string): string {
 // ---------------------------------------------------------------------------
 
 export const fixtureSourceDescriptor: AdapterDescriptor = {
+  contract_version: '2',
   adapter_id: 'fixture-source',
   layer: 'source',
   capabilities: [
@@ -271,16 +272,35 @@ export const fixtureSourceDescriptor: AdapterDescriptor = {
     { signal_kind: 'funding_event', entity_units: ['companies'], geographies: ['US'], channels: [] },
   ],
   constraints: {
-    license: { export: true, customer_display: true, outreach_allowed: true },
+    license: {
+      status: 'test_only',
+      terms_version: `fixture-v${fixtureData.version}`,
+      export: true,
+      customer_display: true,
+      outreach_allowed: true,
+      retention_days: 90,
+    },
     rate_limits: { requests_per_minute: 60 },
     max_batch: 25,
   },
-  cost_model: { unit: 'candidate', quoted_credits_per_unit: 1, pay_on_found: true },
+  cost_model: {
+    unit: 'candidate',
+    quoted_credits_per_unit: 1,
+    price_version: `fixture-v${fixtureData.version}`,
+    pay_on_found: true,
+  },
+  evidence_policy: {
+    source_url: 'required',
+    observed_at: 'required',
+    max_age_days: 365,
+    min_confidence: 0.5,
+  },
   ambiguity_contract: { timeout_is_ambiguous: true, receipt_fields: [...FIXTURE_RECEIPT_FIELDS] },
   dsr: { deletion_supported: true },
 }
 
 export const fixtureEnrichDescriptor: AdapterDescriptor = {
+  contract_version: '2',
   adapter_id: 'fixture-enrich',
   layer: 'enrich',
   capabilities: [
@@ -292,27 +312,64 @@ export const fixtureEnrichDescriptor: AdapterDescriptor = {
     },
   ],
   constraints: {
-    license: { export: true, customer_display: true, outreach_allowed: true },
+    license: {
+      status: 'test_only',
+      terms_version: `fixture-v${fixtureData.version}`,
+      export: true,
+      customer_display: true,
+      outreach_allowed: true,
+      retention_days: 90,
+    },
     rate_limits: { requests_per_minute: 120 },
     max_batch: 25,
   },
-  cost_model: { unit: 'contact_point', quoted_credits_per_unit: 2, pay_on_found: true },
+  cost_model: {
+    unit: 'contact_point',
+    quoted_credits_per_unit: 2,
+    price_version: `fixture-v${fixtureData.version}`,
+    pay_on_found: true,
+  },
+  evidence_policy: {
+    source_url: 'not_applicable',
+    observed_at: 'not_applicable',
+    max_age_days: null,
+    min_confidence: 0,
+  },
   ambiguity_contract: { timeout_is_ambiguous: true, receipt_fields: [...FIXTURE_RECEIPT_FIELDS] },
   dsr: { deletion_supported: true },
 }
 
 export const fixtureVerifyDescriptor: AdapterDescriptor = {
+  contract_version: '2',
   adapter_id: 'fixture-verify',
   layer: 'verify',
   capabilities: [
     { signal_kind: 'email_verification', entity_units: ['contacts'], geographies: ['*'], channels: ['email'] },
   ],
   constraints: {
-    license: { export: true, customer_display: true, outreach_allowed: true },
+    license: {
+      status: 'test_only',
+      terms_version: `fixture-v${fixtureData.version}`,
+      export: true,
+      customer_display: true,
+      outreach_allowed: true,
+      retention_days: 90,
+    },
     rate_limits: { requests_per_minute: 300 },
     max_batch: 25,
   },
-  cost_model: { unit: 'verification', quoted_credits_per_unit: 1, pay_on_found: false },
+  cost_model: {
+    unit: 'verification',
+    quoted_credits_per_unit: 1,
+    price_version: `fixture-v${fixtureData.version}`,
+    pay_on_found: false,
+  },
+  evidence_policy: {
+    source_url: 'not_applicable',
+    observed_at: 'not_applicable',
+    max_age_days: null,
+    min_confidence: 0,
+  },
   ambiguity_contract: { timeout_is_ambiguous: true, receipt_fields: [...FIXTURE_RECEIPT_FIELDS] },
   dsr: { deletion_supported: true },
 }
@@ -347,6 +404,25 @@ function sourceMatches(plan: SourceSearchPlan): Candidate[] {
 
 export const fixtureSourceAdapter: SourceAdapter = {
   descriptor: fixtureSourceDescriptor,
+  quote(plan) {
+    const maxCandidates = Math.max(
+      0,
+      Math.min(Math.floor(plan.max_candidates), fixtureSourceDescriptor.constraints.max_batch),
+    )
+    return {
+      max_candidates: maxCandidates,
+      provider_units: maxCandidates,
+      billable_unit: fixtureSourceDescriptor.cost_model.unit,
+      expected_candidates: {
+        low: Math.min(maxCandidates, fixtureData.source_candidates.length),
+        high: maxCandidates,
+        basis: 'contract',
+      },
+      quoted_credits_per_unit: fixtureSourceDescriptor.cost_model.quoted_credits_per_unit,
+      estimated_credits_before_markup:
+        maxCandidates * fixtureSourceDescriptor.cost_model.quoted_credits_per_unit,
+    }
+  },
   async search(plan: SourceSearchPlan): Promise<AdapterResult<Candidate[]>> {
     const hash = inputHash(plan as unknown as Record<string, unknown>)
     const coverage = capabilityCovers(fixtureSourceDescriptor, plan)

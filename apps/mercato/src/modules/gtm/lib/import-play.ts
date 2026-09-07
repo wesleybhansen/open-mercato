@@ -1,9 +1,11 @@
+import crypto from 'crypto'
 import {
   importAudiencePlayBodySchema,
   type ImportAudiencePlayBody,
   type ImportedPlayInput,
 } from '../data/validators'
 import { computeExecutionEligibility } from './eligibility'
+import { classifySignalKind, isSignalKind, type SignalKind } from './signal-taxonomy'
 
 /*
  * Pure helpers for the /internal/gtm/import-audience-play route. Kept free of
@@ -35,9 +37,12 @@ export function normalizeReportTokenHash(raw: string): string {
 export type ImportedPlayValues = {
   source: 'imported'
   importedReportTokenHash: string
+  importedPlayKey: string
   marketType: string | null
   audience: string | null
   signal: string | null
+  signalKind: SignalKind | null
+  providerQuery: Record<string, unknown> | null
   sourceHint: string | null
   geography: string | null
   recencyWindow: string | null
@@ -47,12 +52,38 @@ export type ImportedPlayValues = {
   estimatedSize: Record<string, unknown> | null
   entityUnit: string | null
   estimateMethod: string | null
+  estimateBasis: string | null
+  businessEvidence: unknown[] | null
   confidence: string | null
   confidenceRationale: string | null
   likelyBuyer: string | null
   executionEligibility: 'executable' | 'strategy_only' | 'unsupported'
   eligibilityReason: string
   eligibilityEvaluatedAt: Date
+}
+
+function normalizePlayIdentityPart(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase().replace(/\s+/g, ' ') : ''
+}
+
+// This is an idempotency identity, not a security boundary. MD5 is used so the
+// application and PostgreSQL's built-in md5(text) can produce the same key for
+// existing imported rows without requiring an optional database extension.
+export function computeImportedPlayKey(play: ImportedPlayInput, likelyBuyer: string | null): string {
+  const identity = [
+    play.market_type,
+    play.audience,
+    play.signal,
+    play.source_hint ?? play.source,
+    play.geography,
+    play.recency_window,
+    play.recommended_angle,
+    likelyBuyer,
+  ]
+    .map(normalizePlayIdentityPart)
+    .join('\n')
+
+  return crypto.createHash('md5').update(identity).digest('hex')
 }
 
 // Maps the typed hub payload onto GtmPlay column values with the eligibility
@@ -72,9 +103,14 @@ export function buildImportedPlayValues(
   return {
     source: 'imported',
     importedReportTokenHash: normalizeReportTokenHash(reportTokenHash),
+    importedPlayKey: computeImportedPlayKey(play, likelyBuyer),
     marketType: play.market_type ?? null,
     audience: play.audience ?? null,
     signal: play.signal ?? null,
+    signalKind: isSignalKind(play.signal_kind)
+      ? play.signal_kind
+      : classifySignalKind(play.signal),
+    providerQuery: play.provider_query ?? null,
     sourceHint,
     geography: play.geography ?? null,
     recencyWindow: play.recency_window ?? null,
@@ -84,6 +120,8 @@ export function buildImportedPlayValues(
     estimatedSize: play.estimated_size ?? null,
     entityUnit: play.entity_unit ?? null,
     estimateMethod: play.estimate_method ?? null,
+    estimateBasis: play.estimate_basis ?? null,
+    businessEvidence: play.business_evidence ?? null,
     confidence: play.confidence ?? null,
     confidenceRationale: play.confidence_rationale ?? null,
     likelyBuyer: likelyBuyer ?? null,

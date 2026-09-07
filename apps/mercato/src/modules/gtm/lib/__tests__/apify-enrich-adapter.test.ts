@@ -41,7 +41,13 @@ const TOKEN = 'apify_test_token_never_logged'
 const CLOCK = new Date('2026-07-24T12:00:00.000Z')
 const now = () => CLOCK
 
-const ENABLED_ENV = { GTM_APIFY_ENABLED: 'true', GTM_APIFY_TOKEN: TOKEN }
+const ENABLED_ENV = {
+  GTM_APIFY_ENABLED: 'true',
+  GTM_APIFY_TOKEN: TOKEN,
+  GTM_APIFY_CUSTOMER_USE_APPROVED: 'true',
+  GTM_APIFY_TERMS_VERSION: 'reviewed-2026-08-02',
+  GTM_APIFY_PRICE_VERSION: 'measured-2026-07-24',
+}
 
 const PROFILE_URL = 'https://www.linkedin.com/in/priya-nair-example'
 
@@ -174,6 +180,9 @@ describe('apify enrich adapter env gate', () => {
     const saved = { ...process.env }
     process.env.GTM_APIFY_ENABLED = 'true'
     process.env.GTM_APIFY_TOKEN = TOKEN
+    process.env.GTM_APIFY_CUSTOMER_USE_APPROVED = 'true'
+    process.env.GTM_APIFY_TERMS_VERSION = 'reviewed-2026-08-02'
+    process.env.GTM_APIFY_PRICE_VERSION = 'measured-2026-07-24'
     try {
       expect(apifyEnrichEnabled()).toBe(true)
       const list = enrichAdapterList()
@@ -278,13 +287,23 @@ describe('apify enrich descriptor', () => {
     expect(descriptor.dsr.deletion_supported).toBe(false)
   })
 
-  it('marks the license declaration as provisional pending legal review', () => {
+  it('keeps customer rights closed until the exact terms and price are approved', () => {
     expect(APIFY_ENRICH_PROVISIONAL_LICENSE).toBe(true)
-    expect(adapter.descriptor.constraints.license).toEqual({
-      export: true,
-      customer_display: true,
-      outreach_allowed: true,
-    })
+    const provisional = createApifyEnrichAdapter({
+      env: { GTM_APIFY_ENABLED: 'true', GTM_APIFY_TOKEN: TOKEN },
+      now,
+    }).descriptor.constraints.license
+    expect(provisional).toEqual(expect.objectContaining({
+      status: 'provisional',
+      terms_version: 'unapproved',
+      export: false,
+      customer_display: false,
+      outreach_allowed: false,
+    }))
+    expect(adapter.descriptor.constraints.license).toEqual(expect.objectContaining({
+      status: 'approved',
+      terms_version: 'reviewed-2026-08-02',
+    }))
   })
 
   it('prices the verified 25-prospect batch end to end', () => {

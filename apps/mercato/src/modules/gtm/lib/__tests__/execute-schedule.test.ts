@@ -8,7 +8,7 @@ import {
   seedMailbox,
 } from './support/execution-fixtures'
 import { createCampaign } from '../campaign/build'
-import { approveCampaign } from '../campaign/approve'
+import { approveCampaign, computeDraftState } from '../campaign/approve'
 import {
   GtmExecutionError,
   buildSendIdempotencyKey,
@@ -71,13 +71,16 @@ describe('materializeSendAttempts + launchCampaign (SPEC-066 section 6 rule 6)',
     expect(fixture.campaign.status).toBe('active')
     const before = (await em.find(GtmSendAttempt, { organizationId: ctx.organizationId })).length
 
-    // No body change, no expected_content_hash: exactly the "fix a typo on day
-    // 2 and hit approve again" / double-click / replayed-agent-action shape.
+    // No body change: exactly the "fix a typo on day 2 and hit approve again"
+    // / double-click / replayed-agent-action shape.
     // 'active' fell through the double-approve guard, so this used to mint v2,
     // repoint every enrollment at it, silently deactivate the running
     // campaign, and arm a second full send batch.
     await expect(
-      approveCampaign(em, ctx, { campaignId: fixture.campaign.id }),
+      approveCampaign(em, ctx, {
+        campaignId: fixture.campaign.id,
+        expectedContentHash: fixture.version.contentHash,
+      }),
     ).rejects.toMatchObject({ code: 'campaign_not_editable' })
 
     expect(fixture.campaign.status).toBe('active')
@@ -173,7 +176,11 @@ describe('materializeSendAttempts + launchCampaign (SPEC-066 section 6 rule 6)',
       name: 'Invalidated before launch',
       settings: { mailbox_connection_id: MAILBOX },
     })
-    const approved = await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const draft = await computeDraftState(em, ctx, campaign)
+    const approved = await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: draft.contentHash,
+    })
     approved.version.invalidatedAt = new Date()
     approved.version.invalidatedReason = 'scope_change'
     await expect(
@@ -191,7 +198,11 @@ describe('materializeSendAttempts + launchCampaign (SPEC-066 section 6 rule 6)',
       playId: play.id,
       name: 'No sender',
     })
-    await approveCampaign(em, ctx, { campaignId: campaign.id })
+    const draft = await computeDraftState(em, ctx, campaign)
+    await approveCampaign(em, ctx, {
+      campaignId: campaign.id,
+      expectedContentHash: draft.contentHash,
+    })
     await expect(
       launchCampaign(em, ctx, { campaignId: campaign.id }, { clock: fixedClock(LAUNCH_ISO) }),
     ).rejects.toMatchObject({ code: 'no_sender' })

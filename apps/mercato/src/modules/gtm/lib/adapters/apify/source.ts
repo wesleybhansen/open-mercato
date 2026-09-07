@@ -86,6 +86,9 @@ export const APIFY_PROVISIONAL_LICENSE = true
 export const APIFY_ENABLED_ENV = 'GTM_APIFY_ENABLED'
 export const APIFY_TOKEN_ENVS = ['GTM_APIFY_TOKEN', 'APIFY_TOKEN'] as const
 export const APIFY_TIMEOUT_MS_ENV = 'GTM_APIFY_TIMEOUT_MS'
+export const APIFY_CUSTOMER_USE_APPROVED_ENV = 'GTM_APIFY_CUSTOMER_USE_APPROVED'
+export const APIFY_TERMS_VERSION_ENV = 'GTM_APIFY_TERMS_VERSION'
+export const APIFY_PRICE_VERSION_ENV = 'GTM_APIFY_PRICE_VERSION'
 // Batch ceiling; the plan's max_candidates caps below this.
 export const APIFY_MAX_BATCH = 100
 
@@ -129,6 +132,14 @@ export function apifyEnabled(env: ApifyEnv = processEnv()): boolean {
   return env[APIFY_ENABLED_ENV] === 'true'
 }
 
+export function apifyCustomerUseApproved(env: ApifyEnv = processEnv()): boolean {
+  return (
+    env[APIFY_CUSTOMER_USE_APPROVED_ENV] === 'true' &&
+    Boolean((env[APIFY_TERMS_VERSION_ENV] ?? '').trim()) &&
+    Boolean((env[APIFY_PRICE_VERSION_ENV] ?? '').trim())
+  )
+}
+
 export function apifyToken(env: ApifyEnv = processEnv()): string | null {
   for (const name of APIFY_TOKEN_ENVS) {
     const value = (env[name] ?? '').trim()
@@ -139,7 +150,7 @@ export function apifyToken(env: ApifyEnv = processEnv()): string | null {
 
 // Registry-facing gate: BOTH conditions, default off.
 export function apifySourceEnabled(env: ApifyEnv = processEnv()): boolean {
-  return apifyEnabled(env) && apifyToken(env) !== null
+  return apifyEnabled(env) && apifyToken(env) !== null && apifyCustomerUseApproved(env)
 }
 
 // USD the provider charges per returned result, env-overridable per deploy.
@@ -192,20 +203,40 @@ function capabilityRow(signalKind: ApifyCapabilityKind): AdapterCapability {
 }
 
 export function apifySourceDescriptor(env: ApifyEnv = processEnv()): AdapterDescriptor {
+  const approved = apifyCustomerUseApproved(env)
   return {
+    contract_version: '2',
     adapter_id: APIFY_SOURCE_ADAPTER_ID,
     layer: 'source',
     capabilities: APIFY_CAPABILITY_KINDS.map(capabilityRow),
     constraints: {
       // PROVISIONAL pending legal review; see APIFY_PROVISIONAL_LICENSE above.
-      license: { export: true, customer_display: true, outreach_allowed: true },
+      license: {
+        status: approved ? 'approved' : 'provisional',
+        terms_version: (env[APIFY_TERMS_VERSION_ENV] ?? '').trim() || 'unapproved',
+        export: approved,
+        customer_display: approved,
+        outreach_allowed: approved,
+        retention_days: 90,
+      },
       rate_limits: { requests_per_minute: 30, concurrent: 2 },
       max_batch: APIFY_MAX_BATCH,
     },
     // pay-per-result: only usable candidates are charged, a no_result is free.
     // The quote is Noli credits per result PRE-markup (750 by default, i.e.
     // $0.003); the platform markup is applied once, by creditsForUnits.
-    cost_model: { unit: 'result', quoted_credits_per_unit: creditsPerResult(env), pay_on_found: true },
+    cost_model: {
+      unit: 'result',
+      quoted_credits_per_unit: creditsPerResult(env),
+      price_version: (env[APIFY_PRICE_VERSION_ENV] ?? '').trim() || 'unapproved',
+      pay_on_found: true,
+    },
+    evidence_policy: {
+      source_url: 'required',
+      observed_at: 'required',
+      max_age_days: 90,
+      min_confidence: 0.5,
+    },
     ambiguity_contract: { timeout_is_ambiguous: true, receipt_fields: [...APIFY_RECEIPT_FIELDS] },
     // Apify actor runs are marketplace scrapes with no per-subject deletion
     // endpoint. Deletion is handled NOLI-SIDE: the candidate retention sweep
@@ -281,6 +312,25 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
 
   return {
     descriptor,
+    quote(plan) {
+      const maxCandidates = Math.max(
+        0,
+        Math.min(Math.floor(plan.max_candidates), descriptor.constraints.max_batch),
+      )
+      return {
+        max_candidates: maxCandidates,
+        provider_units: maxCandidates,
+        billable_unit: descriptor.cost_model.unit,
+        expected_candidates: {
+          low: 0,
+          high: maxCandidates,
+          basis: 'unknown',
+        },
+        quoted_credits_per_unit: descriptor.cost_model.quoted_credits_per_unit,
+        estimated_credits_before_markup:
+          maxCandidates * descriptor.cost_model.quoted_credits_per_unit,
+      }
+    },
     async search(plan: SourceSearchPlan): Promise<AdapterResult<Candidate[]>> {
       const attemptedAt = now().toISOString()
 
@@ -321,6 +371,13 @@ export function createApifySourceAdapter(deps: ApifySourceDeps = {}): SourceAdap
           actorId,
           `provider_unconfigured: no Apify token configured (${APIFY_TOKEN_ENVS.join(' or ')})`,
           { provider_status: 'unconfigured', attempted_at: attemptedAt },
+        )
+      }
+      if (!apifyCustomerUseApproved(env)) {
+        return refusal(
+          actorId,
+          'provider_disabled: Apify customer use requires approved terms and price versions',
+          { provider_status: 'license_unapproved', attempted_at: attemptedAt },
         )
       }
 
