@@ -48,7 +48,11 @@ const CONSUMER_POLICY_RULES: PolicyRule[] = [
   },
   {
     code: 'sensitive_life_stage',
-    pattern: /(?:\b(?:retiree|retirement|senior citizen|elderly|empty nester|family status|married|unmarried|single parents?|new parents?|expectant parents?|widow(?:ed|er)?)\b|\b(?:age[sd]?\s*\d{1,3}|\d{1,3}\s*(?:-|to)\s*\d{1,3}\s*(?:year[-\s]?olds?|years?\s+old)?|(?:over|under|older than|younger than)\s+\d{1,3})\b)/i,
+    // A numeric range is an age criterion only when it says so ("25 to 34
+    // year olds", "aged 65"). A bare range is a firmographic band: the
+    // Launch Pad's dental plays were blocked because employee_ranges
+    // ["1-10"] read as an age.
+    pattern: /(?:\b(?:retiree|retirement|senior citizen|elderly|empty nester|family status|married|unmarried|single parents?|new parents?|expectant parents?|widow(?:ed|er)?)\b|\b(?:age[sd]?\s*\d{1,3}|\d{1,3}\s*(?:-|to)\s*\d{1,3}\s*(?:year[-\s]?olds?|years?\s+old)|(?:over|under|older than|younger than)\s+\d{1,3})\b)/i,
   },
 ]
 
@@ -78,7 +82,14 @@ function leadMode(value: string | null | undefined): LeadMode {
  * consumer audience wearing a b2b label: it must never receive automated
  * email or business-licensed person sourcing on the strength of that label.
  */
-const INDIVIDUAL_AUDIENCE_PATTERN = /\b(?:home[-\s]?owners?|home[-\s]?buyers?|home[-\s]?sellers?|first[-\s]?time buyers?|parents?|patients?|students?|renters?|tenants?|consumers?|individuals?|people who|persons? who|residents?|households?|families|retirees?|veterans?|immigrants?|job[-\s]?seekers?|newlyweds|couples|pet owners?|car owners?)\b/i
+const INDIVIDUAL_AUDIENCE_PATTERN = /\b(?:home[-\s]?owners?|home[-\s]?buyers?|home[-\s]?sellers?|first[-\s]?time buyers?|parents?|patients?|students?|renters?|tenants?|consumers?|individuals?|people who|persons? who|residents?|households?|families|retirees?|veterans?|immigrants?|job[-\s]?seekers?|newlyweds|couples|pet owners?|car owners?)\b(?!\s+(?:acquisition|intake|volume|flow|retention|experience|care|records?|base|lists?|counts?|pipeline|growth|marketing|outreach|leads?|scheduling|communications?|reviews?|engagement|satisfaction|onboarding|churn|data|portal|app|software|management|services?|billing|financing|education|referrals?))/i
+
+/*
+ * The negative lookahead above keeps an individual noun used as a MODIFIER
+ * ("patient acquisition", "consumer marketing", "student housing") from
+ * turning a business audience into people. Dentists whose "patient
+ * acquisition has stalled" are the audience; their patients are not.
+ */
 
 export function describesIndividualAudience(input: Pick<GtmPolicyInput, 'audience' | 'likely_buyer'>): boolean {
   const text = [input.audience ?? '', input.likely_buyer ?? ''].join(' ')
