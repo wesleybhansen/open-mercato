@@ -281,3 +281,50 @@ describe('computeGtmPolicy', () => {
     ]))
   })
 })
+
+describe('policy false positives seen on the Launch Pad first run (2026-09-06)', () => {
+  it('a bare numeric range such as an employee band is not an age criterion', () => {
+    expect(consumerPolicyFlags({ audience: 'Independent dental clinics on Google Maps', provider_query: { employee_ranges: ['1-10', '11-50'] } })).toEqual([])
+    expect(consumerPolicyFlags({ audience: 'Phoenix contracting companies with 10 to 40 employees' })).toEqual([])
+    expect(consumerPolicyFlags({ audience: 'Adults 25 to 34 years old in Austin' })).toContain('sensitive_life_stage')
+    expect(consumerPolicyFlags({ audience: '25-34 year olds who rent' })).toContain('sensitive_life_stage')
+    expect(consumerPolicyFlags({ audience: 'Homeowners aged 65 and over' })).toContain('sensitive_life_stage')
+  })
+
+  it('an individual noun used as a modifier does not turn a business audience into people', () => {
+    expect(describesIndividualAudience({ audience: 'Dentists and practice managers discussing marketing or patient acquisition' })).toBe(false)
+    expect(describesIndividualAudience({
+      audience: 'Independent dental clinics on Google Maps in the Twin Cities',
+      likely_buyer: 'Independent single-location dentists whose patient acquisition has stalled',
+    })).toBe(false)
+    expect(describesIndividualAudience({ audience: 'Agencies that run consumer marketing for CPG brands' })).toBe(false)
+    expect(describesIndividualAudience({ audience: 'Patients recovering from knee surgery in Denver' })).toBe(true)
+    expect(describesIndividualAudience({ audience: 'Homeowners in Austin with a pool' })).toBe(true)
+    expect(describesIndividualAudience({ audience: 'Consumers who bought a standing desk this year' })).toBe(true)
+  })
+
+  it('a dental-practice B2B play sources like any other US business play', () => {
+    const result = computeGtmPolicy({
+      market_type: 'b2b',
+      geography: 'Minneapolis-Saint Paul, MN',
+      audience: 'Independent dental clinics on Google Maps in the Twin Cities with low review counts or outdated profile details',
+      likely_buyer: 'Independent single-location dentists whose patient acquisition has stalled due to an outdated website',
+      signal: 'listed as an active local dental clinic with missing profile attributes',
+      why_now: 'Local search visibility directly dictates new-patient phone volume.',
+      provider_query: { employee_ranges: ['1-10', '11-50'], titles: ['Owner', 'Dentist'], industries: ['Medical Practices', 'Dentists'] },
+    })
+    expect(result.research_eligibility).toBe('provider_runnable')
+    expect(result.policy_flags).toEqual([])
+  })
+
+  it('still blocks a consumer audience defined by a sensitive criterion', () => {
+    const result = computeGtmPolicy({
+      market_type: 'b2c',
+      geography: 'Tampa, FL',
+      audience: 'Adult children coordinating a parent\'s move into assisted living',
+      signal: 'asked in a local forum about downsizing an elderly parent',
+    })
+    expect(result.research_eligibility).toBe('blocked')
+    expect(result.policy_flags).toContain('sensitive_life_stage')
+  })
+})
