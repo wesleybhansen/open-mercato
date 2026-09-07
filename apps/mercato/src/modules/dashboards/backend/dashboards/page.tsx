@@ -272,7 +272,7 @@ export default function SimpleDashboard() {
           change={weeklyInbox > 0 ? `${weeklyInbox} received this week` : undefined}
           trend={unreadInbox > 0 ? 'up' : undefined}
           color="blue" series={stats?.inbox?.series}
-          href="/backend/inbox" />
+          href="/backend/customer-service" />
         <StatCard icon={Users} label="Contacts" value={totalContacts.toLocaleString()}
           change={weeklyContacts > 0 ? `+${weeklyContacts} this week` : undefined}
           trend={weeklyContacts > 0 ? 'up' : undefined}
@@ -464,7 +464,7 @@ function NeedsAttention() {
                 ? 'bg-[rgba(239,68,68,.10)] text-[#b91c1c] border-[rgba(239,68,68,.24)] dark:bg-[rgba(239,68,68,.13)] dark:text-[#f87171] dark:border-[rgba(239,68,68,.30)]'
                 : 'bg-[rgba(217,119,6,.10)] text-[#b45309] border-[rgba(217,119,6,.26)] dark:bg-[rgba(245,158,11,.13)] dark:text-[#fbbf24] dark:border-[rgba(245,158,11,.30)]'
             }`}>{alert.type}</Badge>
-            <a href="/backend/inbox" className="text-xs text-accent hover:underline shrink-0 font-medium">View</a>
+            <a href="/backend/customer-service" className="text-xs text-accent hover:underline shrink-0 font-medium">View</a>
           </div>
         ))}
       </div>

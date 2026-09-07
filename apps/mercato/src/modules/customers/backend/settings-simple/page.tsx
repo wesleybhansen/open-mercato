@@ -1479,7 +1479,7 @@ export default function SimpleSettingsPage() {
             { href: '/backend/forms', label: 'Forms' },
             { href: '/backend/landing-pages', label: 'Landing Pages' },
             { href: '/backend/funnels', label: 'Funnels' },
-            { href: '/backend/inbox', label: 'Inbox' },
+            { href: '/backend/customer-service', label: 'Inbox' },
             { href: '/backend/courses', label: 'Courses' },
             { href: '/backend/sequences', label: 'Sequences' },
             { href: '/backend/surveys', label: 'Surveys' },
