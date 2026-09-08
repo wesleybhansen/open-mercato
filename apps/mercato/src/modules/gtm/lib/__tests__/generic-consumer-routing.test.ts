@@ -6,6 +6,7 @@ import {
   buildOpportunityQueryLanes,
   hasCityLevelGeography,
   opportunitySourceRouting,
+  playNamesXVenue,
   playFilterKeywords,
   playNamedSubreddits,
 } from '../research/opportunity-query-lanes'
@@ -183,6 +184,20 @@ describe('non-realtor lanes', () => {
     for (const lane of nationwide) expect(lane.query.toLowerCase()).not.toContain('united states')
     const city = buildOpportunityQueryLanes(founderPlay, 'xai-x-search-demand-opportunities')
     expect(city[0]!.query.toLowerCase()).toContain('austin')
+  })
+
+  it('runs X search only where X is the venue, and always for realtor plays', () => {
+    const forum = opportunitySourceRouting(founderPlay, 'xai-x-search-demand-opportunities')
+    expect(forum.eligible).toBe(false)
+    expect(forum.reason).toMatch(/venue is X or Threads/)
+    expect(opportunitySourceRouting(nationwideFounderPlay, 'xai-x-search-demand-opportunities').eligible).toBe(false)
+    expect(opportunitySourceRouting(realtorPlay, 'xai-x-search-demand-opportunities').eligible).toBe(true)
+    const xPlay: PlanPlayInput = { ...founderPlay, sourceHint: 'X posts and replies from indie hackers sharing launch updates' }
+    expect(opportunitySourceRouting(xPlay, 'xai-x-search-demand-opportunities').eligible).toBe(true)
+    expect(playNamesXVenue({ ...founderPlay, sourceHint: 'Threads and X accounts of solo founders' })).toBe(true)
+    expect(playNamesXVenue({ ...founderPlay, sourceHint: 'Reddit r/Entrepreneur and Facebook groups' })).toBe(false)
+    // "x" inside ordinary words or product names must not count.
+    expect(playNamesXVenue({ ...founderPlay, sourceHint: 'Xero users in accounting forums' })).toBe(false)
   })
 
   it('stops planning LinkedIn post search for opportunity plays', () => {

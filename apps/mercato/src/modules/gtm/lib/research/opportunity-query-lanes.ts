@@ -178,6 +178,18 @@ export function opportunitySourceRouting(
   ].join(' ')
   const realtor = REALTOR_PLAY.test(playText)
 
+  // Official X search runs only where X is the venue. 2026-09-07 review of
+  // every X lane receipt: zero accepted or review rows on forum, subreddit,
+  // local-service and nationwide consumer plays, at 3 to 5 cents a lane, and a
+  // direct diagnostic found only jokes and past-tense stories for those topics.
+  // The realtor phrase bank did surface buyers, so realtor plays keep the lane.
+  if (adapterId === XAI_X_SEARCH_LANE_ADAPTER_ID && !realtor && !playNamesXVenue(play)) {
+    return {
+      eligible: false,
+      reason: 'X search runs only for realtor plays or plays whose venue is X or Threads; other consumer plays returned no usable X rows',
+    }
+  }
+
   if (adapterId === 'apify-reddit-url-hydration') {
     return {
       eligible: false,
@@ -294,6 +306,19 @@ export function opportunitySourceRouting(
   }
 
   return { eligible: true, reason: null }
+}
+
+const X_VENUE = /(?:^|[\s(,/])(?:x\.com|twitter|tweets?|threads\.net|(?:on|via|from) x|x (?:posts?|search|replies|accounts?|users?|communit(?:y|ies)))\b/i
+// "threads" is an ordinary word for forum content ("Reddit threads"); only the
+// capitalised product name or its domain counts as the Threads app.
+const THREADS_APP = /(?:^|[\s(,/])Threads\b/
+
+/** True when the play itself points at X or Threads as the place to look. */
+export function playNamesXVenue(play: PlanPlayInput): boolean {
+  const hint = play.sourceHint ?? ''
+  if (/^x\b/i.test(hint.trim())) return true
+  const text = [hint, ...values(play.providerQuery?.audience_keywords), ...values(play.providerQuery?.source_search_keywords)].join(' ')
+  return X_VENUE.test(text) || THREADS_APP.test(text)
 }
 
 function sourceLocation(geography: string): string {
