@@ -48,6 +48,16 @@ interface DecayAlert {
 // sends from the approval queue. NEVER auto-sends.
 const DECAY_MARKER = 'Re-engage'
 
+async function hasOpenDecayProposal(knex: any, orgId: string, email: string): Promise<boolean> {
+  const existing = await knex('inbox_proposals')
+    .where('organization_id', orgId)
+    .where('status', 'pending')
+    .where('summary', 'like', `${DECAY_MARKER}%`)
+    .whereRaw("participants::text ilike '%' || ? || '%'", [email])
+    .first()
+  return !!existing
+}
+
 async function createDecayProposal(
   knex: any,
   orgId: string,
@@ -58,13 +68,7 @@ async function createDecayProposal(
 
   // Idempotent: skip if an open (pending) re-engage proposal already exists for
   // this contact's email.
-  const existing = await knex('inbox_proposals')
-    .where('organization_id', orgId)
-    .where('status', 'pending')
-    .where('summary', 'like', `${DECAY_MARKER}%`)
-    .whereRaw("participants::text ilike '%' || ? || '%'", [alert.email])
-    .first()
-  if (existing) return false
+  if (await hasOpenDecayProposal(knex, orgId, alert.email)) return false
 
   const now = new Date()
   const title = `${DECAY_MARKER} ${alert.displayName} (going cold)`
@@ -281,6 +285,9 @@ export async function POST(req: Request) {
 
         for (const alert of redAlerts.slice(0, 5)) {
           try {
+            // Dedupe BEFORE paying for a draft: the proposal writer used to
+            // discard the finished draft when one was already pending.
+            if (await hasOpenDecayProposal(knex, org.id, alert.email)) continue
             const prompt = `Write a short, warm check-in email to ${alert.displayName} (${alert.email}).
 It's been ${alert.currentGapDays} days since we last connected. Their typical communication frequency is every ${alert.avgFrequencyDays} days.
 Keep it under 4 sentences. Be genuine, not salesy. Reference wanting to catch up, not that we're tracking their engagement.

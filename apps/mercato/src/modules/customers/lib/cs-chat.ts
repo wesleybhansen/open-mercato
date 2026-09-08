@@ -284,6 +284,25 @@ export async function handleCsChatMessage(
     return true
   }
 
+  // The drafter (and the independent critic it ran under criticGate) must have
+  // judged the reply safe to send unattended. Before this check the critic's
+  // verdict was computed and ignored, so a rejected draft still went straight
+  // to the visitor.
+  if (result.autoSendSafe !== true) {
+    await createChatDraftProposal(knex, orgId, tenantId, {
+      displayName,
+      contactHandle: conversation.visitor_email || null,
+      contactId: conversation.contact_id || null,
+      conversationId: conversation.id,
+      body: result.draft,
+      lastInboundPreview,
+      confidence: result.confidence,
+      flagReasons: [{ key: 'needs_review', label: 'The drafter did not rate this reply safe to send unattended' }],
+    })
+    await sendChatReply(knex, conversation, { body: HOLDING_MESSAGE, isBot: true })
+    return true
+  }
+
   // Not flagged, or flagged with all matched scenarios action='auto_send':
   // post the drafted body to the visitor instantly.
   await sendChatReply(knex, conversation, { body: result.draft, isBot: true })
