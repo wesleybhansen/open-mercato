@@ -390,11 +390,19 @@ ${ts.summary}`
         contents: [{ parts: [{ text: replyPrompt }] }],
         generationConfig: { maxOutputTokens: 10000, temperature: 0.7, responseMimeType: 'application/json' },
       }),
+      // A hung provider used to stall the whole */15 cron pass.
+      signal: AbortSignal.timeout(60_000),
     },
   )
 
+  if (!aiRes.ok) {
+    return { ok: false, error: `AI provider error (${aiRes.status})`, model: DRAFT_MODEL, tokensIn: threadSummaryTokensIn, tokensOut: threadSummaryTokensOut, confidence: 0, autoSendSafe: false, matchedScenarios: [] }
+  }
   const aiData = await aiRes.json()
-  const raw: string | undefined = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+  const finishReason: string = String(aiData.candidates?.[0]?.finishReason ?? 'STOP')
+  const raw: string | undefined = finishReason === 'STOP'
+    ? aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+    : undefined // MAX_TOKENS / SAFETY: a cut or blocked reply is not a draft
 
   const tokensIn = (aiData?.usageMetadata?.promptTokenCount || 0) + threadSummaryTokensIn
   const tokensOut = (aiData?.usageMetadata?.candidatesTokenCount || 0) + threadSummaryTokensOut

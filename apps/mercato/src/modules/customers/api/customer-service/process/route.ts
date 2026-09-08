@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     // Only orgs that have explicitly enabled the feature.
     const settingsRows = await knex('customer_service_settings').where('enabled', true)
 
-    const results: Array<{ orgId: string; mode: string; candidates: number; queued: number; autoSent: number; skipped: number; skippedAutomated: number }> = []
+    const results: Array<{ orgId: string; mode: string; candidates: number; queued: number; autoSent: number; skipped: number; skippedAutomated: number; failed: number }> = []
 
     for (const settings of settingsRows) {
       const orgId = settings.organization_id
@@ -89,6 +89,7 @@ export async function POST(req: Request) {
       let autoSent = 0
       let skipped = 0
       let skippedAutomated = 0
+      let failed = 0
 
       try {
         // ---- Dedicated support-mailbox fetch pass ----
@@ -160,12 +161,12 @@ export async function POST(req: Request) {
         // Over-allowance orgs with a BYO key run on that key.
         const gate = await checkCustomersAiAllowance({ orgId })
         if (!gate.allowed) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0, failed: 0 })
           continue
         }
         const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
         if (!aiKey) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0, failed: 0 })
           continue
         }
 
@@ -190,7 +191,7 @@ export async function POST(req: Request) {
           watchedAddresses = watched.map((c) => c.address)
           // Watching specific connections that no longer exist means nothing to do.
           if (watchedAddresses.length === 0) {
-            results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+            results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0, failed: 0 })
             continue
           }
         }
@@ -388,9 +389,12 @@ export async function POST(req: Request) {
             })
 
             if (!result.ok || !result.draft) {
-              // Mark drafted so we don't retry a failing conversation every run.
+              // Mark handled (so a permanently failing conversation is not retried
+              // every run) but log WHY and count it as a failure, not a skip: the
+              // inquiry used to vanish from the queue with no trace.
+              console.error('[customer-service.process] draft failed', { orgId, convId: conv.id, err: result.error })
               await markDrafted(knex, conv.id, orgId)
-              skipped++
+              failed++
               continue
             }
 
@@ -427,7 +431,9 @@ export async function POST(req: Request) {
             // Default to NOT sending whenever the signal is ambiguous.
             let shouldAutoSend = false
             if (effMode === 'auto') {
-              shouldAutoSend = true
+              // Never auto-send a draft whose envelope did not parse (confidence 0):
+              // that text is a raw-model salvage and has had no review at all.
+              shouldAutoSend = result.confidence > 0
             } else if (effMode === 'hybrid') {
               shouldAutoSend = result.autoSendSafe === true && result.confidence >= effThreshold
             }
@@ -564,11 +570,11 @@ export async function POST(req: Request) {
           }
         }
 
-        results.push({ orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated })
-        console.log('[customer-service.process] org done', { orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated })
+        results.push({ orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated, failed })
+        console.log('[customer-service.process] org done', { orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated, failed })
       } catch (orgErr) {
         console.error('[customer-service.process] org error', { orgId, err: orgErr })
-        results.push({ orgId, mode, candidates: 0, queued, autoSent, skipped, skippedAutomated })
+        results.push({ orgId, mode, candidates: 0, queued, autoSent, skipped, skippedAutomated, failed })
       }
     }
 

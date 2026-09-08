@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     // Only orgs that have explicitly enabled the Inbox AI desk.
     const settingsRows = await knex('inbox_ai_settings').where('enabled', true)
 
-    const results: Array<{ orgId: string; mode: string; candidates: number; queued: number; autoSent: number; skipped: number; skippedAutomated: number }> = []
+    const results: Array<{ orgId: string; mode: string; candidates: number; queued: number; autoSent: number; skipped: number; skippedAutomated: number; failed: number }> = []
 
     for (const settings of settingsRows) {
       const orgId = settings.organization_id
@@ -93,18 +93,19 @@ export async function POST(req: Request) {
       let autoSent = 0
       let skipped = 0
       let skippedAutomated = 0
+      let failed = 0
 
       try {
         // Skip orgs over their AI allowance (don't bill the platform for cron AI).
         // Over-allowance orgs with a BYO key run on that key.
         const gate = await checkCustomersAiAllowance({ orgId })
         if (!gate.allowed) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0, failed: 0 })
           continue
         }
         const aiKey = gate.byoApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
         if (!aiKey) {
-          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0 })
+          results.push({ orgId, mode, candidates: 0, queued: 0, autoSent: 0, skipped: 0, skippedAutomated: 0, failed: 0 })
           continue
         }
 
@@ -259,9 +260,12 @@ export async function POST(req: Request) {
             })
 
             if (!result.ok || !result.draft) {
-              // Mark drafted so we don't retry a failing conversation every run.
-              await markDrafted(knex, conv.id, orgId)
-              skipped++
+              // Mark handled (so a permanently failing conversation is not retried
+              // every run) but record WHY and count it as a failure, not a skip:
+              // the inquiry used to vanish from the queue with no trace.
+              console.error('[inbox.process] draft failed', { orgId, convId: conv.id, err: result.error })
+              await markDrafted(knex, conv.id, orgId, `draft_failed: ${String(result.error ?? 'unknown').slice(0, 160)}`)
+              failed++
               continue
             }
 
@@ -295,7 +299,8 @@ export async function POST(req: Request) {
             //             flagged the reply auto-send-safe; otherwise hold.
             let shouldAutoSend = false
             if (mode === 'auto') {
-              shouldAutoSend = true
+              // Never auto-send a draft whose envelope did not parse (confidence 0).
+              shouldAutoSend = result.confidence > 0
             } else if (mode === 'hybrid') {
               shouldAutoSend = result.autoSendSafe === true && result.confidence >= hybridThreshold
             }
@@ -404,11 +409,11 @@ export async function POST(req: Request) {
           }
         }
 
-        results.push({ orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated })
-        console.log('[inbox.process] org done', { orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated })
+        results.push({ orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated, failed })
+        console.log('[inbox.process] org done', { orgId, mode, candidates: conversations.length, queued, autoSent, skipped, skippedAutomated, failed })
       } catch (orgErr) {
         console.error('[inbox.process] org error', { orgId, err: orgErr })
-        results.push({ orgId, mode, candidates: 0, queued, autoSent, skipped, skippedAutomated })
+        results.push({ orgId, mode, candidates: 0, queued, autoSent, skipped, skippedAutomated, failed })
       }
     }
 
