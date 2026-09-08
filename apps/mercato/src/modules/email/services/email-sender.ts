@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { signEmailToken } from '@/lib/email-token'
 
 export interface SendEmailOptions {
   to: string | string[]
@@ -95,8 +96,9 @@ export class EmailSenderService {
     )
   }
 
-  injectUnsubscribeLink(html: string, contactId: string, baseUrl: string): string {
-    const unsubUrl = `${baseUrl}/api/email/unsubscribe/${contactId}`
+  injectUnsubscribeLink(html: string, contactId: string, baseUrl: string, orgId: string): string {
+    // Signed: a bare contact UUID must not be enough to open the preference center.
+    const unsubUrl = `${baseUrl}/api/email/unsubscribe/${contactId}?t=${encodeURIComponent(signEmailToken(contactId, orgId))}`
     const link = `<div style="text-align:center;padding:20px;font-size:12px;color:#999;">
       <a href="${unsubUrl}" style="color:#999;text-decoration:underline;">Unsubscribe</a>
     </div>`

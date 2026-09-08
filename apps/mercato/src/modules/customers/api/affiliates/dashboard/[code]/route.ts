@@ -9,6 +9,15 @@ export const metadata = { path: '/affiliates/dashboard/[code]',
   GET: { requireAuth: false },
 }
 
+/* The referral code doubles as the public promo link, so this page is public.
+ * Referred customers' addresses are third-party PII: show only a masked form. */
+function maskEmail(value: unknown): string {
+  const email = typeof value === 'string' ? value.trim() : ''
+  const at = email.indexOf('@')
+  if (at < 1) return 'Anonymous'
+  return `${email[0]}***@${email.slice(at + 1)}`
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
   try {
     const { code } = await params
@@ -126,7 +135,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
         <tbody>
           ${referrals.map((r: Record<string, unknown>) => `
           <tr>
-            <td>${escapeHtml(String(r.referred_email || 'Anonymous'))}</td>
+            <td>${escapeHtml(maskEmail(r.referred_email))}</td>
             <td>${new Date(String(r.referred_at)).toLocaleDateString()}</td>
             <td><span class="badge ${r.converted ? 'badge-green' : 'badge-gray'}">${r.converted ? 'Converted' : 'Pending'}</span></td>
             <td>${r.conversion_value ? '$' + Number(r.conversion_value).toFixed(2) : '-'}</td>

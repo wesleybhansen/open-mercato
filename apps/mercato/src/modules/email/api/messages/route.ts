@@ -75,7 +75,7 @@ export async function POST(req: Request, ctx: any) {
 
     let trackedHtml = sender.injectTrackingPixel(bodyHtml, trackingId, baseUrl)
     trackedHtml = sender.wrapLinksForTracking(trackedHtml, trackingId, baseUrl)
-    if (contactId) trackedHtml = sender.injectUnsubscribeLink(trackedHtml, contactId, baseUrl)
+    if (contactId) trackedHtml = sender.injectUnsubscribeLink(trackedHtml, contactId, baseUrl, scope.orgId)
 
     // Try sending via user's connected email (Gmail, SMTP, etc.)
     const routerResult = await sendEmailForOrg(knex, scope.orgId, scope.tenantId, scope.userId, {

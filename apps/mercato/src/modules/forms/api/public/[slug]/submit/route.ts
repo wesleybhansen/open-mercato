@@ -14,7 +14,7 @@ const CORS_HEADERS = {
 }
 
 export const metadata = {
-  POST: { requireAuth: false },
+  POST: { requireAuth: false, rateLimit: { points: 10, duration: 60, blockDuration: 300, keyPrefix: 'forms-public-submit' } },
   OPTIONS: { requireAuth: false },
 }
 

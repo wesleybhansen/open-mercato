@@ -6,6 +6,7 @@ export const openApi = { summary: 'Email intelligence cron trigger', methods: {}
  * Secured by CRON_SECRET env var.
  */
 import { NextResponse } from 'next/server'
+import { requireProcessAuth } from '@/lib/cron-auth'
 import { query } from '@/lib/db'
 import { runSync } from '../intelligence-sync/route'
 
@@ -15,15 +16,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'Cron not configured' }, { status: 500 })
   }
 
-  // Check authorization header or query param
-  const authHeader = req.headers.get('authorization')
-  const url = new URL(req.url)
-  const querySecret = url.searchParams.get('secret')
-  const providedSecret = authHeader?.replace('Bearer ', '') || querySecret
-
-  if (providedSecret !== cronSecret) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-  }
+  // Bearer header only, constant-time (a query-string secret lands in access logs).
+  const denied = requireProcessAuth(req, cronSecret)
+  if (denied) return denied
 
   // Find all users with email intelligence enabled
   const enabledSettings = await query(

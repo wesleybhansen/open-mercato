@@ -10,7 +10,7 @@ import { attributeReferral } from '@/modules/customers/api/affiliates/attribute'
 import { bumpDailyStats, readAbArmFromRequest } from '../../../../services/public-serving'
 
 export const metadata = {
-  POST: { requireAuth: false },
+  POST: { requireAuth: false, rateLimit: { points: 10, duration: 60, blockDuration: 300, keyPrefix: 'landing-public-submit' } },
 }
 
 // Per-IP+slug rate limit for this public, unauthenticated endpoint. In-memory

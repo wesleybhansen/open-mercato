@@ -5,7 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
 
-export const metadata = { path: '/surveys/public/[slug]/submit', POST: { requireAuth: false } }
+export const metadata = { path: '/surveys/public/[slug]/submit', POST: { requireAuth: false, rateLimit: { points: 10, duration: 60, blockDuration: 300, keyPrefix: 'surveys-public-submit' } } }
 
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {

@@ -6,7 +6,7 @@ import { findOrMergeContact } from '@/modules/customers/lib/dedup'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['courses.view'] },
-  POST: { requireAuth: false }, // Public enrollment
+  POST: { requireAuth: false, rateLimit: { points: 10, duration: 60, blockDuration: 300, keyPrefix: 'courses-enroll' } }, // Public enrollment
 }
 
 export async function GET(req: Request, ctx: any) {

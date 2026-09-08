@@ -166,7 +166,7 @@ export async function POST(req: Request) {
         `<div style="text-align:center;padding:20px;font-size:12px;color:#999">` +
         `<a href="${preferenceCenterUrl}" style="color:#999">Manage email preferences</a>` +
         ` &middot; ` +
-        `<a href="${baseUrl}/api/email/unsubscribe/${contact.id}" style="color:#999">Unsubscribe</a>` +
+        `<a href="${baseUrl}/api/email/unsubscribe/${contact.id}?t=${encodeURIComponent(signEmailToken(contact.id, auth.orgId))}" style="color:#999">Unsubscribe</a>` +
         `</div>
 </body>`)
 

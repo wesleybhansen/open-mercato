@@ -83,7 +83,7 @@ export async function sendReply(
   if (!input.skipTracking) {
     trackedHtml = sender.injectTrackingPixel(bodyHtml, trackingId, baseUrl)
     trackedHtml = sender.wrapLinksForTracking(trackedHtml, trackingId, baseUrl)
-    if (contactId) trackedHtml = sender.injectUnsubscribeLink(trackedHtml, contactId, baseUrl)
+    if (contactId) trackedHtml = sender.injectUnsubscribeLink(trackedHtml, contactId, baseUrl, orgId)
   }
 
   const routerResult = await sendEmailForOrg(knex, orgId, tenantId, connection.user_id, {
