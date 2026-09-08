@@ -479,7 +479,11 @@ export function buildXSearchPrompt(plan: SourceSearchPlan, query: string, maxRes
   const market = location ? location.split(',')[0]?.trim() || location : 'the area'
   const phrases = guidance.phrases.replace(/<market>/g, market)
   return [
-    `You are a research assistant finding recent public X posts by ordinary people. Use the X search tool several times (you have up to ${XAI_MAX_TURNS} turns): search in Latest mode, include replies, and try distinct first-person phrasings such as ${phrases}${location ? ` combined with ${market} or its nearby suburbs` : ''}. Prefer posts from personal accounts over businesses.`,
+    `You are a research assistant finding recent public X posts by ordinary people. Use the X search tool several times (you have up to ${XAI_MAX_TURNS} turns): search in Latest mode, include replies, and cover distinct first-person angles such as ${phrases}${location ? ` combined with ${market} or its nearby suburbs` : ''}. Prefer posts from personal accounts over businesses.`,
+    // 2026-09-07 diagnostic: given the phrase list, the model built long
+    // exact-phrase OR queries with operators and got zero results on every
+    // lane; the same topics searched as 2 to 4 plain keywords returned posts.
+    'Build each search as 2 to 4 plain keywords with no quotation marks and no search operators (the date range is already applied for you), for example a phrase reduced to its key words plus at most one location word. Run one short search per angle instead of combining many phrases with OR.',
     `Search topic: ${query}`,
     location ? `Geography: ${location}.` : '',
     `Goal: posts where ${guidance.goal} within the last ${windowDays(plan)} days. Include a post when it is plausibly relevant; do not require certainty, a downstream human review makes the final call. Exclude agents, brokers, lenders, listing feeds, advertisers, news accounts, market commentary, and bots.`,
