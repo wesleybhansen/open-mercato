@@ -1,6 +1,8 @@
 export const metadata = { path: '/contacts/import', POST: { requireAuth: true } }
 
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -33,45 +35,17 @@ export async function POST(req: Request) {
 
       // Check for duplicate by email
       if (email) {
-        const existing = await knex('customer_entities')
-          .where('primary_email', email)
-          .where('organization_id', auth.orgId)
-          .whereNull('deleted_at')
-          .first()
+        const existing = (await findContactByEmail(knex, auth.orgId, auth.tenantId, email, name, phone, em)).existing
         if (existing) { skipped++; continue }
       }
 
       try {
-        const id = require('crypto').randomUUID()
-        await knex('customer_entities').insert({
-          id,
-          tenant_id: auth.tenantId,
-          organization_id: auth.orgId,
-          kind: 'person',
-          display_name: name || email,
-          primary_email: email || null,
-          primary_phone: phone || null,
-          source: source || 'import',
-          status: 'active',
-          lifecycle_stage: 'prospect',
-          created_at: new Date(),
-          updated_at: new Date(),
+        // Entity + person profile through the ORM (encrypted at rest)
+        const id = await createPersonContact(em, {
+          organizationId: auth.orgId, tenantId: auth.tenantId,
+          displayName: name || email, primaryEmail: email || null, primaryPhone: phone || null,
+          source: source || 'import', lifecycleStage: 'prospect',
         })
-
-        // Create person profile
-        if (name) {
-          const parts = name.split(' ')
-          await knex('customer_people').insert({
-            id: require('crypto').randomUUID(),
-            tenant_id: auth.tenantId,
-            organization_id: auth.orgId,
-            entity_id: id,
-            first_name: parts[0] || '',
-            last_name: parts.slice(1).join(' ') || '',
-            created_at: new Date(),
-            updated_at: new Date(),
-          }).catch(() => {})
-        }
 
         // Source attribution — tag with import:<filename> (or just 'import'
         // when no filename given) so bulk uploads are clearly attributed.

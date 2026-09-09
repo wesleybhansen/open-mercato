@@ -309,23 +309,13 @@ export async function POST(req: Request) {
         if (dd?.existing) contactId = dd.existing.id
       } catch { /* fall through to create */ }
       if (!contactId) {
-        contactId = crypto.randomUUID()
-        await knex('customer_entities')
-          .insert({
-            id: contactId,
-            tenant_id: page.tenant_id,
-            organization_id: page.organization_id,
-            kind: 'person',
-            display_name: callerName,
-            primary_email: null,
-            primary_phone: callerPhone,
-            source: 'receptionist',
-            status: 'active',
-            lifecycle_stage: 'prospect',
-            created_at: new Date(),
-            updated_at: new Date(),
-          })
-          .catch(() => { contactId = null })
+        const { createPersonContact } = await import('@/modules/customers/lib/contact-write')
+        // ORM path: encrypted at rest, lookup hashes written.
+        contactId = await createPersonContact(em, {
+          organizationId: page.organization_id, tenantId: page.tenant_id,
+          displayName: callerName, primaryEmail: null, primaryPhone: callerPhone,
+          source: 'receptionist', lifecycleStage: 'prospect',
+        }).catch(() => null)
       }
 
       return NextResponse.json({

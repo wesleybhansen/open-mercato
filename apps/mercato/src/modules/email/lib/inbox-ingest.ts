@@ -66,47 +66,24 @@ async function findOrCreateContact(
   autoCreate: boolean,
   source: string,
 ): Promise<{ contactId: string | null; created: boolean }> {
-  const existing = await knex('customer_entities')
-    .where('organization_id', orgId)
-    .where('primary_email', email.toLowerCase())
-    .whereNull('deleted_at')
-    .first()
+  const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
+  const em = (await createRequestContainer()).resolve('em') as import('@mikro-orm/postgresql').EntityManager
+  const { findOrMergeContact } = await import('@/modules/customers/lib/dedup')
+  const { createPersonContact } = await import('@/modules/customers/lib/contact-write')
+  const existing = (await findOrMergeContact(knex, orgId, tenantId, email.toLowerCase(), senderName || undefined, undefined, em)).existing
 
   if (existing) return { contactId: existing.id, created: false }
   if (!autoCreate) return { contactId: null, created: false }
 
-  const entityId = crypto.randomUUID()
-  const personId = crypto.randomUUID()
   const nameParts = (senderName || '').trim().split(/\s+/).filter(Boolean)
   const firstName = nameParts[0] || email.split('@')[0]
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''
   const displayName = (senderName || '').trim() || email.split('@')[0]
-  const now = new Date()
 
-  await knex('customer_entities').insert({
-    id: entityId,
-    tenant_id: tenantId,
-    organization_id: orgId,
-    kind: 'person',
-    display_name: displayName,
-    primary_email: email.toLowerCase(),
-    source,
-    status: 'active',
-    lifecycle_stage: 'prospect',
-    is_active: true,
-    created_at: now,
-    updated_at: now,
-  })
-
-  await knex('customer_people').insert({
-    id: personId,
-    tenant_id: tenantId,
-    organization_id: orgId,
-    entity_id: entityId,
-    first_name: firstName,
-    last_name: lastName,
-    created_at: now,
-    updated_at: now,
+  // ORM path: encrypted at rest, lookup hashes written.
+  const entityId = await createPersonContact(em, {
+    organizationId: orgId, tenantId, displayName, primaryEmail: email,
+    source, lifecycleStage: 'prospect', firstName, lastName,
   })
 
   return { contactId: entityId, created: true }

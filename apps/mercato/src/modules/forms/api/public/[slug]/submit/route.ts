@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -104,68 +106,25 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
 
     if (email) {
       try {
-        const existing = await knex('customer_entities')
-          .where('primary_email', email)
-          .where('organization_id', form.organization_id)
-          .whereNull('deleted_at')
-          .first()
+        const existing = (await findContactByEmail(knex, form.organization_id, form.tenant_id, email, displayName || undefined, phone || undefined, em)).existing
 
         if (existing) {
           contactId = existing.id
         } else if (shouldCreateContact) {
-          contactId = require('crypto').randomUUID()
+          // ORM path: encrypted at rest, lookup hashes written, race-safe.
+          const resolvedFirst = firstName || (displayName || '').split(' ')[0] || email.split('@')[0] || ''
+          const resolvedLast = lastName || (displayName || '').split(' ').slice(1).join(' ') || ''
+          contactId = await createPersonContact(em, {
+            organizationId: form.organization_id, tenantId: form.tenant_id,
+            displayName: displayName || email, primaryEmail: email, primaryPhone: phone || null,
+            source: 'form', sourceDetails: { form_name: form.name, form_slug: form.slug },
+            // Leave lifecycle_stage null unless the form owner picked one in
+            // settings — auto-inserting 'prospect' put submitters on the
+            // pipeline board without the user asking for it.
+            lifecycleStage: settings.pipelineStage || null,
+            firstName: resolvedFirst, lastName: resolvedLast,
+          })
           createdNewContact = true
-          try {
-            await knex('customer_entities').insert({
-              id: contactId,
-              tenant_id: form.tenant_id,
-              organization_id: form.organization_id,
-              kind: 'person',
-              display_name: displayName || email,
-              primary_email: email,
-              primary_phone: phone || null,
-              source: 'form',
-              source_details: JSON.stringify({ form_name: form.name, form_slug: form.slug }),
-              status: 'active',
-              // Leave lifecycle_stage null unless the form owner picked one in
-              // settings — auto-inserting 'prospect' put submitters on the
-              // pipeline board without the user asking for it.
-              lifecycle_stage: settings.pipelineStage || null,
-              created_at: now,
-              updated_at: now,
-            })
-          } catch (insErr) {
-            // A concurrent submit for the same email won the race (unique index
-            // on org + lower(email)). Adopt the winner's contact instead of
-            // creating a duplicate, and skip the people/source-tag writes the
-            // winner already performed.
-            if ((insErr as { code?: string })?.code === '23505') {
-              const winner = await knex('customer_entities')
-                .whereRaw('lower(primary_email) = lower(?)', [email])
-                .where('organization_id', form.organization_id)
-                .whereNull('deleted_at')
-                .first()
-              contactId = winner?.id ?? contactId
-              createdNewContact = false
-            } else {
-              throw insErr
-            }
-          }
-
-          if (createdNewContact) {
-            const resolvedFirst = firstName || (displayName || '').split(' ')[0] || email.split('@')[0] || ''
-            const resolvedLast = lastName || (displayName || '').split(' ').slice(1).join(' ') || ''
-            await knex('customer_people').insert({
-              id: require('crypto').randomUUID(),
-              tenant_id: form.tenant_id,
-              organization_id: form.organization_id,
-              entity_id: contactId,
-              first_name: resolvedFirst,
-              last_name: resolvedLast,
-              created_at: now,
-              updated_at: now,
-            }).catch(() => {})
-          }
         }
 
         // First-touch source attribution — only tag newly-created contacts

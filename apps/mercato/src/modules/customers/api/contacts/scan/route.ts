@@ -2,6 +2,8 @@
 export const metadata = { path: '/contacts/scan', POST: { requireAuth: true }, PUT: { requireAuth: true } }
 
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -110,7 +112,8 @@ export async function PUT(req: Request) {
     }
 
     const container = await createRequestContainer()
-    const knex = (container.resolve('em') as EntityManager).getKnex()
+    const em = container.resolve('em') as EntityManager
+    const knex = em.getKnex()
     const created: string[] = []
     let skipped = 0
     const tags = (defaultTags || '').split(',').map((t: string) => t.trim()).filter(Boolean)
@@ -122,34 +125,17 @@ export async function PUT(req: Request) {
 
         // Skip duplicates by email
         if (c.email) {
-          const existing = await knex('customer_entities')
-            .where('organization_id', auth.orgId)
-            .where('primary_email', c.email.toLowerCase())
-            .whereNull('deleted_at')
-            .first()
+          const existing = (await findContactByEmail(knex, auth.orgId, auth.tenantId, c.email.toLowerCase(), name, c.phone || undefined, em)).existing
           if (existing) { skipped++; continue }
         }
 
-        const id = require('crypto').randomUUID()
-
-        // Insert entity
-        await knex('customer_entities').insert({
-          id, tenant_id: auth.tenantId, organization_id: auth.orgId,
-          kind: 'person', display_name: name || 'Unknown',
-          primary_email: c.email?.toLowerCase() || null, primary_phone: c.phone || null,
-          source: 'photo-scan', status: 'active', is_active: true,
-          lifecycle_stage: lifecycleStage || null,
-          created_at: new Date(), updated_at: new Date(),
+        // Entity + person profile through the ORM (encrypted at rest)
+        const id = await createPersonContact(em, {
+          organizationId: auth.orgId, tenantId: auth.tenantId,
+          displayName: name || 'Unknown', primaryEmail: c.email || null, primaryPhone: c.phone || null,
+          source: 'photo-scan', lifecycleStage: lifecycleStage || null,
+          firstName: c.firstName || undefined, lastName: c.lastName || undefined,
         })
-
-        // Insert person profile (required for people list)
-        await knex('customer_people').insert({
-          id: require('crypto').randomUUID(),
-          tenant_id: auth.tenantId, organization_id: auth.orgId, entity_id: id,
-          first_name: c.firstName || name.split(' ')[0] || '',
-          last_name: c.lastName || name.split(' ').slice(1).join(' ') || '',
-          created_at: new Date(), updated_at: new Date(),
-        }).catch(() => {})
 
         // Notes (title, company, website, address)
         const noteText = [c.title ? `Title: ${c.title}` : '', c.company ? `Company: ${c.company}` : '', c.website ? `Website: ${c.website}` : '', c.address ? `Address: ${c.address}` : '', c.notes || ''].filter(Boolean).join('\n')

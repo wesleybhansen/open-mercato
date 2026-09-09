@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -127,23 +128,11 @@ export async function POST(req: Request) {
     if (dedupResult.existing) {
       bookingContactId = dedupResult.existing.id
     } else {
-      bookingContactId = require('crypto').randomUUID()
-      await knex('customer_entities').insert({
-        id: bookingContactId,
-        tenant_id: page.tenant_id, organization_id: page.organization_id,
-        kind: 'person', display_name: guestName, primary_email: guestEmail,
-        primary_phone: guestPhone || null, source: 'booking',
-        status: 'active', lifecycle_stage: 'prospect',
-        created_at: new Date(), updated_at: new Date(),
-      }).catch(() => { bookingContactId = null })
-      if (bookingContactId) {
-        const bookingNameParts = (guestName || '').split(' ')
-        await knex('customer_people').insert({
-          id: require('crypto').randomUUID(), tenant_id: page.tenant_id, organization_id: page.organization_id,
-          entity_id: bookingContactId, first_name: bookingNameParts[0] || '', last_name: bookingNameParts.slice(1).join(' ') || '',
-          created_at: new Date(), updated_at: new Date(),
-        }).catch(() => {})
-      }
+      bookingContactId = await createPersonContact(em, {
+        organizationId: page.organization_id, tenantId: page.tenant_id,
+        displayName: guestName, primaryEmail: guestEmail, primaryPhone: guestPhone || null,
+        source: 'booking', lifecycleStage: 'prospect',
+      }).catch(() => null)
     }
 
     // First-touch source attribution — only tag newly-created contacts.

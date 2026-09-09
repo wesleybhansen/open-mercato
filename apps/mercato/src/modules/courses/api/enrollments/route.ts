@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -77,22 +78,10 @@ export async function POST(req: Request) {
 
     let contactId: string | null = dedupResult.existing?.id || null
     if (!dedupResult.existing) {
-      contactId = require('crypto').randomUUID()
-      await knex('customer_entities').insert({
-        id: contactId,
-        tenant_id: course.tenant_id, organization_id: course.organization_id,
-        kind: 'person', display_name: studentName, primary_email: studentEmail,
-        source: 'course', status: 'active', lifecycle_stage: 'customer',
-        created_at: new Date(), updated_at: new Date(),
-      }).catch(() => { contactId = null })
-      if (contactId) {
-        const enrollNameParts = (studentName || '').split(' ')
-        await knex('customer_people').insert({
-          id: require('crypto').randomUUID(), tenant_id: course.tenant_id, organization_id: course.organization_id,
-          entity_id: contactId, first_name: enrollNameParts[0] || '', last_name: enrollNameParts.slice(1).join(' ') || '',
-          created_at: new Date(), updated_at: new Date(),
-        }).catch(() => {})
-      }
+      contactId = await createPersonContact(em, {
+        organizationId: course.organization_id, tenantId: course.tenant_id,
+        displayName: studentName, primaryEmail: studentEmail, source: 'course', lifecycleStage: 'customer',
+      }).catch(() => null)
     }
 
     // First-touch source attribution — only tag newly-created contacts.

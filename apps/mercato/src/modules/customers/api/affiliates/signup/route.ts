@@ -2,6 +2,8 @@
 export const metadata = { path: '/affiliates/signup', GET: { requireAuth: false }, POST: { requireAuth: false, rateLimit: { points: 5, duration: 60, blockDuration: 300, keyPrefix: 'affiliates-signup' } } }
 
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -210,30 +212,17 @@ export async function POST(req: Request) {
     }
 
     // Create or link CRM contact
-    let contact = await knex('customer_entities').where('primary_email', email.trim()).where('organization_id', organizationId).whereNull('deleted_at').first()
+    const em = container.resolve('em') as EntityManager
+    let contact: { id: string } | null = (await findContactByEmail(knex, organizationId, tenantId, email.trim(), name.trim(), phone?.trim() || undefined, em)).existing
     const contactWasNew = !contact
 
     if (!contact) {
-      const contactId = crypto.randomUUID()
-      const nameParts = name.trim().split(/\s+/)
-      const firstName = nameParts[0] || ''
-      const lastName = nameParts.slice(1).join(' ') || ''
-
-      await knex('customer_entities').insert({
-        id: contactId, tenant_id: tenantId, organization_id: organizationId,
-        kind: 'person', display_name: name.trim(), primary_email: email.trim(),
-        primary_phone: phone?.trim() || null,
-        source: 'affiliate', status: 'active', lifecycle_stage: 'partner',
-        created_at: new Date(), updated_at: new Date(),
-      }).catch(() => {})
-
-      await knex('customer_people').insert({
-        id: crypto.randomUUID(), tenant_id: tenantId, organization_id: organizationId,
-        entity_id: contactId, first_name: firstName, last_name: lastName,
-        created_at: new Date(), updated_at: new Date(),
-      }).catch(() => {})
-
-      contact = { id: contactId }
+      const contactId = await createPersonContact(em, {
+        organizationId, tenantId,
+        displayName: name.trim(), primaryEmail: email.trim(), primaryPhone: phone?.trim() || null,
+        source: 'affiliate', lifecycleStage: 'partner',
+      }).catch(() => null)
+      contact = contactId ? { id: contactId } : null
     }
 
     // First-touch source attribution — only tag newly-created contacts with

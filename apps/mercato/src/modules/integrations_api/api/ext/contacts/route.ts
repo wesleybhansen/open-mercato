@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -122,29 +123,13 @@ export async function POST(req: Request, ctx: any) {
       }
     }
 
-    const id = require('crypto').randomUUID()
     const extName = displayName || email
-    await knex('customer_entities').insert({
-      id,
-      tenant_id: scope.tenantId,
-      organization_id: scope.orgId,
-      kind: 'person',
-      display_name: extName,
-      primary_email: email || null,
-      primary_phone: phone || null,
-      source: source || 'api',
-      description,
-      status: 'active',
-      lifecycle_stage: 'prospect',
-      created_at: new Date(),
-      updated_at: new Date(),
+    // ORM path: encrypted at rest, lookup hashes written.
+    const id = await createPersonContact(em, {
+      organizationId: scope.orgId, tenantId: scope.tenantId,
+      displayName: extName, primaryEmail: email || null, primaryPhone: phone || null,
+      source: source || 'api', description: description || null, lifecycleStage: 'prospect',
     })
-    const extParts = (extName || '').split(' ')
-    await knex('customer_people').insert({
-      id: require('crypto').randomUUID(), tenant_id: scope.tenantId, organization_id: scope.orgId,
-      entity_id: id, first_name: extParts[0] || '', last_name: extParts.slice(1).join(' ') || '',
-      created_at: new Date(), updated_at: new Date(),
-    }).catch(() => {})
 
     // Tag with source:api:<key name> so attribution reports reflect the
     // integration origin instead of a generic "api" bucket.

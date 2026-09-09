@@ -1,6 +1,8 @@
 // ORM-SKIP: complex multi-table logic or public/webhook endpoint
 
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -123,36 +125,17 @@ export async function POST(req: Request) {
 
     let contactId: string | null = null
     if (visitorEmail) {
-      const existingContact = await knex('customer_entities')
-        .where('organization_id', widget.organization_id)
-        .andWhere('primary_email', visitorEmail.trim().toLowerCase())
-        .whereNull('deleted_at')
-        .first()
+      const em = container.resolve('em') as EntityManager
+      const chatDisplayName = visitorName?.trim() || visitorEmail.trim()
+      const existingContact = (await findContactByEmail(knex, widget.organization_id, widget.tenant_id, visitorEmail.trim().toLowerCase(), chatDisplayName, undefined, em)).existing
 
       if (existingContact) {
         contactId = existingContact.id
       } else {
-        contactId = crypto.randomUUID()
-        const chatDisplayName = visitorName?.trim() || visitorEmail.trim()
-        await knex('customer_entities').insert({
-          id: contactId,
-          tenant_id: widget.tenant_id,
-          organization_id: widget.organization_id,
-          kind: 'person',
-          display_name: chatDisplayName,
-          primary_email: visitorEmail.trim().toLowerCase(),
-          source: 'chat_widget',
-          status: 'active',
-          email_status: 'active',
-          created_at: new Date(),
-          updated_at: new Date(),
-        })
-        const chatNameParts = chatDisplayName.split(' ')
-        await knex('customer_people').insert({
-          id: crypto.randomUUID(), tenant_id: widget.tenant_id, organization_id: widget.organization_id,
-          entity_id: contactId, first_name: chatNameParts[0] || '', last_name: chatNameParts.slice(1).join(' ') || '',
-          created_at: new Date(), updated_at: new Date(),
-        }).catch(() => {})
+        contactId = await createPersonContact(em, {
+          organizationId: widget.organization_id, tenantId: widget.tenant_id,
+          displayName: chatDisplayName, primaryEmail: visitorEmail, source: 'chat_widget', lifecycleStage: null,
+        }).catch(() => null)
       }
     }
 

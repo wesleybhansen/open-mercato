@@ -1,5 +1,6 @@
 
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { sendEmailByPurpose } from '@/modules/email/lib/email-router'
@@ -136,28 +137,12 @@ export async function POST(req: Request) {
         let contactEntity: { id: string } | null = dedup.existing
 
         if (!contactEntity) {
-          const newId = require('crypto').randomUUID()
           const stripeName = session.customer_details?.name || customerEmail
-          await knex('customer_entities').insert({
-            id: newId,
-            tenant_id: tenantId,
-            organization_id: orgId,
-            kind: 'person',
-            display_name: stripeName,
-            primary_email: customerEmail,
-            source: 'stripe',
-            status: 'active',
-            lifecycle_stage: 'customer',
-            created_at: new Date(),
-            updated_at: new Date(),
-          }).catch(() => {})
-          const stripeNameParts = stripeName.split(' ')
-          await knex('customer_people').insert({
-            id: require('crypto').randomUUID(), tenant_id: tenantId, organization_id: orgId,
-            entity_id: newId, first_name: stripeNameParts[0] || '', last_name: stripeNameParts.slice(1).join(' ') || '',
-            created_at: new Date(), updated_at: new Date(),
-          }).catch(() => {})
-          contactEntity = { id: newId }
+          const newId = await createPersonContact(em, {
+            organizationId: orgId, tenantId: tenantId as string,
+            displayName: stripeName, primaryEmail: customerEmail, source: 'stripe', lifecycleStage: 'customer',
+          }).catch(() => null)
+          contactEntity = newId ? { id: newId } : null
         }
 
         // Link the payment record to the contact
@@ -384,43 +369,15 @@ export async function POST(req: Request) {
 
             // Create/link CRM contact with Student tag
             let contactId: string | null = null
-            const existingContact = await knex('customer_entities')
-              .where('primary_email', studentEmail)
-              .where('organization_id', orgId || meta.orgId)
-              .whereNull('deleted_at')
-              .first()
+            const existingContact = (await findOrMergeContact(knex, orgId || meta.orgId, tenantId || meta.tenantId, studentEmail, studentName, undefined, em)).existing
 
             if (existingContact) {
               contactId = existingContact.id
             } else {
-              contactId = require('crypto').randomUUID()
-              const nameParts = studentName.split(' ')
-              await knex('customer_entities').insert({
-                id: contactId,
-                tenant_id: tenantId || meta.tenantId,
-                organization_id: orgId || meta.orgId,
-                kind: 'person',
-                display_name: studentName,
-                primary_email: studentEmail,
-                source: 'course',
-                status: 'active',
-                lifecycle_stage: 'customer',
-                created_at: new Date(),
-                updated_at: new Date(),
-              }).catch(() => { contactId = null })
-
-              if (contactId) {
-                await knex('customer_people').insert({
-                  id: require('crypto').randomUUID(),
-                  tenant_id: tenantId || meta.tenantId,
-                  organization_id: orgId || meta.orgId,
-                  entity_id: contactId,
-                  first_name: nameParts[0] || '',
-                  last_name: nameParts.slice(1).join(' ') || '',
-                  created_at: new Date(),
-                  updated_at: new Date(),
-                }).catch(() => {})
-              }
+              contactId = await createPersonContact(em, {
+                organizationId: orgId || meta.orgId, tenantId: tenantId || meta.tenantId,
+                displayName: studentName, primaryEmail: studentEmail, source: 'course', lifecycleStage: 'customer',
+              }).catch(() => null)
             }
 
             if (contactId) {
@@ -471,24 +428,13 @@ export async function POST(req: Request) {
 
             // Create CRM contact
             let contactId: string | null = null
-            const existingContact = await knex('customer_entities').where('primary_email', attendeeEmail).where('organization_id', meta.orgId || orgId).whereNull('deleted_at').first()
+            const existingContact = (await findOrMergeContact(knex, meta.orgId || orgId, meta.tenantId || tenantId, attendeeEmail, attendeeName, undefined, em)).existing
             if (existingContact) { contactId = existingContact.id }
             else {
-              contactId = require('crypto').randomUUID()
-              await knex('customer_entities').insert({
-                id: contactId, tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
-                kind: 'person', display_name: attendeeName, primary_email: attendeeEmail,
-                source: 'event', status: 'active', lifecycle_stage: 'customer', is_active: true,
-                created_at: new Date(), updated_at: new Date(),
-              }).catch(() => { contactId = null })
-              if (contactId) {
-                const parts = attendeeName.split(' ')
-                await knex('customer_people').insert({
-                  id: require('crypto').randomUUID(), tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
-                  entity_id: contactId, first_name: parts[0] || '', last_name: parts.slice(1).join(' ') || '',
-                  created_at: new Date(), updated_at: new Date(),
-                }).catch(() => {})
-              }
+              contactId = await createPersonContact(em, {
+                organizationId: meta.orgId || orgId, tenantId: meta.tenantId || tenantId,
+                displayName: attendeeName, primaryEmail: attendeeEmail, source: 'event', lifecycleStage: 'customer',
+              }).catch(() => null)
             }
             // Look up the event BEFORE its first use below (event?.title) — it was
             // declared later, a TDZ ReferenceError masked by ignoreBuildErrors.
@@ -570,29 +516,15 @@ export async function POST(req: Request) {
             const funnelEmail = meta.customerEmail || session.customer_email
             if (funnelEmail) {
               if (!contactId) {
-                const existing = await knex('customer_entities')
-                  .where('primary_email', funnelEmail.toLowerCase())
-                  .where('organization_id', meta.orgId || orgId)
-                  .whereNull('deleted_at').first()
+                const contactName = meta.customerName || funnelEmail.split('@')[0]
+                const existing = (await findOrMergeContact(knex, meta.orgId || orgId, meta.tenantId || tenantId, funnelEmail.toLowerCase(), contactName, undefined, em)).existing
                 if (existing) {
                   contactId = existing.id
                 } else {
-                  contactId = require('crypto').randomUUID()
-                  const contactName = meta.customerName || funnelEmail.split('@')[0]
-                  await knex('customer_entities').insert({
-                    id: contactId, tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
-                    kind: 'person', display_name: contactName, primary_email: funnelEmail.toLowerCase(),
-                    source: 'funnel', status: 'active', lifecycle_stage: 'customer', is_active: true,
-                    created_at: new Date(), updated_at: new Date(),
-                  }).catch(() => { contactId = null })
-                  if (contactId) {
-                    const parts = (meta.customerName || '').split(' ')
-                    await knex('customer_people').insert({
-                      id: require('crypto').randomUUID(), tenant_id: meta.tenantId || tenantId, organization_id: meta.orgId || orgId,
-                      entity_id: contactId, first_name: parts[0] || '', last_name: parts.slice(1).join(' ') || '',
-                      created_at: new Date(), updated_at: new Date(),
-                    }).catch(() => {})
-                  }
+                  contactId = await createPersonContact(em, {
+                    organizationId: meta.orgId || orgId, tenantId: meta.tenantId || tenantId,
+                    displayName: contactName, primaryEmail: funnelEmail, source: 'funnel', lifecycleStage: 'customer',
+                  }).catch(() => null)
                 }
                 if (contactId) {
                   await knex('funnel_sessions').where('id', meta.sessionId).update({ contact_id: contactId })

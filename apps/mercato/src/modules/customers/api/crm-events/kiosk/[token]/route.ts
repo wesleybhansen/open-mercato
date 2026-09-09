@@ -13,6 +13,8 @@ export const metadata = {
 }
 
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'crypto'
@@ -272,43 +274,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     // Create/link CRM contact + timeline event (mirrors the public register
     // route's behavior, minimally).
     try {
-      const existingContact = await knex('customer_entities')
-        .where('primary_email', email)
-        .where('organization_id', event.organization_id)
-        .whereNull('deleted_at')
-        .first()
+      const em = container.resolve('em') as EntityManager
+      const existingContact = (await findContactByEmail(knex, event.organization_id, event.tenant_id, email, name, phone || undefined, em)).existing
 
-      let contactId = existingContact?.id
+      let contactId: string | null = existingContact?.id ?? null
       if (!existingContact) {
-        contactId = crypto.randomUUID()
-        await knex('customer_entities').insert({
-          id: contactId,
-          tenant_id: event.tenant_id,
-          organization_id: event.organization_id,
-          kind: 'person',
-          display_name: name,
-          primary_email: email,
-          primary_phone: phone || null,
-          source: 'event',
-          status: 'active',
-          lifecycle_stage: 'prospect',
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-        }).catch(() => { contactId = null })
-        if (contactId) {
-          const parts = name.split(/\s+/)
-          await knex('customer_people').insert({
-            id: crypto.randomUUID(),
-            tenant_id: event.tenant_id,
-            organization_id: event.organization_id,
-            entity_id: contactId,
-            first_name: parts[0] || '',
-            last_name: parts.slice(1).join(' ') || '',
-            created_at: now,
-            updated_at: now,
-          }).catch(() => {})
-        }
+        contactId = await createPersonContact(em, {
+          organizationId: event.organization_id, tenantId: event.tenant_id,
+          displayName: name, primaryEmail: email, primaryPhone: phone || null,
+          source: 'event', lifecycleStage: 'prospect',
+        }).catch(() => null)
       }
       if (contactId) {
         await knex('event_attendees').where('id', attendeeId).update({ contact_id: contactId }).catch(() => {})

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { createPersonContact } from '@/modules/customers/lib/contact-write'
+import { findOrMergeContact as findContactByEmail } from '@/modules/customers/lib/dedup'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -162,73 +164,27 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
     let contactId = null
     if (email) {
       try {
-        // Check if contact already exists
-        const existing = await knex('customer_entities')
-          .where('primary_email', email)
-          .where('organization_id', page.organization_id)
-          .whereNull('deleted_at')
-          .first()
+        // Check if contact already exists (hash lookup handles encrypted rows)
+        const existing = (await findContactByEmail(knex, page.organization_id, page.tenant_id, email, name, cleanData.phone || cleanData.Phone || undefined, em)).existing
 
         if (existing) {
           contactId = existing.id
           // Update source_details on existing contact if not already set
-          if (!existing.source_details) {
+          const existingRow = await knex('customer_entities').select('source_details').where('id', existing.id).first()
+          if (!existingRow?.source_details) {
             await knex('customer_entities').where('id', existing.id).update({
               source_details: JSON.stringify(sourceDetails),
               updated_at: new Date(),
             })
           }
         } else {
-          contactId = require('crypto').randomUUID()
-          let createdContact = true
-          try {
-            await knex('customer_entities').insert({
-              id: contactId,
-              tenant_id: page.tenant_id,
-              organization_id: page.organization_id,
-              kind: 'person',
-              display_name: name,
-              primary_email: email,
-              primary_phone: cleanData.phone || cleanData.Phone || null,
-              source: utmSource ? `landing_page:${utmSource}` : 'landing_page',
-              source_details: JSON.stringify(sourceDetails),
-              status: 'active',
-              lifecycle_stage: 'prospect',
-              created_at: new Date(),
-              updated_at: new Date(),
-            })
-          } catch (insErr) {
-            // A concurrent submit for the same email won the race (unique index
-            // on org + lower(email)). Adopt the winner's contact rather than
-            // creating a duplicate.
-            if ((insErr as { code?: string })?.code === '23505') {
-              const winner = await knex('customer_entities')
-                .whereRaw('lower(primary_email) = lower(?)', [email])
-                .where('organization_id', page.organization_id)
-                .whereNull('deleted_at')
-                .first()
-              contactId = winner?.id ?? contactId
-              createdContact = false
-            } else {
-              throw insErr
-            }
-          }
-
-          // Create person profile if we have name parts (skip if we adopted an
-          // existing contact — it already has its profile).
-          const nameParts = (name || '').split(' ')
-          if (createdContact && nameParts.length > 0) {
-            await knex('customer_people').insert({
-              id: require('crypto').randomUUID(),
-              tenant_id: page.tenant_id,
-              organization_id: page.organization_id,
-              entity_id: contactId,
-              first_name: nameParts[0] || '',
-              last_name: nameParts.slice(1).join(' ') || '',
-              created_at: new Date(),
-              updated_at: new Date(),
-            }).catch(() => {})  // Ignore if person profile creation fails
-          }
+          // ORM path: encrypted at rest, lookup hashes written, race-safe.
+          contactId = await createPersonContact(em, {
+            organizationId: page.organization_id, tenantId: page.tenant_id,
+            displayName: name, primaryEmail: email, primaryPhone: cleanData.phone || cleanData.Phone || null,
+            source: utmSource ? `landing_page:${utmSource}` : 'landing_page',
+            sourceDetails, lifecycleStage: 'prospect',
+          })
         }
 
         // Link submission to contact
